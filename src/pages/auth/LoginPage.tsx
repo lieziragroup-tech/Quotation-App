@@ -55,9 +55,10 @@ export function LoginPage() {
                 }
             }
 
-            // 5. Set user ke store lalu redirect
-            // Bug fix: always inject uid from Firebase credential to avoid stale/missing uid in Firestore doc
-            setUser({ ...userData, uid: credential.user.uid });
+            // 5. FIX: inject uid dari firebaseUser, bukan dari userData
+            //    (userData.uid di Firestore mungkin stale atau tidak ter-set)
+            setUser({ ...userData, uid });
+
             if (userData.role === "super_admin") {
                 navigate("/super-admin/companies");
             } else {

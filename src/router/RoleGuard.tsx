@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
+import { Loader2 } from "lucide-react";
 import type { UserRole } from "../types";
 
 interface RoleGuardProps {
@@ -8,15 +8,19 @@ interface RoleGuardProps {
     allowedRoles: UserRole[];
 }
 
+/**
+ * FIX: RoleGuard sekarang cek `loading` sebelum redirect.
+ * Sebelumnya: langsung redirect ke /login saat user=null,
+ * padahal onAuthStateChanged belum selesai (loading masih true).
+ * Akibat: user yang sudah login selalu di-redirect ke /login saat refresh.
+ */
 export function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
     const { user, loading } = useAuthStore();
 
-    // Bug fix: wait for Firebase auth to resolve before redirecting.
-    // Without this check, user=null during initial load causes an incorrect
-    // redirect to /login even when the user is already authenticated.
+    // Tunggu auth state selesai dulu
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
                 <Loader2 size={28} className="animate-spin text-blue-600" />
             </div>
         );
@@ -36,7 +40,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
                 <Loader2 size={28} className="animate-spin text-blue-600" />
             </div>
         );
