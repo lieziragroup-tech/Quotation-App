@@ -14,6 +14,8 @@ import { QuotationPage } from "../pages/quotation/QuotationPage";
 import { QuotationFormPage } from "../pages/quotation/QuotationFormPage";
 import { TeamPage } from "../pages/team/TeamPage";
 import { ProfilePage } from "../pages/profile/ProfilePage";
+import { ComingSoonPage } from "../pages/ComingSoonPage";
+import { SPKPage } from "../pages/spk/SPKPage";
 
 // Pages — super_admin
 import { CompaniesPage } from "../pages/super-admin/CompaniesPage";
@@ -29,12 +31,11 @@ export const router = createBrowserRouter([
         element: <UnauthorizedPage />,
     },
     {
-        // Public signup via invite link — no auth required
         path: "/signup",
         element: <SignupPage />,
     },
 
-    // ── Super Admin routes ────────────────────────────────────────────────────
+    // ── Super Admin routes ─────────────────────────────────────────────────────
     {
         path: "/super-admin",
         element: <SuperAdminLayout />,
@@ -62,7 +63,7 @@ export const router = createBrowserRouter([
         ],
     },
 
-    // ── Regular app routes ────────────────────────────────────────────────────
+    // ── Regular app routes ─────────────────────────────────────────────────────
     {
         path: "/",
         element: <AppLayout />,
@@ -108,6 +109,56 @@ export const router = createBrowserRouter([
                 element: (
                     <RoleGuard allowedRoles={["administrator", "admin_ops", "marketing", "teknisi"]}>
                         <ProfilePage />
+                    </RoleGuard>
+                ),
+            },
+
+            // ── Coming Soon — fitur dalam pengembangan ──────────────────────
+            {
+                path: "customers",
+                element: (
+                    <RoleGuard allowedRoles={["administrator", "admin_ops", "marketing"]}>
+                        <ComingSoonPage />
+                    </RoleGuard>
+                ),
+            },
+            {
+                path: "spk",
+                element: (
+                    <RoleGuard allowedRoles={["administrator", "admin_ops", "marketing"]}>
+                        <SPKPage />
+                    </RoleGuard>
+                ),
+            },
+            {
+                path: "reports",
+                element: (
+                    <RoleGuard allowedRoles={["administrator", "admin_ops", "teknisi"]}>
+                        <ComingSoonPage />
+                    </RoleGuard>
+                ),
+            },
+            {
+                path: "cashflow",
+                element: (
+                    <RoleGuard allowedRoles={["administrator"]}>
+                        <ComingSoonPage />
+                    </RoleGuard>
+                ),
+            },
+            {
+                path: "performance",
+                element: (
+                    <RoleGuard allowedRoles={["administrator"]}>
+                        <ComingSoonPage />
+                    </RoleGuard>
+                ),
+            },
+            {
+                path: "settings",
+                element: (
+                    <RoleGuard allowedRoles={["administrator"]}>
+                        <ComingSoonPage />
                     </RoleGuard>
                 ),
             },
