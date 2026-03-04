@@ -5,7 +5,7 @@
  */
 
 import {
-    collection, query, where, getDocs,
+    collection, query, where, orderBy, getDocs,
     addDoc, updateDoc, doc, Timestamp,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -153,6 +153,7 @@ export async function getNomorSuratLog(filters: GetLogFilters): Promise<NomorSur
     let q = query(
         collection(db, COL),
         where("companyId", "==", filters.companyId),
+        orderBy("dibuat", "desc"),
     );
 
     // Firestore tidak support multiple inequality filters; filter di client
@@ -164,7 +165,6 @@ export async function getNomorSuratLog(filters: GetLogFilters): Promise<NomorSur
     if (filters.tipe) entries = entries.filter(e => e.tipe === filters.tipe);
     if (filters.status) entries = entries.filter(e => e.status === filters.status);
 
-    entries.sort((a, b) => b.dibuat.getTime() - a.dibuat.getTime());
     return entries;
 }
 
