@@ -169,6 +169,7 @@ export interface PricingConfig {
 export interface SPK {
     id: string;
     quotationId: string;
+    quotationNoSurat: string;
     customerId: string;
     customerName: string;
     technicianId: string;
@@ -181,8 +182,13 @@ export interface SPK {
     gpsStart?: { lat: number; lng: number };
     gpsEnd?: { lat: number; lng: number };
     serviceType: ServiceType;
+    perihal: string;
+    lokasi: string;
+    notes: string;
     companyId: string;
     createdAt: Date;
+    createdBy: string;
+    createdByName: string;
 }
 
 export interface Report {

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     ArrowLeft, ArrowRight, Check, FileText,
-    Plus, Trash2, Loader2, AlertCircle, Download, CheckCircle2,
+    Plus, Trash2, Loader2, AlertCircle,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { generateNomorSurat, previewNomorSurat } from "../../services/nomorSuratService";
@@ -26,11 +26,14 @@ function StepIndicator({ current }: { current: number }) {
             {STEPS.map((s, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center">
                     <div className="flex items-center w-full">
+                        {/* Left connector */}
                         <div className={`flex-1 h-0.5 ${i === 0 ? "opacity-0" : i <= current ? "bg-blue-500" : "bg-slate-200"}`} />
+                        {/* Circle */}
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0
                             ${i < current ? "bg-blue-600 text-white" : i === current ? "bg-blue-600 text-white ring-4 ring-blue-100" : "bg-slate-100 text-slate-400"}`}>
                             {i < current ? <Check size={14} /> : i + 1}
                         </div>
+                        {/* Right connector */}
                         <div className={`flex-1 h-0.5 ${i === STEPS.length - 1 ? "opacity-0" : i < current ? "bg-blue-500" : "bg-slate-200"}`} />
                     </div>
                     <span className={`text-xs mt-1.5 font-medium ${i === current ? "text-blue-600" : i < current ? "text-slate-500" : "text-slate-300"}`}>
@@ -80,6 +83,7 @@ function Step1({
 
     return (
         <div className="space-y-5">
+            {/* Jenis Layanan */}
             <Field label="Jenis Layanan" required error={errors.jenisLayanan}>
                 <div className="grid grid-cols-2 gap-2">
                     {Object.entries(LAYANAN_CONFIG).map(([val, cfg]) => {
@@ -100,6 +104,7 @@ function Step1({
                 </div>
             </Field>
 
+            {/* Tipe Surat */}
             <Field label="Tipe Surat" required>
                 <div className="grid grid-cols-2 gap-3">
                     {(["U", "K"] as TipeKontrak[]).map(v => (
@@ -117,12 +122,14 @@ function Step1({
                 </div>
             </Field>
 
+            {/* Kepada */}
             <Field label="Ditujukan Kepada" required error={errors.kepada}>
                 <input className={inputCls} value={kepada}
                     onChange={e => onKepada(e.target.value)}
                     placeholder="Nama klien / perusahaan tujuan" />
             </Field>
 
+            {/* Preview nomor */}
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Preview Nomor Surat</p>
                 <div className="flex items-center gap-3 flex-wrap">
@@ -244,6 +251,7 @@ function Step3({
 
     return (
         <div className="space-y-6">
+            {/* Items table */}
             <div>
                 <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-bold text-slate-700">Item Pekerjaan</h3>
@@ -317,6 +325,7 @@ function Step3({
                 </div>
             </div>
 
+            {/* Biaya tambahan */}
             <div>
                 <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-semibold text-slate-600">Biaya Tambahan <span className="text-slate-400 font-normal text-xs">(opsional)</span></h3>
@@ -341,6 +350,7 @@ function Step3({
                 ))}
             </div>
 
+            {/* Diskon, PPN, Garansi */}
             <div className="grid grid-cols-2 gap-4">
                 <Field label="Diskon (%)">
                     <input type="number" min={0} max={100} step="0.01" className={inputCls}
@@ -382,6 +392,7 @@ function Step3({
                 )}
             </div>
 
+            {/* Total preview */}
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-2">
                 <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Ringkasan Harga</h3>
                 {[
@@ -453,73 +464,6 @@ function Step4({
     );
 }
 
-// ─── SUCCESS STATE ────────────────────────────────────────────────────────────
-
-function SuccessState({
-    noSurat,
-    pdfBlob,
-    onGoToList,
-}: {
-    noSurat: string;
-    pdfBlob: Blob | null;
-    onGoToList: () => void;
-}) {
-    const handleDownload = () => {
-        if (!pdfBlob) return;
-        // FIX: Append ke DOM sebelum click, lalu hapus — ini yang membuat download
-        // benar-benar berjalan di semua browser modern (Chrome, Firefox, Safari).
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${noSurat.replace(/\//g, "-")}.pdf`;
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        // Delay revoke agar browser sempat mengambil file
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-    };
-
-    return (
-        <div className="text-center space-y-6 py-4">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto">
-                <CheckCircle2 size={32} className="text-emerald-600" />
-            </div>
-            <div>
-                <h2 className="text-lg font-bold text-slate-900 mb-1">Quotation Berhasil Dibuat!</h2>
-                <p className="text-sm text-slate-500 mb-1">Nomor surat:</p>
-                <code className="text-base font-bold bg-slate-100 px-3 py-1.5 rounded-lg font-mono text-slate-800">
-                    {noSurat}
-                </code>
-            </div>
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Aksi</p>
-                <div className="space-y-2">
-                    {pdfBlob && (
-                        <button
-                            onClick={handleDownload}
-                            className="w-full flex items-center gap-3 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-sm"
-                        >
-                            <Download size={16} />
-                            Download PDF Quotation
-                        </button>
-                    )}
-                    <button
-                        onClick={onGoToList}
-                        className="w-full flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold text-sm"
-                    >
-                        <FileText size={16} />
-                        Lihat Semua Quotation
-                    </button>
-                </div>
-            </div>
-            <p className="text-xs text-slate-400">
-                PDF juga tersimpan di sistem dan bisa diunduh ulang dari halaman Quotation kapan saja.
-            </p>
-        </div>
-    );
-}
-
 // ─── MAIN FORM PAGE ──────────────────────────────────────────────────────────
 
 export function QuotationFormPage() {
@@ -550,19 +494,14 @@ export function QuotationFormPage() {
     const [garansiTahun, setGaransiTahun] = useState(0);
     const [jenisGaransi, setJenisGaransi] = useState("Anti Rayap");
 
-    // State
+    // Derived
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [saving, setSaving] = useState(false);
     const [saveErr, setSaveErr] = useState("");
 
-    // FIX: Simpan blob PDF di state agar bisa di-download setelah sukses
-    const [generatedPdfBlob, setGeneratedPdfBlob] = useState<Blob | null>(null);
-    const [generatedNoSurat, setGeneratedNoSurat] = useState("");
-    const [isSuccess, setIsSuccess] = useState(false);
-
     const kategori: KategoriSurat = LAYANAN_CONFIG[jenisLayanan]?.kategori ?? "PCO";
 
-    // Preview nomor surat real-time
+    // Preview nomor surat real-time (debounced)
     useEffect(() => {
         if (!user?.companyId) return;
         let cancelled = false;
@@ -573,6 +512,7 @@ export function QuotationFormPage() {
         return () => { cancelled = true; clearTimeout(timer); };
     }, [kategori, tipe, user?.companyId]);
 
+    // Sync kepada → kepadaNama saat berpindah step
     useEffect(() => {
         if (kepadaNama === "" && kepada) setKepadaNama(kepada);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -640,10 +580,18 @@ export function QuotationFormPage() {
                 marketingWa: user.wa,
             };
 
-            // 2. Generate PDF blob (sekali saja)
+            // 2. Generate PDF blob (satu kali saja)
             const pdfBlob = generateQuotationPDF(pdfData);
 
-            // 3. Simpan ke Firestore + upload PDF ke Storage
+            // 3. Download PDF langsung dari blob yang sudah ada (tidak di-generate ulang)
+            const dlUrl = URL.createObjectURL(pdfBlob);
+            const dlLink = document.createElement("a");
+            dlLink.href = dlUrl;
+            dlLink.download = `${nomorEntry.noSurat.replace(/\//g, "-")}.pdf`;
+            dlLink.click();
+            URL.revokeObjectURL(dlUrl);
+
+            // 4. Simpan ke Firestore + upload PDF ke Storage
             await createQuotation({
                 noSurat: nomorEntry.noSurat,
                 kategori,
@@ -672,36 +620,13 @@ export function QuotationFormPage() {
                 companyId: user.companyId,
             }, pdfBlob);
 
-            // 4. FIX: Simpan blob + noSurat ke state, tampilkan success screen
-            // dengan tombol download eksplisit. Ini mengatasi:
-            // - Browser yang memblokir auto-download
-            // - User yang miss download pertama kali
-            // - Navigate terlalu cepat sebelum download dimulai
-            setGeneratedPdfBlob(pdfBlob);
-            setGeneratedNoSurat(nomorEntry.noSurat);
-            setIsSuccess(true);
-
+            navigate("/quotations");
         } catch (err) {
             setSaveErr(err instanceof Error ? err.message : "Terjadi kesalahan. Coba lagi.");
         } finally {
             setSaving(false);
         }
     };
-
-    // ── Success screen ─────────────────────────────────────────────────────────
-    if (isSuccess) {
-        return (
-            <div className="p-6 max-w-2xl mx-auto">
-                <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-                    <SuccessState
-                        noSurat={generatedNoSurat}
-                        pdfBlob={generatedPdfBlob}
-                        onGoToList={() => navigate("/quotations")}
-                    />
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="p-6 max-w-2xl mx-auto">
@@ -720,8 +645,10 @@ export function QuotationFormPage() {
                 </div>
             </div>
 
+            {/* Step indicator */}
             <StepIndicator current={step} />
 
+            {/* Form card */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 {step === 0 && (
                     <Step1
@@ -765,6 +692,7 @@ export function QuotationFormPage() {
                     </div>
                 )}
 
+                {/* Navigation */}
                 <div className="flex justify-between mt-6 pt-4 border-t border-slate-100">
                     <button
                         type="button"

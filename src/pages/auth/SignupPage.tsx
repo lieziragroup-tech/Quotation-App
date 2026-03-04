@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { createUserWithEmailAndPassword, signOut } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 import { getInviteByToken, markInviteUsed } from "../../services/inviteService";
 import { countActiveUsers, MAX_USERS_PER_COMPANY } from "../../services/userService";
@@ -21,21 +21,6 @@ const ROLE_COLORS: Record<string, string> = {
     admin_ops: "bg-amber-100 text-amber-700",
     teknisi: "bg-emerald-100 text-emerald-700",
 };
-
-/**
- * FIX: Polling helper — tunggu sampai Firestore user doc ada.
- * Ini mengatasi race condition di mana onAuthStateChanged terpicu
- * sebelum setDoc selesai menulis ke Firestore, lalu useAuth()
- * signOut user karena doc dianggap tidak ada.
- */
-async function waitForUserDoc(uid: string, maxAttempts = 10): Promise<boolean> {
-    for (let i = 0; i < maxAttempts; i++) {
-        const snap = await getDoc(doc(db, "users", uid));
-        if (snap.exists()) return true;
-        await new Promise(res => setTimeout(res, 400));
-    }
-    return false;
-}
 
 export function SignupPage() {
     const navigate = useNavigate();
@@ -104,43 +89,28 @@ export function SignupPage() {
                 wa: "",
             });
 
-            // Tandai invite sebagai terpakai SETELAH user doc dibuat
+            // Tandai invite sebagai terpakai
             await markInviteUsed(token, uid);
 
-            // FIX: Tunggu user doc confirmed ada di Firestore sebelum navigate.
-            // Ini mencegah race condition di mana useAuth() membaca Firestore
-            // sebelum setDoc selesai, lalu signOut user karena doc tidak ada.
-            const docReady = await waitForUserDoc(uid);
-
-            if (!docReady) {
-                // Fallback: sign out agar user bisa coba login manual
-                await signOut(auth);
-                setError("Akun berhasil dibuat tetapi terjadi keterlambatan sinkronisasi. Silakan login menggunakan email & password yang sudah kamu buat.");
-                return;
-            }
-
             setDone(true);
+            // Bug fix: administrator is a per-company role, not super_admin.
+            // All non-super_admin roles (including administrator) go to /dashboard.
             setTimeout(() => {
                 navigate("/dashboard");
-            }, 1500);
+            }, 2000);
         } catch (err) {
             const msg = err instanceof Error ? err.message : "";
             if (msg.includes("email-already-in-use")) {
-                setError("Email sudah terdaftar. Gunakan email lain atau hubungi administrator.");
-            } else if (msg.includes("invalid-email")) {
-                setError("Format email tidak valid.");
-            } else if (msg.includes("weak-password")) {
-                setError("Password terlalu lemah. Gunakan minimal 8 karakter.");
-            } else if (msg.includes("network-request-failed")) {
-                setError("Koneksi bermasalah. Periksa koneksi internet kamu dan coba lagi.");
+                setError("Email sudah terdaftar. Gunakan email lain.");
             } else {
-                setError("Terjadi kesalahan saat membuat akun. Coba lagi.");
+                setError("Terjadi kesalahan. Coba lagi.");
             }
         } finally {
             setLoading(false);
         }
     };
 
+    // ── Loading invite ─────────────────────────────────────────────────────────
     if (loadingInvite) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -149,6 +119,7 @@ export function SignupPage() {
         );
     }
 
+    // ── Invalid invite ─────────────────────────────────────────────────────────
     if (inviteError) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -157,15 +128,13 @@ export function SignupPage() {
                         <AlertCircle size={28} className="text-red-600" />
                     </div>
                     <h2 className="text-lg font-bold text-slate-900 mb-2">Link Tidak Valid</h2>
-                    <p className="text-sm text-slate-500 mb-4">{inviteError}</p>
-                    <p className="text-xs text-slate-400">
-                        Hubungi administrator untuk mendapatkan link undangan yang baru.
-                    </p>
+                    <p className="text-sm text-slate-500">{inviteError}</p>
                 </div>
             </div>
         );
     }
 
+    // ── Success ────────────────────────────────────────────────────────────────
     if (done) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -180,9 +149,11 @@ export function SignupPage() {
         );
     }
 
+    // ── Form ───────────────────────────────────────────────────────────────────
     return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
             <div className="w-full max-w-sm">
+                {/* Brand */}
                 <div className="text-center mb-7">
                     <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 text-white mb-4">
                         <ShieldCheck size={28} />
@@ -191,6 +162,7 @@ export function SignupPage() {
                     <p className="text-slate-500 text-sm mt-1">ERP Pest Control</p>
                 </div>
 
+                {/* Invite info */}
                 <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
                     <p className="text-xs text-slate-400 mb-1 uppercase tracking-wide font-semibold">Undangan dari</p>
                     <p className="font-bold text-slate-900">{invite!.companyName}</p>
@@ -205,8 +177,10 @@ export function SignupPage() {
                     </p>
                 </div>
 
+                {/* Form */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                     <form onSubmit={handleSignup} className="space-y-4">
+                        {/* Nama */}
                         <div className="space-y-1.5">
                             <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
                                 Nama Lengkap *
@@ -220,6 +194,7 @@ export function SignupPage() {
                             />
                         </div>
 
+                        {/* Email */}
                         <div className="space-y-1.5">
                             <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
                                 Email *
@@ -234,6 +209,7 @@ export function SignupPage() {
                             />
                         </div>
 
+                        {/* Password */}
                         <div className="space-y-1.5">
                             <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
                                 Password * <span className="text-slate-400 font-normal">(min. 8 karakter)</span>
@@ -248,6 +224,7 @@ export function SignupPage() {
                             />
                         </div>
 
+                        {/* Confirm password */}
                         <div className="space-y-1.5">
                             <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
                                 Konfirmasi Password *
@@ -263,8 +240,8 @@ export function SignupPage() {
                         </div>
 
                         {error && (
-                            <div className="flex items-start gap-2 text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 text-sm">
-                                <AlertCircle size={15} className="flex-shrink-0 mt-0.5" />
+                            <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 text-sm">
+                                <AlertCircle size={15} className="flex-shrink-0" />
                                 <span>{error}</span>
                             </div>
                         )}

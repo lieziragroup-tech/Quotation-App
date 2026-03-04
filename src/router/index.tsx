@@ -14,7 +14,9 @@ import { QuotationPage } from "../pages/quotation/QuotationPage";
 import { QuotationFormPage } from "../pages/quotation/QuotationFormPage";
 import { TeamPage } from "../pages/team/TeamPage";
 import { ProfilePage } from "../pages/profile/ProfilePage";
-import { NomorSuratLogPage } from "../pages/nomor-surat/NomorSuratLogPage";
+import { ComingSoonPage } from "../pages/ComingSoonPage";
+import { CashflowPage } from "../pages/cashflow/CashflowPage";
+import { PerformaPage } from "../pages/performance/PerformaPage";
 
 // Pages — super_admin
 import { CompaniesPage } from "../pages/super-admin/CompaniesPage";
@@ -30,12 +32,11 @@ export const router = createBrowserRouter([
         element: <UnauthorizedPage />,
     },
     {
-        // Public signup via invite link — no auth required
         path: "/signup",
         element: <SignupPage />,
     },
 
-    // ── Super Admin routes ────────────────────────────────────────────────────
+    // ── Super Admin routes ─────────────────────────────────────────────────────
     {
         path: "/super-admin",
         element: <SuperAdminLayout />,
@@ -63,7 +64,7 @@ export const router = createBrowserRouter([
         ],
     },
 
-    // ── Regular app routes ────────────────────────────────────────────────────
+    // ── Regular app routes ─────────────────────────────────────────────────────
     {
         path: "/",
         element: <AppLayout />,
@@ -97,15 +98,6 @@ export const router = createBrowserRouter([
                 ),
             },
             {
-                // FIX: Halaman log nomor surat — hanya administrator & admin_ops
-                path: "nomor-surat-log",
-                element: (
-                    <RoleGuard allowedRoles={["administrator", "admin_ops"]}>
-                        <NomorSuratLogPage />
-                    </RoleGuard>
-                ),
-            },
-            {
                 path: "team",
                 element: (
                     <RoleGuard allowedRoles={["administrator"]}>
@@ -118,6 +110,40 @@ export const router = createBrowserRouter([
                 element: (
                     <RoleGuard allowedRoles={["administrator", "admin_ops", "marketing", "teknisi"]}>
                         <ProfilePage />
+                    </RoleGuard>
+                ),
+            },
+
+            // ── Coming Soon — fitur dalam pengembangan ──────────────────────
+            {
+                path: "customers",
+                element: (
+                    <RoleGuard allowedRoles={["administrator", "admin_ops", "marketing"]}>
+                        <ComingSoonPage />
+                    </RoleGuard>
+                ),
+            },
+            {
+                path: "cashflow",
+                element: (
+                    <RoleGuard allowedRoles={["administrator"]}>
+                        <CashflowPage />
+                    </RoleGuard>
+                ),
+            },
+            {
+                path: "performance",
+                element: (
+                    <RoleGuard allowedRoles={["administrator"]}>
+                        <PerformaPage />
+                    </RoleGuard>
+                ),
+            },
+            {
+                path: "settings",
+                element: (
+                    <RoleGuard allowedRoles={["administrator"]}>
+                        <ComingSoonPage />
                     </RoleGuard>
                 ),
             },

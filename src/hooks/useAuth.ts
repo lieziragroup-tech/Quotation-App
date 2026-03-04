@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { auth, authSecondary, db } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import { useAuthStore } from "../store/authStore";
+import { activateUserAfterVerification } from "../services/userService";
 import type { AppUser } from "../types";
 
 export function useAuth() {
@@ -10,45 +11,58 @@ export function useAuth() {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            if (
-                firebaseUser &&
-                authSecondary.currentUser?.uid === firebaseUser.uid &&
-                auth.currentUser?.uid !== firebaseUser.uid
-            ) {
+            if (!firebaseUser) {
+                setUser(null);
+                setLoading(false);
                 return;
             }
 
-            if (firebaseUser) {
-                try {
-                    const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+            try {
+                const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
 
-                    if (userDoc.exists()) {
-                        const userData = userDoc.data() as AppUser;
+                if (!userDoc.exists()) {
+                    await auth.signOut();
+                    setUser(null);
+                    setLoading(false);
+                    return;
+                }
 
-                        if (userData.role === "super_admin") {
-                            setUser({ ...userData, uid: firebaseUser.uid });
-                        } else if (!userData.isActive) {
+                const userData = userDoc.data() as AppUser;
+
+                if (userData.role === "super_admin") {
+                    setUser({ ...userData, uid: firebaseUser.uid });
+
+                } else if (!userData.companyId) {
+                    await auth.signOut();
+                    setUser(null);
+
+                } else {
+                    const companyDoc = await getDoc(doc(db, "companies", userData.companyId));
+
+                    if (!companyDoc.exists() || !companyDoc.data().isActive) {
+                        await auth.signOut();
+                        setUser(null);
+
+                    } else if (!userData.isActive) {
+                        // Cek apakah user baru saja klik link aktivasi email.
+                        // Firebase Auth set emailVerified = true setelah link diklik.
+                        // Jika iya, aktifkan user di Firestore otomatis.
+                        if (firebaseUser.emailVerified) {
+                            await activateUserAfterVerification(firebaseUser.uid);
+                            setUser({ ...userData, uid: firebaseUser.uid, isActive: true });
+                        } else {
+                            // Belum verifikasi email — tolak login
                             await auth.signOut();
                             setUser(null);
-                        } else {
-                            const companyDoc = await getDoc(doc(db, "companies", userData.companyId));
-                            if (companyDoc.exists() && companyDoc.data().isActive) {
-                                setUser({ ...userData, uid: firebaseUser.uid });
-                            } else {
-                                await auth.signOut();
-                                setUser(null);
-                            }
                         }
+
                     } else {
-                        if (auth.currentUser?.uid === firebaseUser.uid) {
-                            await auth.signOut();
-                        }
-                        setUser(null);
+                        setUser({ ...userData, uid: firebaseUser.uid });
                     }
-                } catch {
-                    setUser(null);
                 }
-            } else {
+            } catch (err) {
+                console.error("[useAuth] Error fetching user data:", err);
+                try { await auth.signOut(); } catch (_) { void _; }
                 setUser(null);
             }
 

@@ -3,7 +3,7 @@
  */
 
 import {
-    collection, query, where, getDocs, doc, updateDoc, getCountFromServer,
+    collection, query, where, getDocs, doc, updateDoc,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import type { AppUser } from "../types";
@@ -13,10 +13,17 @@ const MAX_USERS_PER_COMPANY = 7; // 1 administrator + 6 lainnya
 
 // ─── READ ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Ambil semua user milik sebuah company.
+ * PERBAIKAN: Sertakan field `uid` dari document ID agar konsisten dengan AppUser type.
+ */
 export async function getUsersByCompany(companyId: string): Promise<AppUser[]> {
     const q = query(collection(db, COL), where("companyId", "==", companyId));
     const snap = await getDocs(q);
-    return snap.docs.map(d => d.data() as AppUser);
+    return snap.docs.map((d) => ({
+        uid: d.id,          // pastikan uid selalu ada
+        ...(d.data() as Omit<AppUser, "uid">),
+    }));
 }
 
 /**
@@ -24,13 +31,14 @@ export async function getUsersByCompany(companyId: string): Promise<AppUser[]> {
  * Digunakan untuk enforce limit 7 user/company.
  */
 export async function countActiveUsers(companyId: string): Promise<number> {
+    // Pakai getDocs biasa — getCountFromServer (aggregation) tidak didukung Firestore Rules standar
     const q = query(
         collection(db, COL),
         where("companyId", "==", companyId),
         where("isActive", "==", true),
     );
-    const snap = await getCountFromServer(q);
-    return snap.data().count;
+    const snap = await getDocs(q);
+    return snap.size;
 }
 
 /**
@@ -47,4 +55,12 @@ export { MAX_USERS_PER_COMPANY };
 
 export async function setUserActive(uid: string, isActive: boolean): Promise<void> {
     await updateDoc(doc(db, COL, uid), { isActive });
+}
+
+/**
+ * Aktifkan user setelah email verification berhasil.
+ * Dipanggil dari useAuth saat user pertama kali login setelah klik link aktivasi.
+ */
+export async function activateUserAfterVerification(uid: string): Promise<void> {
+    await updateDoc(doc(db, COL, uid), { isActive: true });
 }
