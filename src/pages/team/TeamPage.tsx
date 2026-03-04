@@ -373,10 +373,10 @@ export function TeamPage() {
             </div>
 
             {/* Modals */}
-            {inviteOpen && user && company && (
+            {inviteOpen && user && (
                 <InviteModal
                     companyId={user.companyId}
-                    companyName={company.name}   // ← fix: pakai nama perusahaan, bukan nama user
+                    companyName={company?.name ?? "Perusahaan"}
                     createdBy={user.uid}
                     onClose={() => { setInviteOpen(false); load(); }}
                 />
