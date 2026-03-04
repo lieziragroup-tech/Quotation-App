@@ -5,8 +5,10 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { getUsersByCompany, setUserActive, countActiveUsers, MAX_USERS_PER_COMPANY } from "../../services/userService";
+import { getCompanyById } from "../../services/companyService";
 import { createInvite } from "../../services/inviteService";
 import type { AppUser, UserRole } from "../../types";
+import type { Company } from "../../types";
 
 const ROLE_LABELS: Record<string, string> = {
     marketing: "Marketing",
@@ -39,12 +41,21 @@ function InviteModal({
     const [generating, setGenerating] = useState(false);
     const [link, setLink] = useState("");
     const [copied, setCopied] = useState(false);
+    const [err, setErr] = useState("");
 
     const handleGenerate = async () => {
         setGenerating(true);
+        setErr("");
         try {
             const token = await createInvite({ companyId, companyName, role, createdBy });
             setLink(`${window.location.origin}/signup?invite=${token}`);
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            if (msg.includes("permission-denied")) {
+                setErr("Akses ditolak. Pastikan kamu adalah Administrator aktif.");
+            } else {
+                setErr(`Gagal membuat link: ${msg}`);
+            }
         } finally {
             setGenerating(false);
         }
@@ -60,43 +71,53 @@ function InviteModal({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
             <div className="relative bg-white rounded-2xl w-full max-w-md shadow-2xl p-6">
-                <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
                     <UserPlus size={18} className="text-blue-600" /> Undang Anggota Tim
                 </h3>
+                <p className="text-xs text-slate-400 mb-4">
+                    untuk <span className="font-semibold text-slate-600">{companyName}</span>
+                </p>
 
                 {!link ? (
                     <>
                         <div className="mb-4">
                             <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">
-                                Role
+                                Pilih Role
                             </label>
                             <div className="space-y-2">
-                                {(["marketing", "admin_ops", "teknisi"] as const).map(r => (
-                                    <button key={r} type="button" onClick={() => setRole(r)}
+                                {([
+                                    { value: "marketing",  label: "Marketing",         desc: "Buat & kelola quotation" },
+                                    { value: "admin_ops",  label: "Admin Operasional", desc: "Lihat quotation & laporan" },
+                                    { value: "teknisi",    label: "Teknisi",            desc: "Laporan pekerjaan lapangan" },
+                                ] as const).map(r => (
+                                    <button key={r.value} type="button" onClick={() => setRole(r.value)}
                                         className={`w-full flex items-center gap-3 px-4 py-3 border rounded-xl text-left transition-all
-                                            ${role === r ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
-                                        <span className={`w-2 h-2 rounded-full ${role === r ? "bg-blue-500" : "bg-slate-300"}`} />
+                                            ${role === r.value ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${role === r.value ? "bg-blue-500" : "bg-slate-300"}`} />
                                         <div>
-                                            <div className={`text-sm font-semibold ${role === r ? "text-blue-700" : "text-slate-700"}`}>
-                                                {ROLE_LABELS[r]}
-                                            </div>
-                                            <div className="text-xs text-slate-400">
-                                                {r === "marketing" && "Buat & kelola quotation"}
-                                                {r === "admin_ops" && "Lihat quotation & laporan"}
-                                                {r === "teknisi" && "Laporan pekerjaan lapangan"}
-                                            </div>
+                                            <p className={`text-sm font-semibold ${role === r.value ? "text-blue-700" : "text-slate-700"}`}>
+                                                {r.label}
+                                            </p>
+                                            <p className="text-xs text-slate-400">{r.desc}</p>
                                         </div>
                                     </button>
                                 ))}
                             </div>
                         </div>
+
+                        {err && (
+                            <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 mb-3">
+                                <AlertCircle size={14} className="flex-shrink-0 mt-0.5" /> {err}
+                            </div>
+                        )}
+
                         <div className="flex gap-2">
                             <button onClick={onClose}
-                                className="flex-1 py-2.5 rounded-lg bg-slate-100 text-slate-600 text-sm font-medium hover:bg-slate-200">
+                                className="flex-1 py-2.5 rounded-lg bg-slate-100 text-slate-600 text-sm font-medium hover:bg-slate-200 transition-colors">
                                 Batal
                             </button>
                             <button onClick={handleGenerate} disabled={generating}
-                                className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                                className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors">
                                 {generating && <Loader2 size={13} className="animate-spin" />}
                                 {generating ? "Membuat..." : "Buat Link Undangan"}
                             </button>
@@ -104,14 +125,14 @@ function InviteModal({
                     </>
                 ) : (
                     <>
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4">
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-3">
                             <p className="text-xs font-semibold text-emerald-700 mb-2">
                                 ✅ Link undangan sebagai {ROLE_LABELS[role]} siap!
                             </p>
                             <p className="text-xs text-slate-500 font-mono break-all">{link}</p>
                         </div>
                         <p className="text-xs text-slate-400 mb-4">
-                            Link berlaku <strong>7 hari</strong>. Kirim ke calon anggota tim secara manual (WhatsApp, email, dll).
+                            Link berlaku <strong>7 hari</strong>. Kirim ke calon anggota tim via WhatsApp, email, dll.
                         </p>
                         <div className="flex gap-2">
                             <button onClick={handleCopy}
@@ -120,7 +141,7 @@ function InviteModal({
                                 {copied ? <><Check size={14} /> Tersalin!</> : <><Copy size={14} /> Salin Link</>}
                             </button>
                             <button onClick={onClose}
-                                className="px-4 py-2.5 rounded-lg bg-slate-100 text-slate-600 text-sm font-medium hover:bg-slate-200">
+                                className="px-4 py-2.5 rounded-lg bg-slate-100 text-slate-600 text-sm font-medium hover:bg-slate-200 transition-colors">
                                 Selesai
                             </button>
                         </div>
@@ -131,7 +152,7 @@ function InviteModal({
     );
 }
 
-// ─── CONFIRM DEACTIVATE MODAL ─────────────────────────────────────────────────
+// ─── CONFIRM TOGGLE MODAL ─────────────────────────────────────────────────────
 
 function ConfirmToggleModal({
     target, onClose, onConfirm,
@@ -144,7 +165,9 @@ function ConfirmToggleModal({
             <div className="relative bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4
                     ${willActivate ? "bg-emerald-100" : "bg-red-100"}`}>
-                    {willActivate ? <CheckCircle2 size={24} className="text-emerald-600" /> : <XCircle size={24} className="text-red-600" />}
+                    {willActivate
+                        ? <CheckCircle2 size={24} className="text-emerald-600" />
+                        : <XCircle size={24} className="text-red-600" />}
                 </div>
                 <h3 className="font-bold text-slate-900 mb-2">
                     {willActivate ? "Aktifkan" : "Nonaktifkan"} {target.name}?
@@ -156,11 +179,11 @@ function ConfirmToggleModal({
                 </p>
                 <div className="flex gap-2">
                     <button onClick={onClose}
-                        className="flex-1 py-2 text-sm rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium">
+                        className="flex-1 py-2 text-sm rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium transition-colors">
                         Batal
                     </button>
                     <button onClick={onConfirm}
-                        className={`flex-1 py-2 text-sm rounded-lg text-white font-semibold
+                        className={`flex-1 py-2 text-sm rounded-lg text-white font-semibold transition-colors
                             ${willActivate ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"}`}>
                         {willActivate ? "Aktifkan" : "Nonaktifkan"}
                     </button>
@@ -177,6 +200,7 @@ const INVITE_ROLES: UserRole[] = ["marketing", "admin_ops", "teknisi"];
 export function TeamPage() {
     const { user } = useAuthStore();
     const [members, setMembers] = useState<AppUser[]>([]);
+    const [company, setCompany] = useState<Company | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeCount, setActiveCount] = useState(0);
     const [inviteOpen, setInviteOpen] = useState(false);
@@ -187,11 +211,11 @@ export function TeamPage() {
         if (!user?.companyId) return;
         setLoading(true);
         try {
-            const [list, count] = await Promise.all([
+            const [list, count, comp] = await Promise.all([
                 getUsersByCompany(user.companyId),
                 countActiveUsers(user.companyId),
+                getCompanyById(user.companyId),  // ← load company name yang benar
             ]);
-            // Sort: administrator first, then by name
             list.sort((a, b) => {
                 if (a.role === "administrator") return -1;
                 if (b.role === "administrator") return 1;
@@ -199,16 +223,17 @@ export function TeamPage() {
             });
             setMembers(list);
             setActiveCount(count);
+            setCompany(comp);
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => { load(); }, [user?.companyId]);
+    useEffect(() => { load(); }, [user?.companyId]); // eslint-disable-line
 
-    const canInvite = INVITE_ROLES.includes(user?.role as UserRole)
-        ? false
-        : activeCount < MAX_USERS_PER_COMPANY;
+    // Administrator boleh invite, bukan marketing/admin_ops/teknisi
+    const canInvite = !INVITE_ROLES.includes(user?.role as UserRole)
+        && activeCount < MAX_USERS_PER_COMPANY;
 
     const handleToggle = async () => {
         if (!toggleTarget) return;
@@ -223,19 +248,21 @@ export function TeamPage() {
     };
 
     const slotUsed = activeCount;
-    const slotMax = MAX_USERS_PER_COMPANY;
-    const slotPct = Math.min((slotUsed / slotMax) * 100, 100);
+    const slotMax  = MAX_USERS_PER_COMPANY;
+    const slotPct  = Math.min((slotUsed / slotMax) * 100, 100);
 
     return (
         <div className="p-6 max-w-screen-lg mx-auto space-y-5">
+
             {/* Header */}
             <div className="flex items-start justify-between">
                 <div>
                     <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                        <Users size={20} className="text-blue-600" />
-                        Manajemen Tim
+                        <Users size={20} className="text-blue-600" /> Manajemen Tim
                     </h1>
-                    <p className="text-sm text-slate-400 mt-0.5">Kelola anggota tim perusahaan kamu</p>
+                    <p className="text-sm text-slate-400 mt-0.5">
+                        {company ? company.name : "Kelola anggota tim perusahaan kamu"}
+                    </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <button onClick={load}
@@ -245,10 +272,9 @@ export function TeamPage() {
                     <button
                         onClick={() => setInviteOpen(true)}
                         disabled={!canInvite}
-                        title={!canInvite ? `Slot penuh (${slotMax} user)` : "Undang anggota baru"}
+                        title={!canInvite ? `Slot penuh (max ${slotMax} user)` : "Undang anggota baru"}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                        <UserPlus size={16} />
-                        Undang Anggota
+                        <UserPlus size={16} /> Undang Anggota
                     </button>
                 </div>
             </div>
@@ -299,7 +325,7 @@ export function TeamPage() {
                         </thead>
                         <tbody>
                             {members.map(m => (
-                                <tr key={m.uid} className="hover:bg-slate-50 transition-colors">
+                                <tr key={m.uid} className="hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
                                     <td className="px-4 py-3">
                                         <div className="text-sm font-semibold text-slate-900">{m.name}</div>
                                         <div className="text-xs text-slate-400">{m.email}</div>
@@ -320,16 +346,14 @@ export function TeamPage() {
                                         </span>
                                     </td>
                                     <td className="px-4 py-3">
-                                        {/* Cannot deactivate yourself or administrator */}
                                         {m.uid !== user?.uid && m.role !== "administrator" ? (
                                             <button
                                                 onClick={() => setToggleTarget(m)}
                                                 disabled={toggling === m.uid}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40
                                                     ${m.isActive
                                                         ? "bg-red-50 text-red-600 hover:bg-red-100"
-                                                        : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}
-                                                    disabled:opacity-40`}>
+                                                        : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}>
                                                 {toggling === m.uid
                                                     ? <Loader2 size={11} className="animate-spin" />
                                                     : m.isActive ? <XCircle size={11} /> : <CheckCircle2 size={11} />}
@@ -349,10 +373,10 @@ export function TeamPage() {
             </div>
 
             {/* Modals */}
-            {inviteOpen && user && (
+            {inviteOpen && user && company && (
                 <InviteModal
                     companyId={user.companyId}
-                    companyName={user.name}
+                    companyName={company.name}   // ← fix: pakai nama perusahaan, bukan nama user
                     createdBy={user.uid}
                     onClose={() => { setInviteOpen(false); load(); }}
                 />

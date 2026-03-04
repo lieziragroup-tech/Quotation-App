@@ -6,9 +6,9 @@ import { db } from "../../lib/firebase";
 import { useAuthStore } from "../../store/authStore";
 import { formatRupiah, formatDate, ROLE_LABELS } from "../../lib/utils";
 import {
-    FileText, DollarSign,
-    Clock, CheckCircle2, AlertCircle,
-    ChevronRight, Loader2, Users,
+    FileText, DollarSign, ClipboardList,
+    Clock, CheckCircle2, PlayCircle, AlertCircle,
+    CalendarDays, ChevronRight, Loader2, Users,
     BarChart3, ArrowUpRight, ArrowDownRight, Minus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
