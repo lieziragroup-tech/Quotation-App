@@ -55,3 +55,11 @@ export { MAX_USERS_PER_COMPANY };
 export async function setUserActive(uid: string, isActive: boolean): Promise<void> {
     await updateDoc(doc(db, COL, uid), { isActive });
 }
+
+/**
+ * Aktifkan user setelah email verification berhasil.
+ * Dipanggil dari useAuth saat user pertama kali login setelah klik link aktivasi.
+ */
+export async function activateUserAfterVerification(uid: string): Promise<void> {
+    await updateDoc(doc(db, COL, uid), { isActive: true });
+}
