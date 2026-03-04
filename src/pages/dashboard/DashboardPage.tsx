@@ -319,6 +319,7 @@ export function DashboardPage() {
     const { user } = useAuthStore();
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const greeting = useMemo(() => {
         const h = new Date().getHours();
@@ -329,10 +330,22 @@ export function DashboardPage() {
     }, []);
 
     useEffect(() => {
-        if (!user?.companyId) return;
+        if (!user?.companyId) {
+            setLoading(false);
+            return;
+        }
+        setError(null);
         fetchDashboardData(user.companyId, user)
             .then(setData)
-            .catch(console.error)
+            .catch((err) => {
+                console.error("[Dashboard] fetch error:", err);
+                const msg = err instanceof Error ? err.message : String(err);
+                if (msg.includes("permission-denied")) {
+                    setError("Akses ditolak Firestore. Pastikan Firestore Rules sudah di-deploy.");
+                } else {
+                    setError(`Gagal memuat dashboard: ${msg}`);
+                }
+            })
             .finally(() => setLoading(false));
     }, [user]);
 
@@ -347,10 +360,36 @@ export function DashboardPage() {
             </div>
 
             {loading && <DashboardSkeleton />}
-            {!loading && data && user?.role === "administrator" && <AdminDashboard data={data} />}
-            {!loading && data && user?.role === "admin_ops"     && <AdminOpsDashboard data={data} />}
-            {!loading && data && user?.role === "marketing"     && <MarketingDashboard data={data} />}
-            {!loading && data && user?.role === "teknisi"       && (
+
+            {!loading && error && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-5 flex items-start gap-3">
+                    <AlertCircle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                        <p className="text-sm font-semibold text-red-700">Gagal memuat data</p>
+                        <p className="text-xs text-red-600 mt-1">{error}</p>
+                        <button
+                            onClick={() => { setLoading(true); setError(null); fetchDashboardData(user!.companyId, user!).then(setData).catch(e => setError(e.message)).finally(() => setLoading(false)); }}
+                            className="mt-2 text-xs font-semibold text-red-700 underline hover:no-underline"
+                        >
+                            Coba lagi
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {!loading && !error && !data && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-800 space-y-1">
+                    <p className="font-semibold">⚠️ Data tidak termuat — debug info:</p>
+                    <p>UID: <code className="font-mono text-xs bg-amber-100 px-1">{user?.uid ?? "—"}</code></p>
+                    <p>Company ID: <code className="font-mono text-xs bg-amber-100 px-1">{user?.companyId ?? "KOSONG ← ini masalahnya"}</code></p>
+                    <p>Role: <code className="font-mono text-xs bg-amber-100 px-1">{user?.role ?? "—"}</code></p>
+                    <p className="text-xs text-amber-600 mt-2">Buka F12 → Console untuk error detail.</p>
+                </div>
+            )}
+            {!loading && !error && data && user?.role === "administrator" && <AdminDashboard data={data} />}
+            {!loading && !error && data && user?.role === "admin_ops"     && <AdminOpsDashboard data={data} />}
+            {!loading && !error && data && user?.role === "marketing"     && <MarketingDashboard data={data} />}
+            {!loading && !error && data && user?.role === "teknisi"       && (
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 max-w-md">
                     <p className="text-blue-800 text-sm font-medium">👋 Halo {user.name?.split(" ")[0]}!</p>
                     <p className="text-blue-600 text-sm mt-1">Gunakan menu Profil Saya untuk mengelola akun kamu.</p>
