@@ -8,16 +8,9 @@ interface RoleGuardProps {
     allowedRoles: UserRole[];
 }
 
-/**
- * FIX: RoleGuard sekarang cek `loading` sebelum redirect.
- * Sebelumnya: langsung redirect ke /login saat user=null,
- * padahal onAuthStateChanged belum selesai (loading masih true).
- * Akibat: user yang sudah login selalu di-redirect ke /login saat refresh.
- */
 export function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
     const { user, loading } = useAuthStore();
 
-    // Tunggu auth state selesai dulu
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -27,10 +20,7 @@ export function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
     }
 
     if (!user) return <Navigate to="/login" replace />;
-
-    if (!allowedRoles.includes(user.role)) {
-        return <Navigate to="/unauthorized" replace />;
-    }
+    if (!allowedRoles.includes(user.role)) return <Navigate to="/unauthorized" replace />;
 
     return <>{children}</>;
 }
