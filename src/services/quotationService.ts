@@ -45,7 +45,9 @@ function toQuotation(id: string, data: Record<string, unknown>): Quotation {
         status: data.status as QuotationStatus,
         rejectionReason: data.rejectionReason as string | undefined,
         approvedBy: data.approvedBy as string | undefined,
-        approvedAt: data.approvedAt ? (data.approvedAt as Timestamp).toDate() : undefined,
+        approvedAt: data.approvedAt
+            ? (data.approvedAt as Timestamp).toDate()
+            : undefined,
         pdfUrl: data.pdfUrl as string | undefined,
         companyId: data.companyId as string,
         createdAt: (data.createdAt as Timestamp).toDate(),
@@ -72,10 +74,8 @@ export async function createQuotation(
     data: Omit<Quotation, "id" | "createdAt">,
     pdfBlob: Blob,
 ): Promise<Quotation> {
-    // 1. Upload PDF ke Storage
     const pdfUrl = await uploadQuotationPDF(pdfBlob, data.noSurat, data.companyId);
 
-    // 2. Simpan ke Firestore
     const now = new Date();
     const docData = {
         ...data,
@@ -93,7 +93,7 @@ export async function createQuotation(
 
 export interface GetQuotationsFilters {
     companyId: string;
-    byUid?: string;       // filter per marketing (undefined = semua)
+    byUid?: string;
     kategori?: KategoriSurat;
     tipeKontrak?: TipeKontrak;
     status?: QuotationStatus;
@@ -112,20 +112,39 @@ export async function getQuotations(filters: GetQuotationsFilters): Promise<Quot
     const q = query(collection(db, COL), ...constraints);
     const snap = await getDocs(q);
 
-    let results = snap.docs.map(d => toQuotation(d.id, d.data() as Record<string, unknown>));
+    let results = snap.docs.map((d) =>
+        toQuotation(d.id, d.data() as Record<string, unknown>)
+    );
 
-    // Client-side filters (Firestore tidak support multiple != queries)
-    if (filters.kategori) results = results.filter(r => r.kategori === filters.kategori);
-    if (filters.tipeKontrak) results = results.filter(r => r.tipeKontrak === filters.tipeKontrak);
-    if (filters.status) results = results.filter(r => r.status === filters.status);
+    if (filters.kategori) results = results.filter((r) => r.kategori === filters.kategori);
+    if (filters.tipeKontrak) results = results.filter((r) => r.tipeKontrak === filters.tipeKontrak);
+    if (filters.status) results = results.filter((r) => r.status === filters.status);
 
     return results;
 }
 
-export async function getQuotationById(id: string): Promise<Quotation | null> {
+/**
+ * Ambil quotation berdasarkan ID.
+ * PERBAIKAN: Sertakan companyId di parameter untuk validasi ownership di sisi klien.
+ * Firestore rules sudah restrict ke user yang login, tapi double-check di client
+ * mencegah edge-case bug jika rules berubah.
+ */
+export async function getQuotationById(
+    id: string,
+    companyId?: string,
+): Promise<Quotation | null> {
     const snap = await getDoc(doc(db, COL, id));
     if (!snap.exists()) return null;
-    return toQuotation(snap.id, snap.data() as Record<string, unknown>);
+
+    const quotation = toQuotation(snap.id, snap.data() as Record<string, unknown>);
+
+    // Validasi ownership jika companyId disediakan
+    if (companyId && quotation.companyId !== companyId) {
+        console.warn("[getQuotationById] companyId mismatch — akses ditolak di client.");
+        return null;
+    }
+
+    return quotation;
 }
 
 // ─── UPDATE STATUS ────────────────────────────────────────────────────────────

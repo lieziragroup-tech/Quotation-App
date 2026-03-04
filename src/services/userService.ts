@@ -13,10 +13,17 @@ const MAX_USERS_PER_COMPANY = 7; // 1 administrator + 6 lainnya
 
 // ─── READ ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Ambil semua user milik sebuah company.
+ * PERBAIKAN: Sertakan field `uid` dari document ID agar konsisten dengan AppUser type.
+ */
 export async function getUsersByCompany(companyId: string): Promise<AppUser[]> {
     const q = query(collection(db, COL), where("companyId", "==", companyId));
     const snap = await getDocs(q);
-    return snap.docs.map(d => d.data() as AppUser);
+    return snap.docs.map((d) => ({
+        uid: d.id,          // pastikan uid selalu ada
+        ...(d.data() as Omit<AppUser, "uid">),
+    }));
 }
 
 /**
