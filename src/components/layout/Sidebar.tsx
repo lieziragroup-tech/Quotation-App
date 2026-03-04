@@ -5,9 +5,9 @@ import { useAuthStore } from "../../store/authStore";
 import type { UserRole } from "../../types";
 import { ROLE_LABELS, cn } from "../../lib/utils";
 import {
-    LayoutDashboard, FileText, Users, ClipboardList,
-    BarChart2, DollarSign, Settings, LogOut, ShieldCheck,
-    Wrench, TrendingUp, User,
+    LayoutDashboard, FileText, Users,
+    DollarSign, Settings, LogOut, ShieldCheck,
+    TrendingUp, User,
 } from "lucide-react";
 
 interface NavItem {
@@ -28,7 +28,7 @@ const NAV_ITEMS: NavItem[] = [
         to: "/quotations",
         icon: <FileText size={18} />,
         label: "Quotation",
-        roles: ["administrator", "marketing"],
+        roles: ["administrator", "marketing", "admin_ops"],
     },
     {
         to: "/team",
@@ -41,18 +41,6 @@ const NAV_ITEMS: NavItem[] = [
         icon: <Users size={18} />,
         label: "Pelanggan",
         roles: ["administrator", "admin_ops", "marketing"],
-    },
-    {
-        to: "/spk",
-        icon: <ClipboardList size={18} />,
-        label: "SPK",
-        roles: ["administrator", "admin_ops"],
-    },
-    {
-        to: "/reports",
-        icon: <Wrench size={18} />,
-        label: "Laporan Teknisi",
-        roles: ["administrator", "admin_ops", "teknisi"],
     },
     {
         to: "/cashflow",
@@ -79,9 +67,6 @@ const NAV_ITEMS: NavItem[] = [
         roles: ["administrator", "admin_ops", "marketing", "teknisi"],
     },
 ];
-
-// Suppress unused import warning for BarChart2 — reserved for future use
-void BarChart2;
 
 export function Sidebar() {
     const { user, setUser } = useAuthStore();

@@ -15,7 +15,8 @@ import { QuotationFormPage } from "../pages/quotation/QuotationFormPage";
 import { TeamPage } from "../pages/team/TeamPage";
 import { ProfilePage } from "../pages/profile/ProfilePage";
 import { ComingSoonPage } from "../pages/ComingSoonPage";
-import { SPKPage } from "../pages/spk/SPKPage";
+import { CashflowPage } from "../pages/cashflow/CashflowPage";
+import { PerformaPage } from "../pages/performance/PerformaPage";
 
 // Pages — super_admin
 import { CompaniesPage } from "../pages/super-admin/CompaniesPage";
@@ -123,26 +124,10 @@ export const router = createBrowserRouter([
                 ),
             },
             {
-                path: "spk",
-                element: (
-                    <RoleGuard allowedRoles={["administrator", "admin_ops", "marketing"]}>
-                        <SPKPage />
-                    </RoleGuard>
-                ),
-            },
-            {
-                path: "reports",
-                element: (
-                    <RoleGuard allowedRoles={["administrator", "admin_ops", "teknisi"]}>
-                        <ComingSoonPage />
-                    </RoleGuard>
-                ),
-            },
-            {
                 path: "cashflow",
                 element: (
                     <RoleGuard allowedRoles={["administrator"]}>
-                        <ComingSoonPage />
+                        <CashflowPage />
                     </RoleGuard>
                 ),
             },
@@ -150,7 +135,7 @@ export const router = createBrowserRouter([
                 path: "performance",
                 element: (
                     <RoleGuard allowedRoles={["administrator"]}>
-                        <ComingSoonPage />
+                        <PerformaPage />
                     </RoleGuard>
                 ),
             },
