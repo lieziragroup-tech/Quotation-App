@@ -7,8 +7,8 @@ import {
     FileCheck2, CloudUpload, Database, ShieldCheck,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
-import { generateNomorSurat, previewNomorSurat, updateNomorSuratStatus } from "../../services/nomorSuratService";
-import { uploadQuotationPDF, addQuotationDoc } from "../../services/quotationService";
+import { commitNomorSurat, previewNomorSurat } from "../../services/nomorSuratService";
+import { uploadQuotationPDF, saveQuotationBatch } from "../../services/quotationService";
 import { generateQuotationPDF } from "../../lib/pdfGenerator";
 import { LAYANAN_CONFIG, calcTotals, fmtIDR, TIPE_LABELS } from "../../lib/quotationConfig";
 import type { JenisLayanan, TipeKontrak, KategoriSurat, QuotationItem, BiayaTambahan } from "../../types";
@@ -733,45 +733,55 @@ export function QuotationFormPage() {
         setGenState({ step: "nomor" });
 
         try {
-            // Step 1 — Kunci nomor surat
-            const nomorEntry = await generateNomorSurat({
-                kategori, tipe, jenisLayanan,
-                kepada: kepadaNama || kepada,
-                byUid: user.uid, byName: user.name, companyId: user.companyId,
-            });
+            const kepadaFinal = kepadaNama || kepada;
+            const now = new Date();
 
-            // Step 2 — Generate PDF blob
-            setGenState({ step: "pdf" });
-            // Beri sedikit delay agar UI sempat render label "Membuat PDF"
-            await new Promise(r => setTimeout(r, 80));
-            const pdfData = {
-                noSurat: nomorEntry.noSurat,
-                tanggal: new Date(),
-                kepadaNama: kepadaNama || kepada,
-                kepadaAlamatLines: kepadaAlamat.filter(Boolean),
-                kepadaUp: kepadaUp || undefined,
-                jenisLayanan, items, biayaTambahan, diskonPct, ppn,
-                ppnDppFaktor: ppnDppFaktor || undefined,
-                garansiTahun: garansiTahun || undefined,
-                jenisGaransi: jenisGaransi || undefined,
-                marketingNama: user.name,
-                marketingWa: user.wa,
-            };
-            const pdfBlob = generateQuotationPDF(pdfData);
+            // ── Step 1 & 2 PARALEL ────────────────────────────────────────────
+            // Commit nomor surat ke Firestore + generate PDF blob di saat bersamaan.
+            // generateQuotationPDF adalah CPU-only (synchronous) jadi tidak butuh await,
+            // bisa jalan "paralel" dengan network call commitNomorSurat.
+            const [nomorEntry, pdfBlob] = await Promise.all([
+                // Gunakan nomor yang sudah di-preview di step 1 (noPreview),
+                // langsung addDoc tanpa getDocs ulang → hemat 1 round-trip.
+                commitNomorSurat({
+                    kategori, tipe, jenisLayanan,
+                    kepada: kepadaFinal,
+                    byUid: user.uid, byName: user.name, companyId: user.companyId,
+                    noSurat: noPreview,
+                }),
+                // PDF generation (sync tapi dibungkus Promise agar bisa Promise.all)
+                Promise.resolve().then(() => {
+                    setGenState({ step: "pdf" });
+                    return generateQuotationPDF({
+                        noSurat: noPreview,
+                        tanggal: now,
+                        kepadaNama: kepadaFinal,
+                        kepadaAlamatLines: kepadaAlamat.filter(Boolean),
+                        kepadaUp: kepadaUp || undefined,
+                        jenisLayanan, items, biayaTambahan, diskonPct, ppn,
+                        ppnDppFaktor: ppnDppFaktor || undefined,
+                        garansiTahun: garansiTahun || undefined,
+                        jenisGaransi: jenisGaransi || undefined,
+                        marketingNama: user.name,
+                        marketingWa: user.wa,
+                    });
+                }),
+            ]);
 
-            // Step 3 — Upload PDF ke Storage
+            // ── Step 3 — Upload PDF ke Storage ───────────────────────────────
             setGenState({ step: "upload" });
             const pdfUrl = await uploadQuotationPDF(pdfBlob, nomorEntry.noSurat, user.companyId);
 
-            // Step 4 — Simpan ke Firestore
+            // ── Step 4 — Batch commit: quotation doc + update nomorSuratLog ──
+            // Satu writeBatch → 1 round-trip, bukan 2.
             setGenState({ step: "db" });
-            const saved = await addQuotationDoc({
+            const saved = await saveQuotationBatch({
                 noSurat: nomorEntry.noSurat, kategori, tipeKontrak: tipe, jenisLayanan,
                 perihal: LAYANAN_CONFIG[jenisLayanan]?.perihal ?? "",
-                kepadaNama: kepadaNama || kepada,
+                kepadaNama: kepadaFinal,
                 kepadaAlamatLines: kepadaAlamat.filter(Boolean),
                 kepadaUp: kepadaUp || undefined,
-                tanggal: new Date(), items, biayaTambahan, diskonPct, ppn,
+                tanggal: now, items, biayaTambahan, diskonPct, ppn,
                 ppnDppFaktor: ppnDppFaktor || undefined,
                 garansiTahun: garansiTahun || undefined,
                 jenisGaransi: jenisGaransi || undefined,
@@ -779,14 +789,12 @@ export function QuotationFormPage() {
                 marketingUid: user.uid, marketingNama: user.name, marketingWa: user.wa,
                 status: "pending", companyId: user.companyId,
                 pdfUrl,
-            });
+            }, nomorEntry.id);
 
-            await updateNomorSuratStatus(nomorEntry.id, "pending", saved.id);
-
-            // Step 5 — Done
+            // ── Step 5 — Selesai ──────────────────────────────────────────────
             setGenState({ step: "done" });
-            await new Promise(r => setTimeout(r, 900)); // brief "done" moment before showing success
-            setSuccessData({ noSurat: nomorEntry.noSurat, pdfBlob, pdfUrl });
+            await new Promise(r => setTimeout(r, 700));
+            setSuccessData({ noSurat: saved.noSurat, pdfBlob, pdfUrl });
             setGenState({ step: "idle" });
 
         } catch (err) {

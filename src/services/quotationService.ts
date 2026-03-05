@@ -4,7 +4,7 @@
 
 import {
     collection, query, where, orderBy, getDocs,
-    addDoc, updateDoc, doc, getDoc, Timestamp,
+    addDoc, updateDoc, doc, getDoc, Timestamp, writeBatch,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../lib/firebase";
@@ -85,6 +85,39 @@ export async function addQuotationDoc(
     };
     const docRef = await addDoc(collection(db, COL), docData);
     return { ...data, id: docRef.id, createdAt: now };
+}
+
+/**
+ * OPTIMIZED: Simpan quotation doc + update nomorSuratLog dalam satu batch commit.
+ * Mengurangi round-trip Firestore dari 2 ke 1.
+ */
+export async function saveQuotationBatch(
+    data: Omit<Quotation, "id" | "createdAt">,
+    nomorSuratLogId: string,
+): Promise<Quotation> {
+    const now = new Date();
+    const batch = writeBatch(db);
+
+    // 1. Doc baru untuk quotation (pakai doc() dengan auto-id)
+    const quoRef = doc(collection(db, COL));
+    batch.set(quoRef, {
+        ...data,
+        tanggal: Timestamp.fromDate(data.tanggal),
+        createdAt: Timestamp.fromDate(now),
+        approvedAt: data.approvedAt ? Timestamp.fromDate(data.approvedAt) : null,
+    });
+
+    // 2. Update nomorSuratLog ke "pending" sekaligus
+    const logRef = doc(db, "nomorSuratLog", nomorSuratLogId);
+    batch.update(logRef, {
+        status: "pending",
+        quoId: quoRef.id,
+    });
+
+    // Commit keduanya sekaligus — 1 round-trip
+    await batch.commit();
+
+    return { ...data, id: quoRef.id, createdAt: now };
 }
 
 // ─── CREATE (combined — upload + save in one call) ────────────────────────────
