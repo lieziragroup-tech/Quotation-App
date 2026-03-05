@@ -6,7 +6,7 @@ import {
     collection, query, where, orderBy, getDocs,
     addDoc, updateDoc, doc, getDoc, Timestamp, writeBatch,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes } from "firebase/storage";
 import { db, storage } from "../lib/firebase";
 import type {
     Quotation, QuotationStatus, KategoriSurat, TipeKontrak,
@@ -55,16 +55,32 @@ function toQuotation(id: string, data: Record<string, unknown>): Quotation {
 
 // ─── UPLOAD PDF ───────────────────────────────────────────────────────────────
 
+/**
+ * Upload PDF ke Firebase Storage.
+ *
+ * OPTIMASI: Tidak pakai getDownloadURL() (round-trip ke Firebase CDN).
+ * Sebagai gantinya, URL di-construct langsung dari storageBucket + path.
+ * Format: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encodedPath}?alt=media
+ *
+ * URL ini permanen dan valid selama file ada (tidak expire seperti signed URL).
+ * Syarat: Storage Rules harus allow read untuk user yang login (sudah berlaku).
+ */
 export async function uploadQuotationPDF(
     pdfBlob: Blob,
     noSurat: string,
     companyId: string,
 ): Promise<string> {
-    const safeName = noSurat.replace(/\//g, "-");
-    const path = `quotations/${companyId}/${safeName}.pdf`;
+    const safeName  = noSurat.replace(/\//g, "-");
+    const path      = `quotations/${companyId}/${safeName}.pdf`;
     const storageRef = ref(storage, path);
+
+    // Upload — satu round-trip saja
     await uploadBytes(storageRef, pdfBlob, { contentType: "application/pdf" });
-    return getDownloadURL(storageRef);
+
+    // Construct URL langsung tanpa getDownloadURL() round-trip kedua
+    const bucket     = storageRef.bucket;                         // e.g. "my-project.firebasestorage.app"
+    const encodedPath = encodeURIComponent(path);                  // encode slash → %2F
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media`;
 }
 
 // ─── CREATE (split: upload sudah dilakukan terpisah) ──────────────────────────
