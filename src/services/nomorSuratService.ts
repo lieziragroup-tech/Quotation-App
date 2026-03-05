@@ -5,7 +5,7 @@
  */
 
 import {
-    collection, query, where, orderBy, getDocs,
+    collection, query, where, getDocs,
     addDoc, updateDoc, doc, Timestamp,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -152,21 +152,21 @@ export interface GetLogFilters {
 }
 
 export async function getNomorSuratLog(filters: GetLogFilters): Promise<NomorSuratLog[]> {
-    let q = query(
+    const q = query(
         collection(db, COL),
         where("companyId", "==", filters.companyId),
-        orderBy("dibuat", "desc"),
     );
 
-    // Firestore tidak support multiple inequality filters; filter di client
+    // Firestore tidak support multiple inequality filters; filter + sort di client
     const snap = await getDocs(q);
     let entries = snap.docs.map(d => toLog(d.id, d.data()));
 
-    if (filters.byUid) entries = entries.filter(e => e.byUid === filters.byUid);
+    if (filters.byUid)   entries = entries.filter(e => e.byUid    === filters.byUid);
     if (filters.kategori) entries = entries.filter(e => e.kategori === filters.kategori);
-    if (filters.tipe) entries = entries.filter(e => e.tipe === filters.tipe);
-    if (filters.status) entries = entries.filter(e => e.status === filters.status);
+    if (filters.tipe)    entries = entries.filter(e => e.tipe     === filters.tipe);
+    if (filters.status)  entries = entries.filter(e => e.status   === filters.status);
 
+    entries.sort((a, b) => b.dibuat.getTime() - a.dibuat.getTime());
     return entries;
 }
 
