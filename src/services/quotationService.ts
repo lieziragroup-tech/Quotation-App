@@ -100,16 +100,20 @@ export async function saveQuotationBatch(
 
     const batch  = writeBatch(db);
 
-    // Doc baru quotation
-    const quoRef = doc(collection(db, COL));
-    batch.set(quoRef, {
+    // Firestore menolak field bernilai undefined — konversi semua ke null
+    const raw: Record<string, unknown> = {
         ...data,
         pdfBase64,
-        pdfUrl: null,   // tidak lagi dipakai, tapi field dipertahankan untuk kompatibilitas
+        pdfUrl:     null,
         tanggal:    Timestamp.fromDate(data.tanggal),
         createdAt:  Timestamp.fromDate(now),
         approvedAt: data.approvedAt ? Timestamp.fromDate(data.approvedAt) : null,
-    });
+    };
+    const clean = Object.fromEntries(
+        Object.entries(raw).map(([k, v]) => [k, v === undefined ? null : v])
+    );
+    const quoRef = doc(collection(db, COL));
+    batch.set(quoRef, clean);
 
     // Update nomorSuratLog sekaligus
     const logRef = doc(db, "nomorSuratLog", nomorSuratLogId);
