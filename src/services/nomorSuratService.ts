@@ -5,7 +5,7 @@
  */
 
 import {
-    collection, query, where, getDocs,
+    collection, query, where, orderBy, getDocs,
     addDoc, updateDoc, doc, Timestamp,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -31,6 +31,8 @@ function toLog(id: string, data: Record<string, unknown>): NomorSuratLog {
         status: data.status as QuotationStatus,
         quoId: (data.quoId as string | null) ?? null,
         companyId: data.companyId as string,
+        isManual: (data.isManual as boolean | undefined) ?? false,
+        keteranganManual: (data.keteranganManual as string | undefined) ?? "",
     };
 }
 
@@ -153,6 +155,7 @@ export async function getNomorSuratLog(filters: GetLogFilters): Promise<NomorSur
     let q = query(
         collection(db, COL),
         where("companyId", "==", filters.companyId),
+        orderBy("dibuat", "desc"),
     );
 
     // Firestore tidak support multiple inequality filters; filter di client
@@ -164,7 +167,6 @@ export async function getNomorSuratLog(filters: GetLogFilters): Promise<NomorSur
     if (filters.tipe) entries = entries.filter(e => e.tipe === filters.tipe);
     if (filters.status) entries = entries.filter(e => e.status === filters.status);
 
-    entries.sort((a, b) => b.dibuat.getTime() - a.dibuat.getTime());
     return entries;
 }
 
@@ -180,4 +182,50 @@ export async function updateNomorSuratStatus(
         status,
         ...(quoId ? { quoId } : {}),
     });
+}
+
+// ─── TAMBAH MANUAL ────────────────────────────────────────────────────────────
+
+export interface AddManualNomorParams {
+    noSurat: string;
+    kategori: KategoriSurat;
+    tipe: TipeKontrak;
+    jenisLayanan: JenisLayanan;
+    kepada: string;
+    byUid: string;
+    byName: string;
+    companyId: string;
+    keteranganManual?: string;
+    dibuat?: Date;
+}
+
+/**
+ * Tambah nomor surat secara manual (bukan generate otomatis).
+ * Digunakan untuk tracking surat fisik / luar sistem.
+ */
+export async function addManualNomorSurat(params: AddManualNomorParams): Promise<NomorSuratLog> {
+    const now = params.dibuat ?? new Date();
+    const entry: Omit<NomorSuratLog, "id"> = {
+        noSurat: params.noSurat,
+        kategori: params.kategori,
+        tipe: params.tipe,
+        tipeLabel: TIPE_LABELS[params.tipe] ?? params.tipe,
+        jenisLayanan: params.jenisLayanan,
+        kepada: params.kepada,
+        byUid: params.byUid,
+        byName: params.byName,
+        dibuat: now,
+        status: "draft",
+        quoId: null,
+        companyId: params.companyId,
+        isManual: true,
+        keteranganManual: params.keteranganManual ?? "",
+    };
+
+    const ref = await addDoc(collection(db, COL), {
+        ...entry,
+        dibuat: Timestamp.fromDate(now),
+    });
+
+    return { ...entry, id: ref.id };
 }

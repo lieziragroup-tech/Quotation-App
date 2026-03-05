@@ -7,7 +7,7 @@ import { ROLE_LABELS, cn } from "../../lib/utils";
 import {
     LayoutDashboard, FileText, Users,
     DollarSign, Settings, LogOut, ShieldCheck,
-    TrendingUp, User,
+    TrendingUp, User, Hash,
 } from "lucide-react";
 
 interface NavItem {
@@ -29,6 +29,12 @@ const NAV_ITEMS: NavItem[] = [
         icon: <FileText size={18} />,
         label: "Quotation",
         roles: ["administrator", "marketing", "admin_ops"],
+    },
+    {
+        to: "/nomor-surat-log",
+        icon: <Hash size={18} />,
+        label: "Log Nomor Surat",
+        roles: ["administrator", "admin_ops"],
     },
     {
         to: "/team",

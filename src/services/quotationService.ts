@@ -3,7 +3,7 @@
  */
 
 import {
-    collection, query, where, getDocs,
+    collection, query, where, orderBy, getDocs,
     addDoc, updateDoc, doc, getDoc, Timestamp,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -100,14 +100,13 @@ export interface GetQuotationsFilters {
 }
 
 export async function getQuotations(filters: GetQuotationsFilters): Promise<Quotation[]> {
-    // Tidak pakai orderBy di query untuk menghindari kebutuhan composite index Firestore.
-    // Sorting dilakukan di client side setelah data diterima.
     const constraints = [
         where("companyId", "==", filters.companyId),
+        orderBy("createdAt", "desc"),
     ];
 
     if (filters.byUid) {
-        constraints.push(where("marketingUid", "==", filters.byUid));
+        constraints.splice(1, 0, where("marketingUid", "==", filters.byUid));
     }
 
     const q = query(collection(db, COL), ...constraints);
@@ -115,13 +114,10 @@ export async function getQuotations(filters: GetQuotationsFilters): Promise<Quot
 
     let results = snap.docs.map(d => toQuotation(d.id, d.data() as Record<string, unknown>));
 
-    // Client-side filters
+    // Client-side filters (Firestore tidak support multiple != queries)
     if (filters.kategori) results = results.filter(r => r.kategori === filters.kategori);
     if (filters.tipeKontrak) results = results.filter(r => r.tipeKontrak === filters.tipeKontrak);
     if (filters.status) results = results.filter(r => r.status === filters.status);
-
-    // Sort terbaru dulu
-    results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return results;
 }

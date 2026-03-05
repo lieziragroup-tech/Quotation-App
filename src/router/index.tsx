@@ -12,6 +12,7 @@ import { SignupPage } from "../pages/auth/SignupPage";
 import { DashboardPage } from "../pages/dashboard/DashboardPage";
 import { QuotationPage } from "../pages/quotation/QuotationPage";
 import { QuotationFormPage } from "../pages/quotation/QuotationFormPage";
+import { NomorSuratLogPage } from "../pages/nomor-surat/NomorSuratLogPage";
 import { TeamPage } from "../pages/team/TeamPage";
 import { ProfilePage } from "../pages/profile/ProfilePage";
 import { ComingSoonPage } from "../pages/ComingSoonPage";
@@ -98,6 +99,14 @@ export const router = createBrowserRouter([
                 ),
             },
             {
+                path: "nomor-surat-log",
+                element: (
+                    <RoleGuard allowedRoles={["administrator", "admin_ops"]}>
+                        <NomorSuratLogPage />
+                    </RoleGuard>
+                ),
+            },
+            {
                 path: "team",
                 element: (
                     <RoleGuard allowedRoles={["administrator"]}>
@@ -113,8 +122,6 @@ export const router = createBrowserRouter([
                     </RoleGuard>
                 ),
             },
-
-            // ── Coming Soon — fitur dalam pengembangan ──────────────────────
             {
                 path: "customers",
                 element: (

@@ -14,23 +14,13 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-/**
- * Secondary app — dipakai untuk membuat user baru tanpa logout super_admin.
- * Hanya auth-nya yang di-secondary; Firestore tetap pakai `db` (dari primary app)
- * karena Firestore client SDK tidak punya "auth context" per-instance —
- * akses rules diatur oleh token user yang sedang login di primary auth.
- */
-const secondaryApp =
-    getApps().find((a) => a.name === "secondary") ??
-    initializeApp(firebaseConfig, "secondary");
+// Secondary app — dipakai untuk membuat user baru tanpa logout super_admin
+const secondaryApp = getApps().find(a => a.name === "secondary")
+    ?? initializeApp(firebaseConfig, "secondary");
 
 export const auth = getAuth(app);
 export const authSecondary = getAuth(secondaryApp);
-
-// PERBAIKAN: Hanya satu instance Firestore & Storage (dari primary app).
-// dbSecondary dihapus — tidak ada manfaatnya karena Firestore tidak punya
-// auth context per-instance, dan justru bisa menyebabkan listener ganda.
 export const db = getFirestore(app);
+export const dbSecondary = getFirestore(secondaryApp); // Firestore pakai auth context dari app yang sama
 export const storage = getStorage(app);
-
 export default app;

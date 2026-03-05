@@ -3,15 +3,14 @@ import { useNavigate } from "react-router-dom";
 import {
     ArrowLeft, ArrowRight, Check, FileText,
     Plus, Trash2, Loader2, AlertCircle,
+    Download, CheckCircle2, ExternalLink, Hash,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
-import { generateNomorSurat, previewNomorSurat } from "../../services/nomorSuratService";
+import { generateNomorSurat, previewNomorSurat, updateNomorSuratStatus } from "../../services/nomorSuratService";
 import { createQuotation } from "../../services/quotationService";
 import { generateQuotationPDF } from "../../lib/pdfGenerator";
 import { LAYANAN_CONFIG, calcTotals, fmtIDR, TIPE_LABELS } from "../../lib/quotationConfig";
 import type { JenisLayanan, TipeKontrak, KategoriSurat, QuotationItem, BiayaTambahan } from "../../types";
-
-// ─── STEP INDICATOR ──────────────────────────────────────────────────────────
 
 const STEPS = [
     { label: "Jenis & Tipe" },
@@ -26,14 +25,11 @@ function StepIndicator({ current }: { current: number }) {
             {STEPS.map((s, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center">
                     <div className="flex items-center w-full">
-                        {/* Left connector */}
                         <div className={`flex-1 h-0.5 ${i === 0 ? "opacity-0" : i <= current ? "bg-blue-500" : "bg-slate-200"}`} />
-                        {/* Circle */}
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0
                             ${i < current ? "bg-blue-600 text-white" : i === current ? "bg-blue-600 text-white ring-4 ring-blue-100" : "bg-slate-100 text-slate-400"}`}>
                             {i < current ? <Check size={14} /> : i + 1}
                         </div>
-                        {/* Right connector */}
                         <div className={`flex-1 h-0.5 ${i === STEPS.length - 1 ? "opacity-0" : i < current ? "bg-blue-500" : "bg-slate-200"}`} />
                     </div>
                     <span className={`text-xs mt-1.5 font-medium ${i === current ? "text-blue-600" : i < current ? "text-slate-500" : "text-slate-300"}`}>
@@ -44,8 +40,6 @@ function StepIndicator({ current }: { current: number }) {
         </div>
     );
 }
-
-// ─── FORM FIELD ──────────────────────────────────────────────────────────────
 
 function Field({ label, required, error, children }: {
     label: string; required?: boolean; error?: string; children: React.ReactNode;
@@ -63,57 +57,63 @@ function Field({ label, required, error, children }: {
 
 const inputCls = "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white text-slate-800";
 
-// ─── STEP 1: Jenis & Tipe ────────────────────────────────────────────────────
+// ─── STEP 1 ───────────────────────────────────────────────────────────────────
 
-function Step1({
-    jenisLayanan, tipe, kepada, noPreview,
-    onLayanan, onTipe, onKepada, errors,
-}: {
-    jenisLayanan: JenisLayanan;
-    tipe: TipeKontrak;
-    kepada: string;
-    noPreview: string;
-    onLayanan: (v: JenisLayanan) => void;
-    onTipe: (v: TipeKontrak) => void;
-    onKepada: (v: string) => void;
-    errors: Record<string, string>;
+function Step1({ jenisLayanan, tipe, kepada, noPreview, onLayanan, onTipe, onKepada, errors }: {
+    jenisLayanan: JenisLayanan; tipe: TipeKontrak; kepada: string; noPreview: string;
+    onLayanan: (v: JenisLayanan) => void; onTipe: (v: TipeKontrak) => void;
+    onKepada: (v: string) => void; errors: Record<string, string>;
 }) {
     const kategori = LAYANAN_CONFIG[jenisLayanan]?.kategori ?? "PCO";
     const isAR = kategori === "AR";
 
+    const arItems  = Object.entries(LAYANAN_CONFIG).filter(([, c]) => c.isAR);
+    const pcoItems = Object.entries(LAYANAN_CONFIG).filter(([, c]) => !c.isAR);
+
     return (
         <div className="space-y-5">
-            {/* Jenis Layanan */}
             <Field label="Jenis Layanan" required error={errors.jenisLayanan}>
-                <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(LAYANAN_CONFIG).map(([val, cfg]) => {
-                        const sel = jenisLayanan === val;
-                        const ar = cfg.kategori === "AR";
-                        return (
-                            <button key={val} type="button" onClick={() => onLayanan(val as JenisLayanan)}
-                                className={`flex items-center gap-2 px-3 py-2.5 border rounded-lg text-left text-sm transition-all
-                                    ${sel
-                                        ? ar ? "border-purple-400 bg-purple-50 text-purple-700 font-semibold"
-                                            : "border-cyan-400 bg-cyan-50 text-cyan-700 font-semibold"
-                                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"}`}>
-                                <span>{ar ? "🛡️" : "🦟"}</span>
-                                <span className="text-xs">{cfg.label}</span>
-                            </button>
-                        );
-                    })}
+                {/* Anti Rayap group */}
+                <div className="mb-3">
+                    <p className="text-xs font-semibold text-purple-600 mb-2 flex items-center gap-1">🛡️ Anti Rayap (AR)</p>
+                    <div className="grid grid-cols-2 gap-2">
+                        {arItems.map(([val, cfg]) => {
+                            const sel = jenisLayanan === val;
+                            return (
+                                <button key={val} type="button" onClick={() => onLayanan(val as JenisLayanan)}
+                                    className={`px-3 py-2.5 border rounded-lg text-left text-xs transition-all
+                                        ${sel ? "border-purple-400 bg-purple-50 text-purple-700 font-semibold" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"}`}>
+                                    {cfg.label.replace("Anti Rayap — ", "")}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+                {/* Pest Control group */}
+                <div>
+                    <p className="text-xs font-semibold text-cyan-600 mb-2 flex items-center gap-1">🦟 Pest Control (PCO)</p>
+                    <div className="grid grid-cols-2 gap-2">
+                        {pcoItems.map(([val, cfg]) => {
+                            const sel = jenisLayanan === val;
+                            return (
+                                <button key={val} type="button" onClick={() => onLayanan(val as JenisLayanan)}
+                                    className={`px-3 py-2.5 border rounded-lg text-left text-xs transition-all
+                                        ${sel ? "border-cyan-400 bg-cyan-50 text-cyan-700 font-semibold" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"}`}>
+                                    {cfg.label.replace("Pest Control — ", "")}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
             </Field>
 
-            {/* Tipe Surat */}
             <Field label="Tipe Surat" required>
                 <div className="grid grid-cols-2 gap-3">
                     {(["U", "K"] as TipeKontrak[]).map(v => (
                         <button key={v} type="button" onClick={() => onTipe(v)}
                             className={`px-4 py-3 border rounded-xl text-left transition-all
                                 ${tipe === v ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
-                            <div className={`text-sm font-bold ${tipe === v ? "text-blue-700" : "text-slate-700"}`}>
-                                {TIPE_LABELS[v]}
-                            </div>
+                            <div className={`text-sm font-bold ${tipe === v ? "text-blue-700" : "text-slate-700"}`}>{TIPE_LABELS[v]}</div>
                             <div className="text-xs text-slate-400 mt-0.5">
                                 {v === "U" ? "Penawaran biasa / satu kali" : "Kerjasama berkala / tahunan"}
                             </div>
@@ -122,14 +122,12 @@ function Step1({
                 </div>
             </Field>
 
-            {/* Kepada */}
             <Field label="Ditujukan Kepada" required error={errors.kepada}>
                 <input className={inputCls} value={kepada}
                     onChange={e => onKepada(e.target.value)}
                     placeholder="Nama klien / perusahaan tujuan" />
             </Field>
 
-            {/* Preview nomor */}
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Preview Nomor Surat</p>
                 <div className="flex items-center gap-3 flex-wrap">
@@ -150,38 +148,26 @@ function Step1({
     );
 }
 
-// ─── STEP 2: Data Klien ───────────────────────────────────────────────────────
+// ─── STEP 2 ───────────────────────────────────────────────────────────────────
 
-function Step2({
-    nama, alamatLines, up,
-    onNama, onAlamat, onUp, errors,
-}: {
+function Step2({ nama, alamatLines, up, onNama, onAlamat, onUp, errors }: {
     nama: string; alamatLines: string[]; up: string;
-    onNama: (v: string) => void;
-    onAlamat: (lines: string[]) => void;
-    onUp: (v: string) => void;
-    errors: Record<string, string>;
+    onNama: (v: string) => void; onAlamat: (lines: string[]) => void;
+    onUp: (v: string) => void; errors: Record<string, string>;
 }) {
     const updateLine = (i: number, v: string) => {
-        const lines = [...alamatLines];
-        lines[i] = v;
-        onAlamat(lines);
+        const lines = [...alamatLines]; lines[i] = v; onAlamat(lines);
     };
-    const addLine = () => onAlamat([...alamatLines, ""]);
-    const removeLine = (i: number) => onAlamat(alamatLines.filter((_, idx) => idx !== i));
-
     return (
         <div className="space-y-5">
             <Field label="Nama Klien / Perusahaan" required error={errors.nama}>
-                <input className={inputCls} value={nama}
-                    onChange={e => onNama(e.target.value)}
+                <input className={inputCls} value={nama} onChange={e => onNama(e.target.value)}
                     placeholder="PT Contoh Indonesia / Bapak Ahmad..." />
             </Field>
 
             <div className="space-y-1.5">
                 <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Alamat Klien
-                    <span className="text-slate-300 font-normal ml-1">(bisa multiple baris)</span>
+                    Alamat Klien <span className="text-slate-300 font-normal ml-1">(bisa multiple baris)</span>
                 </label>
                 {alamatLines.map((line, i) => (
                     <div key={i} className="flex gap-2">
@@ -189,78 +175,58 @@ function Step2({
                             onChange={e => updateLine(i, e.target.value)}
                             placeholder={`Baris alamat ${i + 1}`} />
                         {i > 0 && (
-                            <button type="button" onClick={() => removeLine(i)}
+                            <button type="button" onClick={() => onAlamat(alamatLines.filter((_, idx) => idx !== i))}
                                 className="p-2 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors border border-slate-200">
                                 <Trash2 size={14} />
                             </button>
                         )}
                     </div>
                 ))}
-                <button type="button" onClick={addLine}
+                <button type="button" onClick={() => onAlamat([...alamatLines, ""])}
                     className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium mt-1">
                     <Plus size={12} /> Tambah baris alamat
                 </button>
             </div>
 
             <Field label="U.p. / Contact Person" error={errors.up}>
-                <input className={inputCls} value={up}
-                    onChange={e => onUp(e.target.value)}
+                <input className={inputCls} value={up} onChange={e => onUp(e.target.value)}
                     placeholder="Bpk. Ahmad Santoso (opsional)" />
             </Field>
         </div>
     );
 }
 
-// ─── STEP 3: Tabel Harga ──────────────────────────────────────────────────────
+// ─── STEP 3 ───────────────────────────────────────────────────────────────────
 
-function Step3({
-    items, biayaTambahan, diskonPct, ppn, ppnDppFaktor, garansiTahun, jenisGaransi,
-    onItems, onBiaya, onDiskon, onPpn, onPpnDpp, onGaransi, onJenisGaransi,
-    jenisLayanan,
-}: {
-    items: QuotationItem[];
-    biayaTambahan: BiayaTambahan[];
-    diskonPct: number;
-    ppn: boolean;
-    ppnDppFaktor: number;
-    garansiTahun: number;
-    jenisGaransi: string;
-    onItems: (v: QuotationItem[]) => void;
-    onBiaya: (v: BiayaTambahan[]) => void;
-    onDiskon: (v: number) => void;
-    onPpn: (v: boolean) => void;
-    onPpnDpp: (v: number) => void;
-    onGaransi: (v: number) => void;
-    onJenisGaransi: (v: string) => void;
+function Step3({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor, garansiTahun, jenisGaransi,
+    onItems, onBiaya, onDiskon, onPpn, onPpnDpp, onGaransi, onJenisGaransi, jenisLayanan }: {
+    items: QuotationItem[]; biayaTambahan: BiayaTambahan[];
+    diskonPct: number; ppn: boolean; ppnDppFaktor: number;
+    garansiTahun: number; jenisGaransi: string;
+    onItems: (v: QuotationItem[]) => void; onBiaya: (v: BiayaTambahan[]) => void;
+    onDiskon: (v: number) => void; onPpn: (v: boolean) => void; onPpnDpp: (v: number) => void;
+    onGaransi: (v: number) => void; onJenisGaransi: (v: string) => void;
     jenisLayanan: JenisLayanan;
 }) {
     const isAR = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
     const calc = calcTotals({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor: ppnDppFaktor || undefined });
+    const UNITS = ["m2", "m1", "m3", "Kali", "Titik", "Lot", "ls", "Unit"];
 
-    const updateItem = (i: number, key: keyof QuotationItem, val: string | number) =>
+    const updateItem  = (i: number, key: keyof QuotationItem, val: string | number) =>
         onItems(items.map((it, idx) => idx === i ? { ...it, [key]: val } : it));
-    const addItem = () => onItems([...items, { desc: "", qty: 1, unit: "m2", harga: 0 }]);
-    const removeItem = (i: number) => onItems(items.filter((_, idx) => idx !== i));
-
     const updateBiaya = (i: number, key: keyof BiayaTambahan, val: string | number) =>
         onBiaya(biayaTambahan.map((b, idx) => idx === i ? { ...b, [key]: val } : b));
-    const addBiaya = () => onBiaya([...biayaTambahan, { label: "", amount: 0 }]);
-    const removeBiaya = (i: number) => onBiaya(biayaTambahan.filter((_, idx) => idx !== i));
-
-    const UNITS = ["m2", "m1", "m3", "Kali", "Titik", "Lot", "ls", "Unit"];
 
     return (
         <div className="space-y-6">
-            {/* Items table */}
             <div>
                 <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-bold text-slate-700">Item Pekerjaan</h3>
-                    <button type="button" onClick={addItem}
-                        className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-semibold border border-blue-200 rounded-lg px-3 py-1.5 bg-blue-50 hover:bg-blue-100 transition-colors">
+                    <button type="button" onClick={() => onItems([...items, { desc: "", qty: 1, unit: "m2", harga: 0 }])}
+                        className="flex items-center gap-1.5 text-xs text-blue-600 font-semibold border border-blue-200 rounded-lg px-3 py-1.5 bg-blue-50 hover:bg-blue-100 transition-colors">
                         <Plus size={12} /> Tambah Item
                     </button>
                 </div>
-
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                     <table className="w-full text-xs">
                         <thead>
@@ -286,27 +252,22 @@ function Step3({
                                     <td className="px-2 py-1.5">
                                         <input type="number" min={0} step="0.01"
                                             className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-300"
-                                            value={item.qty}
-                                            onChange={e => updateItem(i, "qty", parseFloat(e.target.value) || 0)} />
+                                            value={item.qty} onChange={e => updateItem(i, "qty", parseFloat(e.target.value) || 0)} />
                                     </td>
                                     <td className="px-2 py-1.5">
                                         <select className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
-                                            value={item.unit}
-                                            onChange={e => updateItem(i, "unit", e.target.value)}>
+                                            value={item.unit} onChange={e => updateItem(i, "unit", e.target.value)}>
                                             {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                         </select>
                                     </td>
                                     <td className="px-2 py-1.5">
                                         <input type="number" min={0}
                                             className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-300"
-                                            value={item.harga}
-                                            onChange={e => updateItem(i, "harga", parseInt(e.target.value) || 0)} />
+                                            value={item.harga} onChange={e => updateItem(i, "harga", parseInt(e.target.value) || 0)} />
                                     </td>
-                                    <td className="px-3 py-2 text-right font-bold text-slate-700 font-mono">
-                                        {fmtIDR(item.qty * item.harga)}
-                                    </td>
+                                    <td className="px-3 py-2 text-right font-bold text-slate-700 font-mono">{fmtIDR(item.qty * item.harga)}</td>
                                     <td className="px-2 py-1.5">
-                                        <button type="button" onClick={() => removeItem(i)}
+                                        <button type="button" onClick={() => onItems(items.filter((_, idx) => idx !== i))}
                                             className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors">
                                             <Trash2 size={12} />
                                         </button>
@@ -314,22 +275,19 @@ function Step3({
                                 </tr>
                             ))}
                             {items.length === 0 && (
-                                <tr>
-                                    <td colSpan={7} className="px-4 py-6 text-center text-slate-400 text-xs">
-                                        Belum ada item. Klik "Tambah Item" untuk menambah.
-                                    </td>
-                                </tr>
+                                <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400 text-xs">
+                                    Belum ada item. Klik "Tambah Item" untuk menambah.
+                                </td></tr>
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            {/* Biaya tambahan */}
             <div>
                 <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-semibold text-slate-600">Biaya Tambahan <span className="text-slate-400 font-normal text-xs">(opsional)</span></h3>
-                    <button type="button" onClick={addBiaya}
+                    <button type="button" onClick={() => onBiaya([...biayaTambahan, { label: "", amount: 0 }])}
                         className="text-xs text-slate-500 hover:text-blue-600 flex items-center gap-1">
                         <Plus size={11} /> Tambah
                     </button>
@@ -342,7 +300,7 @@ function Step3({
                         <input type="number" min={0} className="w-36 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-300"
                             value={b.amount} placeholder="Nominal"
                             onChange={e => updateBiaya(i, "amount", parseInt(e.target.value) || 0)} />
-                        <button type="button" onClick={() => removeBiaya(i)}
+                        <button type="button" onClick={() => onBiaya(biayaTambahan.filter((_, idx) => idx !== i))}
                             className="p-2 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 border border-slate-200 transition-colors">
                             <Trash2 size={14} />
                         </button>
@@ -350,7 +308,6 @@ function Step3({
                 ))}
             </div>
 
-            {/* Diskon, PPN, Garansi */}
             <div className="grid grid-cols-2 gap-4">
                 <Field label="Diskon (%)">
                     <input type="number" min={0} max={100} step="0.01" className={inputCls}
@@ -392,7 +349,6 @@ function Step3({
                 )}
             </div>
 
-            {/* Total preview */}
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-2">
                 <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Ringkasan Harga</h3>
                 {[
@@ -415,25 +371,21 @@ function Step3({
     );
 }
 
-// ─── STEP 4: Konfirmasi ───────────────────────────────────────────────────────
+// ─── STEP 4 ───────────────────────────────────────────────────────────────────
 
-function Step4({
-    noSurat, jenisLayanan, tipe, kepadaNama, kepadaAlamatLines, total, marketingNama, marketingWa,
-}: {
+function Step4({ noSurat, jenisLayanan, tipe, kepadaNama, kepadaAlamatLines, total, marketingNama, marketingWa }: {
     noSurat: string; jenisLayanan: JenisLayanan; tipe: TipeKontrak;
     kepadaNama: string; kepadaAlamatLines: string[];
     total: number; marketingNama: string; marketingWa?: string;
 }) {
     const cfg = LAYANAN_CONFIG[jenisLayanan];
     const isAR = cfg?.isAR;
-
     return (
         <div className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-xs font-bold text-blue-600 mb-1 uppercase tracking-wide">⚠ Konfirmasi</p>
-                <p className="text-sm text-blue-700">Nomor surat dan PDF akan digenerate setelah konfirmasi. Nomor tidak bisa diubah setelah ini.</p>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-xs font-bold text-amber-600 mb-1 uppercase tracking-wide">⚠ Konfirmasi Generate</p>
+                <p className="text-sm text-amber-700">Nomor surat akan dikunci dan PDF di-generate. Nomor tidak bisa diubah setelah ini.</p>
             </div>
-
             <div className="grid grid-cols-2 gap-3">
                 {[
                     { label: "Nomor Surat", value: noSurat, mono: true },
@@ -451,7 +403,6 @@ function Step4({
                     </div>
                 ))}
             </div>
-
             {kepadaAlamatLines.filter(Boolean).length > 0 && (
                 <div className="bg-white border border-slate-100 rounded-lg p-3">
                     <div className="text-xs text-slate-400 uppercase tracking-wide mb-1">Alamat</div>
@@ -464,7 +415,84 @@ function Step4({
     );
 }
 
-// ─── MAIN FORM PAGE ──────────────────────────────────────────────────────────
+// ─── SUCCESS SCREEN ───────────────────────────────────────────────────────────
+// FIX: Daripada auto-download (yang sering diblokir browser) + langsung navigate,
+// sekarang tampilkan halaman sukses dengan tombol download eksplisit.
+// Blob disimpan di state sehingga bisa di-download berkali-kali tanpa re-generate.
+
+interface SuccessData {
+    noSurat: string;
+    pdfBlob: Blob;
+    pdfUrl?: string; // URL dari Firebase Storage (arsip cloud)
+}
+
+function SuccessScreen({ data, onGoToList }: { data: SuccessData; onGoToList: () => void }) {
+    const [downloadCount, setDownloadCount] = useState(0);
+
+    // FIX: harus append ke DOM dulu agar download tidak diblokir
+    // (Chrome, Firefox, Safari semua butuh elemen ada di DOM sebelum click)
+    const handleDownloadLocal = () => {
+        const url = URL.createObjectURL(data.pdfBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${data.noSurat.replace(/\//g, "-")}.pdf`;
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+        setDownloadCount(c => c + 1);
+    };
+
+    return (
+        <div className="py-6 flex flex-col items-center text-center">
+            {/* Icon */}
+            <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center mb-5">
+                <CheckCircle2 size={32} className="text-emerald-600" />
+            </div>
+
+            <h2 className="text-xl font-bold text-slate-900 mb-1">Quotation Berhasil Dibuat!</h2>
+            <div className="flex items-center gap-2 mb-6">
+                <Hash size={13} className="text-slate-400" />
+                <code className="text-sm font-bold font-mono bg-slate-100 text-slate-800 px-3 py-1 rounded-lg">
+                    {data.noSurat}
+                </code>
+            </div>
+
+            {/* Download box */}
+            <div className="w-full max-w-xs bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3 mb-6">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400 text-left">Unduh PDF Quotation</p>
+
+                {/* Download dari blob (selalu tersedia, tidak perlu internet) */}
+                <button onClick={handleDownloadLocal}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors">
+                    <Download size={16} />
+                    {downloadCount > 0 ? "Download Ulang PDF" : "Download PDF"}
+                </button>
+
+                {/* Link arsip dari Storage */}
+                {data.pdfUrl && (
+                    <a href={data.pdfUrl} target="_blank" rel="noopener noreferrer"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors">
+                        <ExternalLink size={15} />
+                        Buka Arsip Cloud
+                    </a>
+                )}
+
+                <p className="text-xs text-slate-400 text-left pt-1">
+                    PDF tersimpan di arsip dan bisa diunduh ulang kapan saja dari halaman daftar Quotation.
+                </p>
+            </div>
+
+            <button onClick={onGoToList}
+                className="text-sm text-slate-500 hover:text-blue-600 underline underline-offset-2 transition-colors">
+                Lihat semua Quotation →
+            </button>
+        </div>
+    );
+}
+
+// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export function QuotationFormPage() {
     const navigate = useNavigate();
@@ -472,21 +500,16 @@ export function QuotationFormPage() {
 
     const [step, setStep] = useState(0);
 
-    // Step 1
     const [jenisLayanan, setJenisLayanan] = useState<JenisLayanan>("anti_rayap_injeksi");
     const [tipe, setTipe] = useState<TipeKontrak>("U");
     const [kepada, setKepada] = useState("");
     const [noPreview, setNoPreview] = useState("");
 
-    // Step 2
     const [kepadaNama, setKepadaNama] = useState("");
     const [kepadaAlamat, setKepadaAlamat] = useState<string[]>([""]);
     const [kepadaUp, setKepadaUp] = useState("");
 
-    // Step 3
-    const [items, setItems] = useState<QuotationItem[]>([
-        { desc: "", qty: 1, unit: "m2", harga: 0 },
-    ]);
+    const [items, setItems] = useState<QuotationItem[]>([{ desc: "", qty: 1, unit: "m2", harga: 0 }]);
     const [biayaTambahan, setBiayaTambahan] = useState<BiayaTambahan[]>([]);
     const [diskonPct, setDiskonPct] = useState(0);
     const [ppn, setPpn] = useState(false);
@@ -494,14 +517,15 @@ export function QuotationFormPage() {
     const [garansiTahun, setGaransiTahun] = useState(0);
     const [jenisGaransi, setJenisGaransi] = useState("Anti Rayap");
 
-    // Derived
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [saving, setSaving] = useState(false);
     const [saveErr, setSaveErr] = useState("");
 
+    // FIX: Simpan hasil generate di state agar bisa download berkali-kali
+    const [successData, setSuccessData] = useState<SuccessData | null>(null);
+
     const kategori: KategoriSurat = LAYANAN_CONFIG[jenisLayanan]?.kategori ?? "PCO";
 
-    // Preview nomor surat real-time (debounced)
     useEffect(() => {
         if (!user?.companyId) return;
         let cancelled = false;
@@ -512,7 +536,6 @@ export function QuotationFormPage() {
         return () => { cancelled = true; clearTimeout(timer); };
     }, [kategori, tipe, user?.companyId]);
 
-    // Sync kepada → kepadaNama saat berpindah step
     useEffect(() => {
         if (kepadaNama === "" && kepada) setKepadaNama(kepada);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -522,17 +545,13 @@ export function QuotationFormPage() {
 
     const validate = useCallback((): boolean => {
         const e: Record<string, string> = {};
-        if (step === 0) {
-            if (!kepada.trim()) e.kepada = "Nama klien wajib diisi.";
-        }
-        if (step === 1) {
-            if (!kepadaNama.trim()) e.nama = "Nama klien wajib diisi.";
-        }
+        if (step === 0 && !kepada.trim()) e.kepada = "Nama klien wajib diisi.";
+        if (step === 1 && !kepadaNama.trim()) e.nama = "Nama klien wajib diisi.";
         if (step === 2) {
-            if (items.length === 0) e.items = "Minimal 1 item harga.";
-            else if (items.some(it => !it.desc.trim())) e.items = "Deskripsi item tidak boleh kosong.";
-            else if (items.some(it => it.qty <= 0)) e.items = "Qty harus lebih dari 0.";
-            else if (items.some(it => it.harga <= 0)) e.items = "Harga satuan harus lebih dari 0.";
+            if (items.length === 0)                           e.items = "Minimal 1 item harga.";
+            else if (items.some(it => !it.desc.trim()))       e.items = "Deskripsi item tidak boleh kosong.";
+            else if (items.some(it => it.qty <= 0))           e.items = "Qty harus lebih dari 0.";
+            else if (items.some(it => it.harga <= 0))         e.items = "Harga satuan harus lebih dari 0.";
         }
         setErrors(e);
         return Object.keys(e).length === 0;
@@ -543,7 +562,6 @@ export function QuotationFormPage() {
         if (step === 0 && !kepadaNama) setKepadaNama(kepada);
         setStep(s => s + 1);
     };
-    const handleBack = () => setStep(s => s - 1);
 
     const handleSubmit = async () => {
         if (!user) return;
@@ -551,15 +569,11 @@ export function QuotationFormPage() {
         setSaveErr("");
 
         try {
-            // 1. Generate nomor surat (simpan ke Firestore)
+            // 1. Generate & simpan nomor surat ke Firestore
             const nomorEntry = await generateNomorSurat({
-                kategori,
-                tipe,
-                jenisLayanan,
+                kategori, tipe, jenisLayanan,
                 kepada: kepadaNama || kepada,
-                byUid: user.uid,
-                byName: user.name,
-                companyId: user.companyId,
+                byUid: user.uid, byName: user.name, companyId: user.companyId,
             });
 
             const pdfData = {
@@ -568,11 +582,7 @@ export function QuotationFormPage() {
                 kepadaNama: kepadaNama || kepada,
                 kepadaAlamatLines: kepadaAlamat.filter(Boolean),
                 kepadaUp: kepadaUp || undefined,
-                jenisLayanan,
-                items,
-                biayaTambahan,
-                diskonPct,
-                ppn,
+                jenisLayanan, items, biayaTambahan, diskonPct, ppn,
                 ppnDppFaktor: ppnDppFaktor || undefined,
                 garansiTahun: garansiTahun || undefined,
                 jenisGaransi: jenisGaransi || undefined,
@@ -580,47 +590,35 @@ export function QuotationFormPage() {
                 marketingWa: user.wa,
             };
 
-            // 2. Generate PDF blob (satu kali saja)
+            // 2. Generate PDF blob (sekali, simpan di memory)
             const pdfBlob = generateQuotationPDF(pdfData);
 
-            // 3. Download PDF langsung dari blob yang sudah ada (tidak di-generate ulang)
-            const dlUrl = URL.createObjectURL(pdfBlob);
-            const dlLink = document.createElement("a");
-            dlLink.href = dlUrl;
-            dlLink.download = `${nomorEntry.noSurat.replace(/\//g, "-")}.pdf`;
-            dlLink.click();
-            URL.revokeObjectURL(dlUrl);
-
-            // 4. Simpan ke Firestore + upload PDF ke Storage
-            await createQuotation({
-                noSurat: nomorEntry.noSurat,
-                kategori,
-                tipeKontrak: tipe,
-                jenisLayanan,
+            // 3. Upload ke Storage + simpan ke Firestore quotations
+            const saved = await createQuotation({
+                noSurat: nomorEntry.noSurat, kategori, tipeKontrak: tipe, jenisLayanan,
                 perihal: LAYANAN_CONFIG[jenisLayanan]?.perihal ?? "",
                 kepadaNama: kepadaNama || kepada,
                 kepadaAlamatLines: kepadaAlamat.filter(Boolean),
                 kepadaUp: kepadaUp || undefined,
-                tanggal: new Date(),
-                items,
-                biayaTambahan,
-                diskonPct,
-                ppn,
+                tanggal: new Date(), items, biayaTambahan, diskonPct, ppn,
                 ppnDppFaktor: ppnDppFaktor || undefined,
                 garansiTahun: garansiTahun || undefined,
                 jenisGaransi: jenisGaransi || undefined,
-                subtotal: calc.subtotal,
-                diskonRp: calc.diskonRp,
-                ppnRp: calc.ppnRp,
-                total: calc.total,
-                marketingUid: user.uid,
-                marketingNama: user.name,
-                marketingWa: user.wa,
-                status: "pending",
-                companyId: user.companyId,
+                subtotal: calc.subtotal, diskonRp: calc.diskonRp, ppnRp: calc.ppnRp, total: calc.total,
+                marketingUid: user.uid, marketingNama: user.name, marketingWa: user.wa,
+                status: "pending", companyId: user.companyId,
             }, pdfBlob);
 
-            navigate("/quotations");
+            // 4. Update status di log nomor surat
+            await updateNomorSuratStatus(nomorEntry.id, "pending", saved.id);
+
+            // 5. Tampilkan success screen (blob tetap di memory untuk download)
+            setSuccessData({
+                noSurat: nomorEntry.noSurat,
+                pdfBlob,
+                pdfUrl: saved.pdfUrl,
+            });
+
         } catch (err) {
             setSaveErr(err instanceof Error ? err.message : "Terjadi kesalahan. Coba lagi.");
         } finally {
@@ -628,9 +626,20 @@ export function QuotationFormPage() {
         }
     };
 
+    // ── Render success ─────────────────────────────────────────────────────────
+    if (successData) {
+        return (
+            <div className="p-6 max-w-2xl mx-auto">
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                    <SuccessScreen data={successData} onGoToList={() => navigate("/quotations")} />
+                </div>
+            </div>
+        );
+    }
+
+    // ── Render form ────────────────────────────────────────────────────────────
     return (
         <div className="p-6 max-w-2xl mx-auto">
-            {/* Header */}
             <div className="flex items-center gap-3 mb-6">
                 <button onClick={() => navigate("/quotations")}
                     className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
@@ -645,46 +654,21 @@ export function QuotationFormPage() {
                 </div>
             </div>
 
-            {/* Step indicator */}
             <StepIndicator current={step} />
 
-            {/* Form card */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                {step === 0 && (
-                    <Step1
-                        jenisLayanan={jenisLayanan} tipe={tipe} kepada={kepada} noPreview={noPreview}
-                        onLayanan={setJenisLayanan} onTipe={setTipe} onKepada={setKepada}
-                        errors={errors}
-                    />
-                )}
-                {step === 1 && (
-                    <Step2
-                        nama={kepadaNama} alamatLines={kepadaAlamat} up={kepadaUp}
-                        onNama={setKepadaNama} onAlamat={setKepadaAlamat} onUp={setKepadaUp}
-                        errors={errors}
-                    />
-                )}
-                {step === 2 && (
-                    <Step3
-                        items={items} biayaTambahan={biayaTambahan}
-                        diskonPct={diskonPct} ppn={ppn} ppnDppFaktor={ppnDppFaktor}
-                        garansiTahun={garansiTahun} jenisGaransi={jenisGaransi}
-                        jenisLayanan={jenisLayanan}
-                        onItems={setItems} onBiaya={setBiayaTambahan}
-                        onDiskon={setDiskonPct} onPpn={setPpn} onPpnDpp={setPpnDppFaktor}
-                        onGaransi={setGaransiTahun} onJenisGaransi={setJenisGaransi}
-                    />
-                )}
-                {step === 3 && (
-                    <Step4
-                        noSurat={noPreview} jenisLayanan={jenisLayanan} tipe={tipe}
-                        kepadaNama={kepadaNama || kepada}
-                        kepadaAlamatLines={kepadaAlamat}
-                        total={calc.total}
-                        marketingNama={user?.name ?? ""}
-                        marketingWa={user?.wa}
-                    />
-                )}
+                {step === 0 && <Step1 jenisLayanan={jenisLayanan} tipe={tipe} kepada={kepada} noPreview={noPreview}
+                    onLayanan={setJenisLayanan} onTipe={setTipe} onKepada={setKepada} errors={errors} />}
+                {step === 1 && <Step2 nama={kepadaNama} alamatLines={kepadaAlamat} up={kepadaUp}
+                    onNama={setKepadaNama} onAlamat={setKepadaAlamat} onUp={setKepadaUp} errors={errors} />}
+                {step === 2 && <Step3 items={items} biayaTambahan={biayaTambahan} diskonPct={diskonPct}
+                    ppn={ppn} ppnDppFaktor={ppnDppFaktor} garansiTahun={garansiTahun} jenisGaransi={jenisGaransi}
+                    jenisLayanan={jenisLayanan} onItems={setItems} onBiaya={setBiayaTambahan}
+                    onDiskon={setDiskonPct} onPpn={setPpn} onPpnDpp={setPpnDppFaktor}
+                    onGaransi={setGaransiTahun} onJenisGaransi={setJenisGaransi} />}
+                {step === 3 && <Step4 noSurat={noPreview} jenisLayanan={jenisLayanan} tipe={tipe}
+                    kepadaNama={kepadaNama || kepada} kepadaAlamatLines={kepadaAlamat}
+                    total={calc.total} marketingNama={user?.name ?? ""} marketingWa={user?.wa} />}
 
                 {saveErr && (
                     <div className="mt-4 flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
@@ -692,12 +676,8 @@ export function QuotationFormPage() {
                     </div>
                 )}
 
-                {/* Navigation */}
                 <div className="flex justify-between mt-6 pt-4 border-t border-slate-100">
-                    <button
-                        type="button"
-                        onClick={handleBack}
-                        disabled={step === 0}
+                    <button type="button" onClick={() => setStep(s => s - 1)} disabled={step === 0}
                         className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 disabled:opacity-30 transition-colors">
                         <ArrowLeft size={14} /> Kembali
                     </button>

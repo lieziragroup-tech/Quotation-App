@@ -22,6 +22,14 @@ const ROLE_COLORS: Record<string, string> = {
     teknisi: "bg-emerald-100 text-emerald-700",
 };
 
+function mapFirebaseError(msg: string): string {
+    if (msg.includes("email-already-in-use")) return "Email sudah terdaftar. Gunakan email lain.";
+    if (msg.includes("invalid-email"))        return "Format email tidak valid.";
+    if (msg.includes("weak-password"))        return "Password terlalu lemah. Gunakan minimal 8 karakter.";
+    if (msg.includes("network-request-failed")) return "Koneksi internet bermasalah. Coba lagi.";
+    return "Terjadi kesalahan. Coba lagi.";
+}
+
 export function SignupPage() {
     const navigate = useNavigate();
     const [params] = useSearchParams();
@@ -60,24 +68,25 @@ export function SignupPage() {
         if (!invite) return;
         setError("");
 
-        if (!name.trim()) { setError("Nama lengkap wajib diisi."); return; }
-        if (password.length < 8) { setError("Password minimal 8 karakter."); return; }
-        if (password !== confirmPassword) { setError("Konfirmasi password tidak cocok."); return; }
+        if (!name.trim())                        { setError("Nama lengkap wajib diisi."); return; }
+        if (password.length < 8)                 { setError("Password minimal 8 karakter."); return; }
+        if (password !== confirmPassword)         { setError("Konfirmasi password tidak cocok."); return; }
 
         setLoading(true);
         try {
-            // Cek slot sebelum buat akun
+            // 1. Cek slot user
             const count = await countActiveUsers(invite.companyId);
             if (count >= MAX_USERS_PER_COMPANY) {
                 setError(`Slot pengguna perusahaan sudah penuh (max ${MAX_USERS_PER_COMPANY} user).`);
                 return;
             }
 
-            // Buat Auth user
+            // 2. Buat Firebase Auth user
             const credential = await createUserWithEmailAndPassword(auth, email, password);
             const uid = credential.user.uid;
 
-            // Buat Firestore user doc (Document ID = UID)
+            // 3. Simpan Firestore doc SEBELUM markInviteUsed
+            //    (useAuth akan retry polling doc ini — harus ada dulu)
             await setDoc(doc(db, "users", uid), {
                 uid,
                 email,
@@ -89,28 +98,21 @@ export function SignupPage() {
                 wa: "",
             });
 
-            // Tandai invite sebagai terpakai
+            // 4. Tandai invite terpakai (setelah doc user ada)
             await markInviteUsed(token, uid);
 
+            // 5. Tampilkan sukses & redirect
             setDone(true);
-            // Bug fix: administrator is a per-company role, not super_admin.
-            // All non-super_admin roles (including administrator) go to /dashboard.
-            setTimeout(() => {
-                navigate("/dashboard");
-            }, 2000);
+            setTimeout(() => navigate("/dashboard"), 2000);
+
         } catch (err) {
             const msg = err instanceof Error ? err.message : "";
-            if (msg.includes("email-already-in-use")) {
-                setError("Email sudah terdaftar. Gunakan email lain.");
-            } else {
-                setError("Terjadi kesalahan. Coba lagi.");
-            }
+            setError(mapFirebaseError(msg));
         } finally {
             setLoading(false);
         }
     };
 
-    // ── Loading invite ─────────────────────────────────────────────────────────
     if (loadingInvite) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -119,7 +121,6 @@ export function SignupPage() {
         );
     }
 
-    // ── Invalid invite ─────────────────────────────────────────────────────────
     if (inviteError) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -134,7 +135,6 @@ export function SignupPage() {
         );
     }
 
-    // ── Success ────────────────────────────────────────────────────────────────
     if (done) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -143,17 +143,15 @@ export function SignupPage() {
                         <CheckCircle2 size={28} className="text-emerald-600" />
                     </div>
                     <h2 className="text-lg font-bold text-slate-900 mb-2">Akun Berhasil Dibuat!</h2>
-                    <p className="text-sm text-slate-500">Mengalihkan ke aplikasi...</p>
+                    <p className="text-sm text-slate-500">Mengalihkan ke dashboard...</p>
                 </div>
             </div>
         );
     }
 
-    // ── Form ───────────────────────────────────────────────────────────────────
     return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
             <div className="w-full max-w-sm">
-                {/* Brand */}
                 <div className="text-center mb-7">
                     <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 text-white mb-4">
                         <ShieldCheck size={28} />
@@ -162,7 +160,6 @@ export function SignupPage() {
                     <p className="text-slate-500 text-sm mt-1">ERP Pest Control</p>
                 </div>
 
-                {/* Invite info */}
                 <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
                     <p className="text-xs text-slate-400 mb-1 uppercase tracking-wide font-semibold">Undangan dari</p>
                     <p className="font-bold text-slate-900">{invite!.companyName}</p>
@@ -177,66 +174,43 @@ export function SignupPage() {
                     </p>
                 </div>
 
-                {/* Form */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                     <form onSubmit={handleSignup} className="space-y-4">
-                        {/* Nama */}
                         <div className="space-y-1.5">
-                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
-                                Nama Lengkap *
-                            </label>
-                            <input
-                                type="text" required
+                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">Nama Lengkap *</label>
+                            <input type="text" required
                                 className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
                                 placeholder="Nama lengkap kamu"
-                                value={name}
-                                onChange={e => setName(e.target.value)}
-                            />
+                                value={name} onChange={e => setName(e.target.value)} />
                         </div>
 
-                        {/* Email */}
                         <div className="space-y-1.5">
-                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
-                                Email *
-                            </label>
-                            <input
-                                type="email" required
+                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">Email *</label>
+                            <input type="email" required
                                 className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
                                 placeholder="email@example.com"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                autoComplete="email"
-                            />
+                                value={email} onChange={e => setEmail(e.target.value)}
+                                autoComplete="email" />
                         </div>
 
-                        {/* Password */}
                         <div className="space-y-1.5">
                             <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
                                 Password * <span className="text-slate-400 font-normal">(min. 8 karakter)</span>
                             </label>
-                            <input
-                                type="password" required
+                            <input type="password" required
                                 className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
                                 placeholder="Buat password"
-                                value={password}
-                                onChange={e => setPassword(e.target.value)}
-                                autoComplete="new-password"
-                            />
+                                value={password} onChange={e => setPassword(e.target.value)}
+                                autoComplete="new-password" />
                         </div>
 
-                        {/* Confirm password */}
                         <div className="space-y-1.5">
-                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
-                                Konfirmasi Password *
-                            </label>
-                            <input
-                                type="password" required
+                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">Konfirmasi Password *</label>
+                            <input type="password" required
                                 className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
                                 placeholder="Ulangi password"
-                                value={confirmPassword}
-                                onChange={e => setConfirmPassword(e.target.value)}
-                                autoComplete="new-password"
-                            />
+                                value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                                autoComplete="new-password" />
                         </div>
 
                         {error && (
@@ -246,11 +220,8 @@ export function SignupPage() {
                             </div>
                         )}
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
-                        >
+                        <button type="submit" disabled={loading}
+                            className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
                             {loading && <Loader2 size={15} className="animate-spin" />}
                             {loading ? "Membuat Akun..." : "Buat Akun"}
                         </button>

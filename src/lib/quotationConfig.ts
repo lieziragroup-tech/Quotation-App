@@ -1,23 +1,18 @@
 /**
  * Konfigurasi Quotation PT Guci Emas Pratama
- * Port dari generate_quotation_v2.py → TypeScript
  */
 
 import type { JenisLayanan, KategoriSurat } from "../types";
 
-// ─── COMPANY INFO ─────────────────────────────────────────────────────────────
-
 export const COMPANY = {
     name: "PT GUCI EMAS PRATAMA",
-    head: "Jln. Ganda Sasmita No.1 Serua, Ciputat – Tangerang Selatan 15414",
+    head: "Jln. Ganda Sasmita No.1 Serua, Ciputat - Tangerang Selatan 15414",
     telp: "(021) 74637054",
     wa: "0817 0795 959",
     email: "info@gucimaspratama.co.id",
     web: "www.gucimaspratama.co.id",
-    branch: "Pondok Trosobo Indah Blok I No.3, Sidoarjo – Jawa Timur. Telp : (031) 70235866",
+    branch: "Pondok Trosobo Indah Blok I No.3, Sidoarjo - Jawa Timur. Telp : (031) 70235866",
 } as const;
-
-// ─── BRAND COLORS ─────────────────────────────────────────────────────────────
 
 export const BRAND = {
     green: "#1a5c38",
@@ -32,8 +27,6 @@ export const BRAND = {
     totalBg: "#1a5c38",
 } as const;
 
-// ─── LAYANAN CONFIG ───────────────────────────────────────────────────────────
-
 export interface LayananConfig {
     label: string;
     kategori: KategoriSurat;
@@ -41,34 +34,32 @@ export interface LayananConfig {
     isAR: boolean;
 }
 
+/**
+ * PERUBAHAN: Fumigasi dipindah ke Anti Rayap (AR).
+ * Fumigasi menarget rayap kayu & struktur bangunan, sehingga
+ * secara teknis & bisnis masuk kategori Anti Rayap, bukan Pest Control.
+ */
 export const LAYANAN_CONFIG: Record<JenisLayanan, LayananConfig> = {
-    // Anti Rayap
-    anti_rayap_injeksi: { label: "Anti Rayap — Injeksi", kategori: "AR", perihal: "Penawaran Harga Anti Rayap", isAR: true },
-    anti_rayap_pipanisasi: { label: "Anti Rayap — Pipanisasi", kategori: "AR", perihal: "Penawaran Harga Anti Rayap Pra-Konstruksi", isAR: true },
-    anti_rayap_baiting: { label: "Anti Rayap — Baiting System", kategori: "AR", perihal: "Penawaran Harga Anti Rayap", isAR: true },
-    anti_rayap_pra: { label: "Anti Rayap — Pra-Konstruksi", kategori: "AR", perihal: "Penawaran Harga Anti Rayap Pra-Konstruksi", isAR: true },
-    anti_rayap_soil: { label: "Anti Rayap — Soil Poisoning", kategori: "AR", perihal: "Penawaran Harga Anti Rayap", isAR: true },
-    // Pest Control
-    pest_spraying: { label: "Pest Control — Spraying", kategori: "PCO", perihal: "Penawaran Harga Pest Control", isAR: false },
-    pest_fogging: { label: "Pest Control — Fogging/ULV", kategori: "PCO", perihal: "Penawaran Harga Pest Control (Fogging)", isAR: false },
-    pest_rodent: { label: "Pest Control — Rodent Control", kategori: "PCO", perihal: "Penawaran Harga Rodent Control", isAR: false },
-    pest_baiting: { label: "Pest Control — Baiting", kategori: "PCO", perihal: "Penawaran Harga Pest Control", isAR: false },
-    pest_fumigasi: { label: "Pest Control — Fumigasi", kategori: "PCO", perihal: "Penawaran Harga Fumigasi", isAR: false },
-    pest_umum: { label: "Pest Control — General", kategori: "PCO", perihal: "Penawaran Harga Jasa Pengendalian Hama", isAR: false },
+    // ── Anti Rayap ────────────────────────────────────────────────────────────
+    anti_rayap_injeksi:    { label: "Anti Rayap — Injeksi",         kategori: "AR",  perihal: "Penawaran Harga Anti Rayap",                  isAR: true  },
+    anti_rayap_pipanisasi: { label: "Anti Rayap — Pipanisasi",      kategori: "AR",  perihal: "Penawaran Harga Anti Rayap Pra-Konstruksi",   isAR: true  },
+    anti_rayap_baiting:    { label: "Anti Rayap — Baiting System",  kategori: "AR",  perihal: "Penawaran Harga Anti Rayap",                  isAR: true  },
+    anti_rayap_pra:        { label: "Anti Rayap — Pra-Konstruksi",  kategori: "AR",  perihal: "Penawaran Harga Anti Rayap Pra-Konstruksi",   isAR: true  },
+    anti_rayap_soil:       { label: "Anti Rayap — Soil Poisoning",  kategori: "AR",  perihal: "Penawaran Harga Anti Rayap",                  isAR: true  },
+    anti_rayap_fumigasi:   { label: "Anti Rayap — Fumigasi",        kategori: "AR",  perihal: "Penawaran Harga Fumigasi Anti Rayap",         isAR: true  },
+    // ── Pest Control ──────────────────────────────────────────────────────────
+    pest_spraying:         { label: "Pest Control — Spraying",      kategori: "PCO", perihal: "Penawaran Harga Pest Control",                isAR: false },
+    pest_fogging:          { label: "Pest Control — Fogging/ULV",   kategori: "PCO", perihal: "Penawaran Harga Pest Control (Fogging)",      isAR: false },
+    pest_rodent:           { label: "Pest Control — Rodent Control",kategori: "PCO", perihal: "Penawaran Harga Rodent Control",              isAR: false },
+    pest_baiting:          { label: "Pest Control — Baiting",       kategori: "PCO", perihal: "Penawaran Harga Pest Control",                isAR: false },
+    pest_umum:             { label: "Pest Control — General",       kategori: "PCO", perihal: "Penawaran Harga Jasa Pengendalian Hama",      isAR: false },
 };
-
-// ─── TIPE KONTRAK ─────────────────────────────────────────────────────────────
 
 export const TIPE_LABELS: Record<string, string> = {
     U: "Umum",
     K: "Kontrak",
 };
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
-
-/**
- * Generate nomor surat format: GP-{kategori}/{tipe}/YYYY/MM/XXXX
- */
 export function buildNomorSurat(
     kategori: KategoriSurat,
     tipe: string,
@@ -79,16 +70,10 @@ export function buildNomorSurat(
     return `GP-${kategori}/${tipe}/${yyyy}/${mm}/${String(seq).padStart(4, "0")}`;
 }
 
-/**
- * Format IDR: Rp 10.000 (titik sebagai pemisah ribuan)
- */
 export function fmtIDR(amount: number): string {
     return "Rp " + Math.round(amount).toLocaleString("id-ID");
 }
 
-/**
- * Format tanggal Indonesia: 3 Maret 2026
- */
 export function fmtDateID(d: Date): string {
     return d.toLocaleDateString("id-ID", {
         day: "numeric",
@@ -97,16 +82,10 @@ export function fmtDateID(d: Date): string {
     });
 }
 
-/**
- * Cek apakah layanan adalah Anti Rayap
- */
 export function isAntiRayap(jenisLayanan: JenisLayanan): boolean {
     return LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
 }
 
-/**
- * Paragraf pembuka otomatis berdasarkan jenis layanan
- */
 export function buildParagrafPembuka(
     jenisLayanan: JenisLayanan,
     kepadaNama: string,
@@ -122,9 +101,6 @@ export function buildParagrafPembuka(
     }
 }
 
-/**
- * Hitung semua komponen harga
- */
 export function calcTotals(params: {
     items: { qty: number; harga: number }[];
     biayaTambahan?: { amount: number }[];
@@ -165,9 +141,6 @@ export function calcTotals(params: {
     };
 }
 
-/**
- * Angka kecil ke kata (untuk teks garansi)
- */
 export function angkaKeKata(n: number): string {
     const m: Record<number, string> = {
         1: "satu", 2: "dua", 3: "tiga", 4: "empat", 5: "lima",

@@ -13,8 +13,8 @@ export interface AppUser {
     companyId: string;
     avatar?: string;
     isActive: boolean;
-    wa?: string;       // Nomor WhatsApp — muncul di PDF quotation
-    jabatan?: string;  // Jabatan / title — muncul di profil
+    wa?: string;
+    jabatan?: string;
 }
 
 export interface Company {
@@ -53,41 +53,34 @@ export type ServiceMethod =
 
 // ─── QUOTATION MODULE TYPES ───────────────────────────────────────────────────
 
-/** Kode jenis layanan (key dari LAYANAN_CONFIG) */
 export type JenisLayanan =
     | "anti_rayap_injeksi"
     | "anti_rayap_pipanisasi"
     | "anti_rayap_baiting"
     | "anti_rayap_pra"
     | "anti_rayap_soil"
+    | "anti_rayap_fumigasi"
     | "pest_spraying"
     | "pest_fogging"
     | "pest_rodent"
     | "pest_baiting"
-    | "pest_fumigasi"
     | "pest_umum";
 
-/** U = Umum (ad-hoc), K = Kontrak (berkala/tahunan) */
 export type TipeKontrak = "U" | "K";
-
-/** AR = Anti Rayap, PCO = Pest Control */
 export type KategoriSurat = "AR" | "PCO";
 
-/** Satu baris item di tabel harga */
 export interface QuotationItem {
     desc: string;
     qty: number;
-    unit: string;   // m2, m1, Kali, Titik, Lot, dll.
-    harga: number;  // harga per unit (IDR)
+    unit: string;
+    harga: number;
 }
 
-/** Biaya tambahan di luar tabel utama */
 export interface BiayaTambahan {
     label: string;
     amount: number;
 }
 
-/** Log nomor surat di Firestore collection `nomorSuratLog` */
 export interface NomorSuratLog {
     id: string;
     noSurat: string;
@@ -102,50 +95,42 @@ export interface NomorSuratLog {
     status: QuotationStatus;
     quoId: string | null;
     companyId: string;
+    isManual?: boolean;
+    keteranganManual?: string;
 }
 
 export interface Quotation {
     id: string;
-    // Nomor surat otomatis
-    noSurat: string;                    // e.g. GP-AR/U/2026/03/0001
-    kategori: KategoriSurat;            // "AR" | "PCO"
-    tipeKontrak: TipeKontrak;           // "U" | "K"
+    noSurat: string;
+    kategori: KategoriSurat;
+    tipeKontrak: TipeKontrak;
     jenisLayanan: JenisLayanan;
-    perihal: string;                    // otomatis dari layanan
-    // Klien
+    perihal: string;
     kepadaNama: string;
-    kepadaAlamatLines: string[];        // array baris alamat
-    kepadaUp?: string;                  // u.p. / contact person
-    // Tanggal
+    kepadaAlamatLines: string[];
+    kepadaUp?: string;
     tanggal: Date;
-    // Harga
     items: QuotationItem[];
     biayaTambahan: BiayaTambahan[];
-    diskonPct: number;                  // 0 jika tidak ada
+    diskonPct: number;
     ppn: boolean;
-    ppnDppFaktor?: number;              // e.g. 11/12 untuk DPP nilai lain
-    garansiTahun?: number;              // 0 / null jika tidak ada garansi
-    jenisGaransi?: string;              // label garansi
-    // Kalkulasi (computed & disimpan)
+    ppnDppFaktor?: number;
+    garansiTahun?: number;
+    jenisGaransi?: string;
     subtotal: number;
     diskonRp: number;
     ppnRp: number;
     total: number;
-    // Marketing
     marketingUid: string;
     marketingNama: string;
     marketingWa?: string;
-    // Status
     status: QuotationStatus;
     rejectionReason?: string;
     approvedBy?: string;
     approvedAt?: Date;
-    // PDF
     pdfUrl?: string;
-    // Meta
     companyId: string;
     createdAt: Date;
-    // Legacy fields (keep for backward compat)
     customerId?: string;
     notesMarketing?: string;
 }
