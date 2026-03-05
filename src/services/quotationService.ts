@@ -67,7 +67,27 @@ export async function uploadQuotationPDF(
     return getDownloadURL(storageRef);
 }
 
-// ─── CREATE ───────────────────────────────────────────────────────────────────
+// ─── CREATE (split: upload sudah dilakukan terpisah) ──────────────────────────
+
+/**
+ * Simpan dokumen quotation ke Firestore setelah PDF sudah di-upload.
+ * Gunakan ini bila upload PDF dilakukan secara terpisah (e.g. untuk progress tracking).
+ */
+export async function addQuotationDoc(
+    data: Omit<Quotation, "id" | "createdAt">,
+): Promise<Quotation> {
+    const now = new Date();
+    const docData = {
+        ...data,
+        tanggal: Timestamp.fromDate(data.tanggal),
+        createdAt: Timestamp.fromDate(now),
+        approvedAt: data.approvedAt ? Timestamp.fromDate(data.approvedAt) : null,
+    };
+    const docRef = await addDoc(collection(db, COL), docData);
+    return { ...data, id: docRef.id, createdAt: now };
+}
+
+// ─── CREATE (combined — upload + save in one call) ────────────────────────────
 
 export async function createQuotation(
     data: Omit<Quotation, "id" | "createdAt">,

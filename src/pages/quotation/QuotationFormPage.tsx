@@ -4,10 +4,11 @@ import {
     ArrowLeft, ArrowRight, Check, FileText,
     Plus, Trash2, Loader2, AlertCircle,
     Clock, ExternalLink, Hash,
+    FileCheck2, CloudUpload, Database, ShieldCheck,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { generateNomorSurat, previewNomorSurat, updateNomorSuratStatus } from "../../services/nomorSuratService";
-import { createQuotation } from "../../services/quotationService";
+import { uploadQuotationPDF, addQuotationDoc } from "../../services/quotationService";
 import { generateQuotationPDF } from "../../lib/pdfGenerator";
 import { LAYANAN_CONFIG, calcTotals, fmtIDR, TIPE_LABELS } from "../../lib/quotationConfig";
 import type { JenisLayanan, TipeKontrak, KategoriSurat, QuotationItem, BiayaTambahan } from "../../types";
@@ -416,18 +417,200 @@ function Step4({ noSurat, jenisLayanan, tipe, kepadaNama, kepadaAlamatLines, tot
 }
 
 // ─── SUCCESS SCREEN ───────────────────────────────────────────────────────────
-// FIX: Daripada auto-download (yang sering diblokir browser) + langsung navigate,
-// sekarang tampilkan halaman sukses dengan tombol download eksplisit.
-// Blob disimpan di state sehingga bisa di-download berkali-kali tanpa re-generate.
+// ─── GENERATING OVERLAY ──────────────────────────────────────────────────────
+// Full-screen lock overlay yang muncul saat PDF sedang di-generate & disimpan.
+
+type GenStep = "idle" | "nomor" | "pdf" | "upload" | "db" | "done" | "error";
+
+interface GenState {
+    step: GenStep;
+    errorMsg?: string;
+}
+
+const GEN_STEPS: { key: GenStep; label: string; sublabel: string; icon: React.ReactNode }[] = [
+    {
+        key: "nomor",
+        label: "Mengunci nomor surat",
+        sublabel: "Memesan nomor surat dari sistem...",
+        icon: <Hash size={18} />,
+    },
+    {
+        key: "pdf",
+        label: "Membuat PDF",
+        sublabel: "Menyusun dan merender dokumen PDF...",
+        icon: <FileCheck2 size={18} />,
+    },
+    {
+        key: "upload",
+        label: "Mengunggah ke cloud",
+        sublabel: "Menyimpan PDF ke Firebase Storage...",
+        icon: <CloudUpload size={18} />,
+    },
+    {
+        key: "db",
+        label: "Menyimpan ke database",
+        sublabel: "Mencatat quotation ke Firestore...",
+        icon: <Database size={18} />,
+    },
+    {
+        key: "done",
+        label: "Selesai!",
+        sublabel: "Quotation berhasil dibuat dan menunggu approval.",
+        icon: <ShieldCheck size={18} />,
+    },
+];
+
+function GeneratingOverlay({ genState }: { genState: GenState }) {
+    if (genState.step === "idle") return null;
+
+    const stepOrder: GenStep[] = ["nomor", "pdf", "upload", "db", "done"];
+    const currentIdx = stepOrder.indexOf(genState.step);
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" />
+
+            {/* Card */}
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+
+                {/* Header */}
+                <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5 text-white">
+                    <div className="flex items-center gap-3">
+                        {genState.step !== "done" && genState.step !== "error" ? (
+                            <Loader2 size={22} className="animate-spin shrink-0" />
+                        ) : genState.step === "done" ? (
+                            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                                <Check size={14} className="text-white" />
+                            </div>
+                        ) : (
+                            <AlertCircle size={22} className="text-red-300 shrink-0" />
+                        )}
+                        <div>
+                            <p className="font-bold text-sm">
+                                {genState.step === "done"
+                                    ? "Quotation Berhasil Dibuat"
+                                    : genState.step === "error"
+                                    ? "Terjadi Kesalahan"
+                                    : "Sedang Memproses..."}
+                            </p>
+                            <p className="text-xs text-blue-200 mt-0.5">
+                                {genState.step === "done"
+                                    ? "Menunggu persetujuan administrator"
+                                    : genState.step === "error"
+                                    ? "Proses gagal, silakan coba lagi"
+                                    : "Mohon jangan tutup atau refresh halaman ini"}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    {genState.step !== "error" && (
+                        <div className="mt-4 bg-blue-800/40 rounded-full h-1.5 overflow-hidden">
+                            <div
+                                className="h-full bg-white rounded-full transition-all duration-700 ease-out"
+                                style={{
+                                    width: genState.step === "done"
+                                        ? "100%"
+                                        : `${Math.max(8, (currentIdx / (stepOrder.length - 1)) * 100)}%`,
+                                }}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* Steps */}
+                <div className="px-6 py-5 space-y-3">
+                    {GEN_STEPS.map((s, idx) => {
+                        const sIdx = stepOrder.indexOf(s.key);
+                        const isDone    = sIdx < currentIdx || genState.step === "done";
+                        const isActive  = s.key === genState.step;
+                        const isPending = sIdx > currentIdx && genState.step !== "done";
+
+                        return (
+                            <div key={s.key} className="flex items-center gap-3">
+                                {/* Step icon / status */}
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300
+                                    ${isDone
+                                        ? "bg-green-100 text-green-600"
+                                        : isActive
+                                        ? "bg-blue-100 text-blue-600"
+                                        : "bg-slate-100 text-slate-300"
+                                    }`}>
+                                    {isDone
+                                        ? <Check size={14} className="text-green-600" />
+                                        : isActive
+                                        ? <Loader2 size={14} className="animate-spin" />
+                                        : s.icon
+                                    }
+                                </div>
+
+                                {/* Labels */}
+                                <div className="min-w-0 flex-1">
+                                    <p className={`text-sm font-semibold transition-colors
+                                        ${isDone ? "text-green-700" : isActive ? "text-slate-900" : "text-slate-300"}`}>
+                                        {s.label}
+                                    </p>
+                                    {isActive && (
+                                        <p className="text-xs text-slate-400 mt-0.5 truncate">{s.sublabel}</p>
+                                    )}
+                                    {isDone && (
+                                        <p className="text-xs text-green-500 mt-0.5">Selesai</p>
+                                    )}
+                                </div>
+
+                                {/* Right indicator */}
+                                <div className="shrink-0">
+                                    {isDone && (
+                                        <div className="w-2 h-2 rounded-full bg-green-400" />
+                                    )}
+                                    {isActive && (
+                                        <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                                    )}
+                                    {isPending && (
+                                        <div className="w-2 h-2 rounded-full bg-slate-200" />
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Error message */}
+                {genState.step === "error" && genState.errorMsg && (
+                    <div className="px-6 pb-5">
+                        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                            <p className="text-xs text-red-700 font-medium">Error:</p>
+                            <p className="text-xs text-red-600 mt-1">{genState.errorMsg}</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Footer note */}
+                {genState.step !== "done" && genState.step !== "error" && (
+                    <div className="px-6 pb-5">
+                        <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5 flex items-start gap-2">
+                            <AlertCircle size={13} className="text-amber-500 shrink-0 mt-0.5" />
+                            <p className="text-xs text-amber-700">
+                                Proses ini memerlukan koneksi internet. Jangan tutup tab atau refresh halaman.
+                            </p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─── SUCCESS SCREEN ───────────────────────────────────────────────────────────
 
 interface SuccessData {
     noSurat: string;
     pdfBlob: Blob;
-    pdfUrl?: string; // URL dari Firebase Storage (arsip cloud)
+    pdfUrl?: string;
 }
 
 function SuccessScreen({ data, onGoToList }: { data: SuccessData; onGoToList: () => void }) {
-    // Simpan blob di ref agar bisa preview lokal (untuk admin jika diperlukan)
     const handlePreviewLocal = () => {
         const url = URL.createObjectURL(data.pdfBlob);
         window.open(url, "_blank");
@@ -436,7 +619,6 @@ function SuccessScreen({ data, onGoToList }: { data: SuccessData; onGoToList: ()
 
     return (
         <div className="py-6 flex flex-col items-center text-center">
-            {/* Icon */}
             <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mb-5">
                 <Clock size={32} className="text-amber-600" />
             </div>
@@ -450,34 +632,24 @@ function SuccessScreen({ data, onGoToList }: { data: SuccessData; onGoToList: ()
                 </code>
             </div>
 
-            {/* Status info */}
             <div className="w-full max-w-xs space-y-3 mb-6">
-                {/* Info pending */}
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left">
                     <p className="text-xs font-bold text-amber-700 mb-1 uppercase tracking-wide">⏳ Status: Menunggu Approval</p>
                     <p className="text-sm text-amber-700">
                         Quotation sudah masuk ke daftar pengajuan dan menunggu persetujuan dari administrator.
                     </p>
                 </div>
-
-                {/* Info download terkunci */}
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left">
                     <p className="text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">🔒 Download PDF</p>
                     <p className="text-sm text-slate-500">
-                        Download PDF dan tanda tangan digital baru tersedia setelah quotation <strong>disetujui</strong> oleh administrator.
+                        Download PDF baru tersedia setelah quotation <strong>disetujui</strong> oleh administrator.
                     </p>
                 </div>
-
-                {/* Preview sementara */}
                 <button onClick={handlePreviewLocal}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors">
                     <ExternalLink size={15} />
                     Preview PDF (sementara)
                 </button>
-
-                <p className="text-xs text-slate-400 text-left">
-                    PDF sudah tersimpan di arsip cloud dan bisa diunduh setelah disetujui dari halaman daftar Quotation.
-                </p>
             </div>
 
             <button onClick={onGoToList}
@@ -514,10 +686,7 @@ export function QuotationFormPage() {
     const [jenisGaransi, setJenisGaransi] = useState("Anti Rayap");
 
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const [saving, setSaving] = useState(false);
-    const [saveErr, setSaveErr] = useState("");
-
-    // FIX: Simpan hasil generate di state agar bisa download berkali-kali
+    const [genState, setGenState] = useState<GenState>({ step: "idle" });
     const [successData, setSuccessData] = useState<SuccessData | null>(null);
 
     const kategori: KategoriSurat = LAYANAN_CONFIG[jenisLayanan]?.kategori ?? "PCO";
@@ -561,17 +730,20 @@ export function QuotationFormPage() {
 
     const handleSubmit = async () => {
         if (!user) return;
-        setSaving(true);
-        setSaveErr("");
+        setGenState({ step: "nomor" });
 
         try {
-            // 1. Generate & simpan nomor surat ke Firestore
+            // Step 1 — Kunci nomor surat
             const nomorEntry = await generateNomorSurat({
                 kategori, tipe, jenisLayanan,
                 kepada: kepadaNama || kepada,
                 byUid: user.uid, byName: user.name, companyId: user.companyId,
             });
 
+            // Step 2 — Generate PDF blob
+            setGenState({ step: "pdf" });
+            // Beri sedikit delay agar UI sempat render label "Membuat PDF"
+            await new Promise(r => setTimeout(r, 80));
             const pdfData = {
                 noSurat: nomorEntry.noSurat,
                 tanggal: new Date(),
@@ -585,12 +757,15 @@ export function QuotationFormPage() {
                 marketingNama: user.name,
                 marketingWa: user.wa,
             };
-
-            // 2. Generate PDF blob (sekali, simpan di memory)
             const pdfBlob = generateQuotationPDF(pdfData);
 
-            // 3. Upload ke Storage + simpan ke Firestore quotations
-            const saved = await createQuotation({
+            // Step 3 — Upload PDF ke Storage
+            setGenState({ step: "upload" });
+            const pdfUrl = await uploadQuotationPDF(pdfBlob, nomorEntry.noSurat, user.companyId);
+
+            // Step 4 — Simpan ke Firestore
+            setGenState({ step: "db" });
+            const saved = await addQuotationDoc({
                 noSurat: nomorEntry.noSurat, kategori, tipeKontrak: tipe, jenisLayanan,
                 perihal: LAYANAN_CONFIG[jenisLayanan]?.perihal ?? "",
                 kepadaNama: kepadaNama || kepada,
@@ -603,24 +778,28 @@ export function QuotationFormPage() {
                 subtotal: calc.subtotal, diskonRp: calc.diskonRp, ppnRp: calc.ppnRp, total: calc.total,
                 marketingUid: user.uid, marketingNama: user.name, marketingWa: user.wa,
                 status: "pending", companyId: user.companyId,
-            }, pdfBlob);
-
-            // 4. Update status di log nomor surat
-            await updateNomorSuratStatus(nomorEntry.id, "pending", saved.id);
-
-            // 5. Tampilkan success screen (blob tetap di memory untuk download)
-            setSuccessData({
-                noSurat: nomorEntry.noSurat,
-                pdfBlob,
-                pdfUrl: saved.pdfUrl,
+                pdfUrl,
             });
 
+            await updateNomorSuratStatus(nomorEntry.id, "pending", saved.id);
+
+            // Step 5 — Done
+            setGenState({ step: "done" });
+            await new Promise(r => setTimeout(r, 900)); // brief "done" moment before showing success
+            setSuccessData({ noSurat: nomorEntry.noSurat, pdfBlob, pdfUrl });
+            setGenState({ step: "idle" });
+
         } catch (err) {
-            setSaveErr(err instanceof Error ? err.message : "Terjadi kesalahan. Coba lagi.");
-        } finally {
-            setSaving(false);
+            setGenState({
+                step: "error",
+                errorMsg: err instanceof Error ? err.message : "Terjadi kesalahan. Coba lagi.",
+            });
         }
     };
+
+    const handleDismissError = () => setGenState({ step: "idle" });
+
+    const isGenerating = genState.step !== "idle" && genState.step !== "error";
 
     // ── Render success ─────────────────────────────────────────────────────────
     if (successData) {
@@ -636,6 +815,9 @@ export function QuotationFormPage() {
     // ── Render form ────────────────────────────────────────────────────────────
     return (
         <div className="p-6 max-w-2xl mx-auto">
+            {/* Full-screen generating overlay */}
+            <GeneratingOverlay genState={genState} />
+
             <div className="flex items-center gap-3 mb-6">
                 <button onClick={() => navigate("/quotations")}
                     className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
@@ -666,14 +848,24 @@ export function QuotationFormPage() {
                     kepadaNama={kepadaNama || kepada} kepadaAlamatLines={kepadaAlamat}
                     total={calc.total} marketingNama={user?.name ?? ""} marketingWa={user?.wa} />}
 
-                {saveErr && (
-                    <div className="mt-4 flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-                        <AlertCircle size={14} /> {saveErr}
+                {/* Error dari genState (muncul di bawah form setelah overlay ditutup) */}
+                {genState.step === "error" && genState.errorMsg && (
+                    <div className="mt-4 flex items-start gap-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                        <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <p className="font-semibold mb-0.5">Gagal menyimpan quotation</p>
+                            <p className="text-xs text-red-600">{genState.errorMsg}</p>
+                        </div>
+                        <button
+                            onClick={handleDismissError}
+                            className="text-xs text-red-500 hover:text-red-700 font-medium shrink-0 underline">
+                            Tutup
+                        </button>
                     </div>
                 )}
 
                 <div className="flex justify-between mt-6 pt-4 border-t border-slate-100">
-                    <button type="button" onClick={() => setStep(s => s - 1)} disabled={step === 0}
+                    <button type="button" onClick={() => setStep(s => s - 1)} disabled={step === 0 || isGenerating}
                         className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 disabled:opacity-30 transition-colors">
                         <ArrowLeft size={14} /> Kembali
                     </button>
@@ -684,14 +876,15 @@ export function QuotationFormPage() {
                             Lanjut <ArrowRight size={14} />
                         </button>
                     ) : (
-                        <button type="button" onClick={handleSubmit} disabled={saving}
+                        <button type="button" onClick={handleSubmit} disabled={isGenerating}
                             className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 transition-colors">
-                            {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                            {saving ? "Menyimpan..." : "Generate PDF & Simpan"}
+                            {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                            {isGenerating ? "Memproses..." : "Generate PDF & Simpan"}
                         </button>
                     )}
                 </div>
             </div>
+
         </div>
     );
 }
