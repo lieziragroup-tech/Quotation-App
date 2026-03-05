@@ -128,8 +128,11 @@ export interface Quotation {
     rejectionReason?: string;
     approvedBy?: string;
     approvedAt?: Date;
-    pdfUrl?: string;       // legacy — Storage URL (lama)
-    pdfBase64?: string;    // baru — PDF tersimpan langsung di Firestore
+    pdfUrl?: string;
+    pdfBase64?: string;
+    signedPdfBase64?: string;
+    signedAt?: Date;
+    signedBy?: string;
     companyId: string;
     createdAt: Date;
     customerId?: string;

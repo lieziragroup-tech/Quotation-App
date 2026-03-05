@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { SignatureModal } from "../../components/SignatureModal";
 import { useNavigate } from "react-router-dom";
 import {
     FileText, Plus, Search, RefreshCw,
@@ -236,6 +237,7 @@ export function QuotationPage() {
     const { user } = useAuthStore();
 
     const [quotations, setQuotations] = useState<Quotation[]>([]);
+    const [signatureTarget, setSignatureTarget] = useState<Quotation | null>(null);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [filterKat, setFilterKat] = useState<"all" | KategoriSurat>("all");
@@ -317,6 +319,24 @@ export function QuotationPage() {
 
     return (
         <div className="p-6 max-w-screen-xl mx-auto space-y-5">
+            {/* Signature Modal */}
+            {signatureTarget && (
+                <SignatureModal
+                    quotation={signatureTarget}
+                    signerName={user?.name ?? "Marketing"}
+                    onClose={() => setSignatureTarget(null)}
+                    onSigned={(signedPdfBase64) => {
+                        // Update local state so button reflects signed status immediately
+                        setQuotations(prev => prev.map(q =>
+                            q.id === signatureTarget.id
+                                ? { ...q, signedPdfBase64, signedAt: new Date(), signedBy: user?.name }
+                                : q
+                        ));
+                        setSignatureTarget(null);
+                    }}
+                />
+            )}
+
             {/* Header */}
             <div className="flex items-start justify-between">
                 <div>
@@ -543,14 +563,35 @@ export function QuotationPage() {
                                                     )}
 
                                                     {/* Tanda tangan — HANYA jika approved */}
-                                                    {isApproved && (
+                                                    {isApproved && !q.signedPdfBase64 && (
                                                         <button
                                                             title="Tanda Tangan Digital"
                                                             className="p-1.5 rounded-lg text-slate-400 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                                                            onClick={() => setSignatureTarget(q)}>
+                                                            <PenLine size={14} />
+                                                        </button>
+                                                    )}
+
+                                                    {/* Sudah ditandatangani — tampilkan badge + download */}
+                                                    {isApproved && q.signedPdfBase64 && (
+                                                        <button
+                                                            title={}
+                                                            className="p-1.5 rounded-lg text-green-500 hover:bg-green-50 transition-colors relative"
                                                             onClick={() => {
-                                                                alert("Fitur tanda tangan digital akan segera tersedia.");
+                                                                const bytes = Uint8Array.from(atob(q.signedPdfBase64!), c => c.charCodeAt(0));
+                                                                const blob = new Blob([bytes], { type: "application/pdf" });
+                                                                const url = URL.createObjectURL(blob);
+                                                                const a = document.createElement("a");
+                                                                a.href = url;
+                                                                a.download = ;
+                                                                a.style.display = "none";
+                                                                document.body.appendChild(a);
+                                                                a.click();
+                                                                document.body.removeChild(a);
+                                                                setTimeout(() => URL.revokeObjectURL(url), 3000);
                                                             }}>
                                                             <PenLine size={14} />
+                                                            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-400 rounded-full" />
                                                         </button>
                                                     )}
 

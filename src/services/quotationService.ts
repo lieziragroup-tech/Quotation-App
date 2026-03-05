@@ -74,8 +74,11 @@ function toQuotation(id: string, data: Record<string, unknown>): Quotation {
         notesMarketing:     data.notesMarketing as string | undefined,
         approvedBy:         data.approvedBy as string | undefined,
         approvedAt:         data.approvedAt ? (data.approvedAt as Timestamp).toDate() : undefined,
-        pdfUrl:             data.pdfUrl as string | undefined,    // legacy field (compat)
-        pdfBase64:          data.pdfBase64 as string | undefined, // new field
+        pdfUrl:             data.pdfUrl as string | undefined,
+        pdfBase64:          data.pdfBase64 as string | undefined,
+        signedPdfBase64:    data.signedPdfBase64 as string | undefined,
+        signedAt:           data.signedAt ? (data.signedAt as any).toDate() : undefined,
+        signedBy:           data.signedBy as string | undefined,
         companyId:          data.companyId as string,
         createdAt:          data.createdAt ? (data.createdAt as Timestamp).toDate() : new Date(),
     };
