@@ -44,6 +44,7 @@ function toQuotation(id: string, data: Record<string, unknown>): Quotation {
         marketingWa: data.marketingWa as string | undefined,
         status: data.status as QuotationStatus,
         rejectionReason: data.rejectionReason as string | undefined,
+        notesMarketing: data.notesMarketing as string | undefined,
         approvedBy: data.approvedBy as string | undefined,
         approvedAt: data.approvedAt ? (data.approvedAt as Timestamp).toDate() : undefined,
         pdfUrl: data.pdfUrl as string | undefined,
@@ -75,10 +76,11 @@ export async function createQuotation(
     // 1. Upload PDF ke Storage
     const pdfUrl = await uploadQuotationPDF(pdfBlob, data.noSurat, data.companyId);
 
-    // 2. Simpan ke Firestore
+    // 2. Simpan ke Firestore dengan status "pending"
     const now = new Date();
     const docData = {
         ...data,
+        status: "pending" as QuotationStatus, // selalu pending saat dibuat
         pdfUrl,
         tanggal: Timestamp.fromDate(data.tanggal),
         createdAt: Timestamp.fromDate(now),
@@ -86,7 +88,7 @@ export async function createQuotation(
     };
 
     const docRef = await addDoc(collection(db, COL), docData);
-    return { ...data, id: docRef.id, pdfUrl, createdAt: now };
+    return { ...data, id: docRef.id, pdfUrl, createdAt: now, status: "pending" };
 }
 
 // ─── READ ─────────────────────────────────────────────────────────────────────
@@ -114,7 +116,7 @@ export async function getQuotations(filters: GetQuotationsFilters): Promise<Quot
 
     let results = snap.docs.map(d => toQuotation(d.id, d.data() as Record<string, unknown>));
 
-    // Client-side filters (Firestore tidak support multiple != queries)
+    // Client-side filters
     if (filters.kategori) results = results.filter(r => r.kategori === filters.kategori);
     if (filters.tipeKontrak) results = results.filter(r => r.tipeKontrak === filters.tipeKontrak);
     if (filters.status) results = results.filter(r => r.status === filters.status);
@@ -130,17 +132,33 @@ export async function getQuotationById(id: string): Promise<Quotation | null> {
 
 // ─── UPDATE STATUS ────────────────────────────────────────────────────────────
 
+/**
+ * Update status quotation.
+ * - approved: set approvedBy + approvedAt
+ * - rejected: set rejectionReason + notesMarketing (catatan ke marketing)
+ */
 export async function updateQuotationStatus(
     id: string,
     status: QuotationStatus,
     approvedBy?: string,
     rejectionReason?: string,
+    notesMarketing?: string,
 ): Promise<void> {
     const updates: Record<string, unknown> = { status };
-    if (approvedBy) updates.approvedBy = approvedBy;
-    if (rejectionReason) updates.rejectionReason = rejectionReason;
-    if (status === "approved" || status === "rejected") {
+
+    if (status === "approved") {
+        if (approvedBy) updates.approvedBy = approvedBy;
         updates.approvedAt = Timestamp.fromDate(new Date());
+        // Clear any previous rejection data
+        updates.rejectionReason = null;
+        updates.notesMarketing = null;
     }
+
+    if (status === "rejected") {
+        if (rejectionReason) updates.rejectionReason = rejectionReason;
+        if (notesMarketing) updates.notesMarketing = notesMarketing;
+        updates.approvedAt = Timestamp.fromDate(new Date()); // timestamp penolakan
+    }
+
     await updateDoc(doc(db, COL, id), updates);
 }

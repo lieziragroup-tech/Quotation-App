@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
     ArrowLeft, ArrowRight, Check, FileText,
     Plus, Trash2, Loader2, AlertCircle,
-    Download, CheckCircle2, ExternalLink, Hash,
+    Clock, ExternalLink, Hash,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { generateNomorSurat, previewNomorSurat, updateNomorSuratStatus } from "../../services/nomorSuratService";
@@ -427,31 +427,22 @@ interface SuccessData {
 }
 
 function SuccessScreen({ data, onGoToList }: { data: SuccessData; onGoToList: () => void }) {
-    const [downloadCount, setDownloadCount] = useState(0);
-
-    // FIX: harus append ke DOM dulu agar download tidak diblokir
-    // (Chrome, Firefox, Safari semua butuh elemen ada di DOM sebelum click)
-    const handleDownloadLocal = () => {
+    // Simpan blob di ref agar bisa preview lokal (untuk admin jika diperlukan)
+    const handlePreviewLocal = () => {
         const url = URL.createObjectURL(data.pdfBlob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${data.noSurat.replace(/\//g, "-")}.pdf`;
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 3000);
-        setDownloadCount(c => c + 1);
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
     };
 
     return (
         <div className="py-6 flex flex-col items-center text-center">
             {/* Icon */}
-            <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center mb-5">
-                <CheckCircle2 size={32} className="text-emerald-600" />
+            <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mb-5">
+                <Clock size={32} className="text-amber-600" />
             </div>
 
-            <h2 className="text-xl font-bold text-slate-900 mb-1">Quotation Berhasil Dibuat!</h2>
+            <h2 className="text-xl font-bold text-slate-900 mb-1">Quotation Terkirim!</h2>
+            <p className="text-sm text-slate-500 mb-3">Menunggu persetujuan administrator</p>
             <div className="flex items-center gap-2 mb-6">
                 <Hash size={13} className="text-slate-400" />
                 <code className="text-sm font-bold font-mono bg-slate-100 text-slate-800 px-3 py-1 rounded-lg">
@@ -459,34 +450,39 @@ function SuccessScreen({ data, onGoToList }: { data: SuccessData; onGoToList: ()
                 </code>
             </div>
 
-            {/* Download box */}
-            <div className="w-full max-w-xs bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3 mb-6">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400 text-left">Unduh PDF Quotation</p>
+            {/* Status info */}
+            <div className="w-full max-w-xs space-y-3 mb-6">
+                {/* Info pending */}
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left">
+                    <p className="text-xs font-bold text-amber-700 mb-1 uppercase tracking-wide">⏳ Status: Menunggu Approval</p>
+                    <p className="text-sm text-amber-700">
+                        Quotation sudah masuk ke daftar pengajuan dan menunggu persetujuan dari administrator.
+                    </p>
+                </div>
 
-                {/* Download dari blob (selalu tersedia, tidak perlu internet) */}
-                <button onClick={handleDownloadLocal}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors">
-                    <Download size={16} />
-                    {downloadCount > 0 ? "Download Ulang PDF" : "Download PDF"}
+                {/* Info download terkunci */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left">
+                    <p className="text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">🔒 Download PDF</p>
+                    <p className="text-sm text-slate-500">
+                        Download PDF dan tanda tangan digital baru tersedia setelah quotation <strong>disetujui</strong> oleh administrator.
+                    </p>
+                </div>
+
+                {/* Preview sementara */}
+                <button onClick={handlePreviewLocal}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors">
+                    <ExternalLink size={15} />
+                    Preview PDF (sementara)
                 </button>
 
-                {/* Link arsip dari Storage */}
-                {data.pdfUrl && (
-                    <a href={data.pdfUrl} target="_blank" rel="noopener noreferrer"
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors">
-                        <ExternalLink size={15} />
-                        Buka Arsip Cloud
-                    </a>
-                )}
-
-                <p className="text-xs text-slate-400 text-left pt-1">
-                    PDF tersimpan di arsip dan bisa diunduh ulang kapan saja dari halaman daftar Quotation.
+                <p className="text-xs text-slate-400 text-left">
+                    PDF sudah tersimpan di arsip cloud dan bisa diunduh setelah disetujui dari halaman daftar Quotation.
                 </p>
             </div>
 
             <button onClick={onGoToList}
-                className="text-sm text-slate-500 hover:text-blue-600 underline underline-offset-2 transition-colors">
-                Lihat semua Quotation →
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors">
+                Lihat Daftar Quotation →
             </button>
         </div>
     );

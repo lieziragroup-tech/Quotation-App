@@ -4,6 +4,7 @@ import {
     FileText, Plus, Search, RefreshCw,
     CheckCircle2, XCircle, Clock, FileX2,
     Eye, Download, Filter, ChevronLeft, ChevronRight,
+    PenLine, MessageSquare, AlertCircle,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { getQuotations, updateQuotationStatus } from "../../services/quotationService";
@@ -11,7 +12,7 @@ import { LAYANAN_CONFIG } from "../../lib/quotationConfig";
 import { formatDate, formatRupiah } from "../../lib/utils";
 import type { Quotation, QuotationStatus, KategoriSurat, TipeKontrak } from "../../types";
 
-// ─── STATUS CONFIG ───────────────────────────────────────────────────────────
+// ─── STATUS CONFIG ────────────────────────────────────────────────────────────
 
 const STATUS_CFG: Record<QuotationStatus, { label: string; icon: React.ReactNode; bg: string; text: string; dot: string }> = {
     draft: { label: "Draft", icon: <FileX2 size={12} />, bg: "#f1f5f9", text: "#64748b", dot: "#94a3b8" },
@@ -50,8 +51,6 @@ function TipeBadge({ tipe }: { tipe: TipeKontrak }) {
     );
 }
 
-// ─── STATS CARD ──────────────────────────────────────────────────────────────
-
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
     return (
         <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
@@ -61,32 +60,78 @@ function StatCard({ label, value, color }: { label: string; value: number; color
     );
 }
 
-// ─── REJECTION MODAL ─────────────────────────────────────────────────────────
+// ─── REJECTION MODAL (dengan notes ke marketing) ──────────────────────────────
 
 function RejectionModal({
-    open, onClose, onConfirm,
-}: { open: boolean; onClose: () => void; onConfirm: (reason: string) => void }) {
+    open, onClose, onConfirm, quotation,
+}: {
+    open: boolean;
+    onClose: () => void;
+    onConfirm: (reason: string, notes: string) => void;
+    quotation: Quotation | null;
+}) {
     const [reason, setReason] = useState("");
-    if (!open) return null;
+    const [notes, setNotes] = useState("");
+
+    useEffect(() => {
+        if (!open) { setReason(""); setNotes(""); }
+    }, [open]);
+
+    if (!open || !quotation) return null;
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
             <div className="relative bg-white rounded-2xl w-full max-w-md shadow-2xl p-6">
-                <h3 className="text-base font-bold text-slate-900 mb-3">Alasan Penolakan</h3>
-                <textarea
-                    className="w-full border border-slate-200 rounded-lg p-3 text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
-                    rows={3}
-                    placeholder="Tuliskan alasan penolakan..."
-                    value={reason}
-                    onChange={e => setReason(e.target.value)}
-                />
-                <div className="flex justify-end gap-2 mt-4">
-                    <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium">Batal</button>
+                <div className="flex items-center gap-2 mb-1">
+                    <XCircle size={18} className="text-red-500" />
+                    <h3 className="text-base font-bold text-slate-900">Tolak Quotation</h3>
+                </div>
+                <p className="text-xs text-slate-400 mb-4">
+                    Quotation <code className="font-mono bg-slate-100 px-1 rounded">{quotation.noSurat}</code> akan ditolak dan dikembalikan ke marketing.
+                </p>
+
+                <div className="space-y-3">
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">
+                            Alasan Penolakan <span className="text-red-500">*</span>
+                        </label>
+                        <textarea
+                            className="w-full border border-slate-200 rounded-lg p-3 text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
+                            rows={2}
+                            placeholder="Alasan singkat penolakan..."
+                            value={reason}
+                            onChange={e => setReason(e.target.value)}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">
+                            <span className="flex items-center gap-1"><MessageSquare size={11} /> Catatan / Instruksi ke Marketing</span>
+                        </label>
+                        <textarea
+                            className="w-full border border-slate-200 rounded-lg p-3 text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-amber-300"
+                            rows={3}
+                            placeholder="Tulis instruksi atau catatan untuk marketing... (opsional)"
+                            value={notes}
+                            onChange={e => setNotes(e.target.value)}
+                        />
+                        <p className="text-xs text-slate-400 mt-1">
+                            Catatan ini akan terlihat oleh marketing untuk perbaikan quotation.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-2 mt-5">
+                    <button onClick={onClose}
+                        className="px-4 py-2 text-sm rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium">
+                        Batal
+                    </button>
                     <button
-                        onClick={() => { if (reason.trim()) { onConfirm(reason); setReason(""); } }}
+                        onClick={() => { if (reason.trim()) { onConfirm(reason, notes); } }}
                         disabled={!reason.trim()}
                         className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-40">
-                        Tolak Quotation
+                        Tolak & Kirim Catatan
                     </button>
                 </div>
             </div>
@@ -94,7 +139,95 @@ function RejectionModal({
     );
 }
 
-// ─── MAIN PAGE ───────────────────────────────────────────────────────────────
+// ─── APPROVE MODAL ────────────────────────────────────────────────────────────
+
+function ApproveModal({
+    open, onClose, onConfirm, quotation,
+}: {
+    open: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    quotation: Quotation | null;
+}) {
+    if (!open || !quotation) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
+                <div className="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle2 size={28} className="text-green-600" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 mb-1">Setujui Quotation?</h3>
+                <p className="text-sm text-slate-500 mb-1">
+                    <code className="font-mono bg-slate-100 px-1 rounded text-xs">{quotation.noSurat}</code>
+                </p>
+                <p className="text-sm text-slate-500 mb-5">
+                    Kepada <strong>{quotation.kepadaNama}</strong> — {formatRupiah(quotation.total)}
+                </p>
+                <p className="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-2 mb-4">
+                    Setelah disetujui, marketing bisa men-download PDF quotation ini.
+                </p>
+                <div className="flex gap-2">
+                    <button onClick={onClose}
+                        className="flex-1 px-4 py-2 text-sm rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium">
+                        Batal
+                    </button>
+                    <button onClick={onConfirm}
+                        className="flex-1 px-4 py-2 text-sm rounded-lg bg-green-600 text-white font-medium hover:bg-green-700">
+                        Ya, Setujui
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── DETAIL MODAL (lihat notes dari admin) ───────────────────────────────────
+
+function NotesModal({
+    open, onClose, quotation,
+}: {
+    open: boolean;
+    onClose: () => void;
+    quotation: Quotation | null;
+}) {
+    if (!open || !quotation) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+                <div className="flex items-center gap-2 mb-3">
+                    <MessageSquare size={16} className="text-amber-500" />
+                    <h3 className="text-sm font-bold text-slate-900">Catatan dari Admin</h3>
+                </div>
+                <code className="text-xs font-mono text-slate-400 block mb-3">{quotation.noSurat}</code>
+
+                {quotation.rejectionReason && (
+                    <div className="bg-red-50 border border-red-100 rounded-lg p-3 mb-3">
+                        <p className="text-xs font-bold text-red-600 mb-1">Alasan Penolakan</p>
+                        <p className="text-sm text-red-700">{quotation.rejectionReason}</p>
+                    </div>
+                )}
+                {quotation.notesMarketing && (
+                    <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                        <p className="text-xs font-bold text-amber-600 mb-1">Instruksi / Catatan</p>
+                        <p className="text-sm text-amber-700">{quotation.notesMarketing}</p>
+                    </div>
+                )}
+                {!quotation.rejectionReason && !quotation.notesMarketing && (
+                    <p className="text-sm text-slate-400 text-center py-2">Tidak ada catatan.</p>
+                )}
+
+                <button onClick={onClose}
+                    className="w-full mt-4 px-4 py-2 text-sm rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 const PER_PAGE = 10;
 
@@ -111,6 +244,9 @@ export function QuotationPage() {
     const [page, setPage] = useState(1);
 
     const [rejectTarget, setRejectTarget] = useState<Quotation | null>(null);
+    const [approveTarget, setApproveTarget] = useState<Quotation | null>(null);
+    const [notesTarget, setNotesTarget] = useState<Quotation | null>(null);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     const canSeeAll = user?.role !== "marketing";
     const canApprove = user?.role === "super_admin" || user?.role === "administrator";
@@ -149,22 +285,34 @@ export function QuotationPage() {
     const totalPages = Math.ceil(displayed.length / PER_PAGE);
     const paged = displayed.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-    // Stats
-    const statsAR = quotations.filter(q => q.kategori === "AR").length;
-    const statsPCO = quotations.filter(q => q.kategori === "PCO").length;
-    const statsKontrak = quotations.filter(q => q.tipeKontrak === "K").length;
+    const statsTotal = quotations.length;
+    const statsPending = quotations.filter(q => q.status === "pending").length;
     const statsApproved = quotations.filter(q => q.status === "approved").length;
+    const statsRejected = quotations.filter(q => q.status === "rejected").length;
 
-    const handleApprove = async (q: Quotation) => {
-        await updateQuotationStatus(q.id, "approved", user?.name);
-        await load();
+    const handleApprove = async () => {
+        if (!approveTarget) return;
+        setActionLoading(approveTarget.id);
+        try {
+            await updateQuotationStatus(approveTarget.id, "approved", user?.name);
+            setApproveTarget(null);
+            await load();
+        } finally {
+            setActionLoading(null);
+        }
     };
 
-    const handleReject = async (reason: string) => {
+    const handleReject = async (reason: string, notes: string) => {
         if (!rejectTarget) return;
-        await updateQuotationStatus(rejectTarget.id, "rejected", user?.name, reason);
-        setRejectTarget(null);
-        await load();
+        setActionLoading(rejectTarget.id);
+        try {
+            // Pass notes as 5th argument via extended function call
+            await updateQuotationStatus(rejectTarget.id, "rejected", user?.name, reason, notes);
+            setRejectTarget(null);
+            await load();
+        } finally {
+            setActionLoading(null);
+        }
     };
 
     return (
@@ -177,13 +325,13 @@ export function QuotationPage() {
                         Quotation
                     </h1>
                     <p className="text-sm text-slate-400 mt-0.5">
-                        {canSeeAll ? "Semua surat penawaran PT Guci Emas Pratama" : "Surat penawaran yang kamu buat"}
+                        {canSeeAll ? "Semua surat penawaran" : "Surat penawaran yang kamu buat"}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <button onClick={load}
                         className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
-                        <RefreshCw size={16} />
+                        <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
                     </button>
                     {canCreate && (
                         <button onClick={() => navigate("/quotations/new")}
@@ -197,11 +345,38 @@ export function QuotationPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard label="Total Surat" value={quotations.length} color="#1d4ed8" />
-                <StatCard label="Anti Rayap" value={statsAR} color="#7c3aed" />
-                <StatCard label="Pest Control" value={statsPCO} color="#0891b2" />
+                <StatCard label="Total Surat" value={statsTotal} color="#1d4ed8" />
+                <StatCard label="Menunggu" value={statsPending} color="#d97706" />
                 <StatCard label="Disetujui" value={statsApproved} color="#15803d" />
+                <StatCard label="Ditolak" value={statsRejected} color="#dc2626" />
             </div>
+
+            {/* Banner pending untuk admin */}
+            {canApprove && statsPending > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <AlertCircle size={16} className="text-amber-600 shrink-0" />
+                    <p className="text-sm text-amber-800">
+                        Ada <strong>{statsPending} quotation</strong> yang menunggu persetujuan kamu.
+                        Klik tombol ✓ untuk menyetujui atau ✗ untuk menolak.
+                    </p>
+                    <button
+                        onClick={() => { setFilterStatus("pending"); setPage(1); }}
+                        className="ml-auto text-xs font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded-lg hover:bg-amber-200 shrink-0">
+                        Lihat semua
+                    </button>
+                </div>
+            )}
+
+            {/* Banner ditolak untuk marketing */}
+            {!canApprove && quotations.filter(q => q.status === "rejected").length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <XCircle size={16} className="text-red-500 shrink-0" />
+                    <p className="text-sm text-red-800">
+                        Ada <strong>{quotations.filter(q => q.status === "rejected").length} quotation</strong> yang ditolak.
+                        Klik ikon 💬 untuk melihat catatan dari admin.
+                    </p>
+                </div>
+            )}
 
             {/* Filters */}
             <div className="bg-white border border-slate-200 rounded-xl p-4">
@@ -275,8 +450,14 @@ export function QuotationPage() {
                             <tbody>
                                 {paged.map(q => {
                                     const isAR = q.kategori === "AR";
+                                    const isApproved = q.status === "approved";
+                                    const isPending = q.status === "pending";
+                                    const isRejected = q.status === "rejected";
+                                    const hasNotes = isRejected && (q.rejectionReason || q.notesMarketing);
+                                    const isActing = actionLoading === q.id;
+
                                     return (
-                                        <tr key={q.id} className="hover:bg-slate-50 transition-colors">
+                                        <tr key={q.id} className={`hover:bg-slate-50 transition-colors ${isPending ? "bg-amber-50/30" : ""}`}>
                                             <td className="px-4 py-3 whitespace-nowrap">
                                                 <code className={`text-xs font-bold px-2 py-1 rounded font-mono
                                                     ${isAR ? "bg-purple-50 text-purple-700" : "bg-cyan-50 text-cyan-700"}`}>
@@ -314,29 +495,74 @@ export function QuotationPage() {
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-1">
+
+                                                    {/* View PDF — selalu tersedia jika ada pdfUrl */}
                                                     {q.pdfUrl && (
-                                                        <>
-                                                            <a href={q.pdfUrl} target="_blank" rel="noopener noreferrer"
-                                                                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-colors" title="Lihat PDF">
-                                                                <Eye size={14} />
-                                                            </a>
-                                                            <a href={q.pdfUrl} download
-                                                                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-green-600 transition-colors" title="Download PDF">
-                                                                <Download size={14} />
-                                                            </a>
-                                                        </>
+                                                        <a href={q.pdfUrl} target="_blank" rel="noopener noreferrer"
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-colors" title="Lihat PDF">
+                                                            <Eye size={14} />
+                                                        </a>
                                                     )}
-                                                    {canApprove && q.status === "pending" && (
+
+                                                    {/* Download PDF — HANYA jika status approved */}
+                                                    {q.pdfUrl && isApproved && (
+                                                        <a href={q.pdfUrl} download
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors" title="Download PDF (Disetujui)">
+                                                            <Download size={14} />
+                                                        </a>
+                                                    )}
+
+                                                    {/* Tanda tangan — HANYA jika approved */}
+                                                    {isApproved && (
+                                                        <button
+                                                            title="Tanda Tangan Digital"
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                                                            onClick={() => {
+                                                                // TODO: open signature modal / page
+                                                                alert("Fitur tanda tangan digital akan segera tersedia.");
+                                                            }}>
+                                                            <PenLine size={14} />
+                                                        </button>
+                                                    )}
+
+                                                    {/* Notes dari admin — tampil jika ditolak dan ada notes */}
+                                                    {hasNotes && (
+                                                        <button
+                                                            title="Lihat Catatan Admin"
+                                                            onClick={() => setNotesTarget(q)}
+                                                            className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-50 hover:text-amber-600 transition-colors relative">
+                                                            <MessageSquare size={14} />
+                                                            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full" />
+                                                        </button>
+                                                    )}
+
+                                                    {/* Approve / Reject — hanya admin & status pending */}
+                                                    {canApprove && isPending && (
                                                         <>
-                                                            <button onClick={() => handleApprove(q)}
-                                                                className="p-1.5 rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors" title="Setujui">
-                                                                <CheckCircle2 size={14} />
+                                                            <button
+                                                                onClick={() => setApproveTarget(q)}
+                                                                disabled={isActing}
+                                                                className="p-1.5 rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors disabled:opacity-50"
+                                                                title="Setujui">
+                                                                {isActing ? (
+                                                                    <RefreshCw size={14} className="animate-spin" />
+                                                                ) : (
+                                                                    <CheckCircle2 size={14} />
+                                                                )}
                                                             </button>
-                                                            <button onClick={() => setRejectTarget(q)}
-                                                                className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors" title="Tolak">
+                                                            <button
+                                                                onClick={() => setRejectTarget(q)}
+                                                                disabled={isActing}
+                                                                className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
+                                                                title="Tolak">
                                                                 <XCircle size={14} />
                                                             </button>
                                                         </>
+                                                    )}
+
+                                                    {/* Lock icon untuk pending (non-admin) */}
+                                                    {!canApprove && isPending && (
+                                                        <span className="text-xs text-slate-400 italic px-1">Menunggu...</span>
                                                     )}
                                                 </div>
                                             </td>
@@ -368,11 +594,23 @@ export function QuotationPage() {
                 )}
             </div>
 
-            {/* Rejection Modal */}
+            {/* Modals */}
+            <ApproveModal
+                open={!!approveTarget}
+                onClose={() => setApproveTarget(null)}
+                onConfirm={handleApprove}
+                quotation={approveTarget}
+            />
             <RejectionModal
                 open={!!rejectTarget}
                 onClose={() => setRejectTarget(null)}
                 onConfirm={handleReject}
+                quotation={rejectTarget}
+            />
+            <NotesModal
+                open={!!notesTarget}
+                onClose={() => setNotesTarget(null)}
+                quotation={notesTarget}
             />
         </div>
     );
