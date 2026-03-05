@@ -496,20 +496,50 @@ export function QuotationPage() {
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-1">
 
-                                                    {/* View PDF — selalu tersedia jika ada pdfUrl */}
-                                                    {q.pdfUrl && (
-                                                        <a href={q.pdfUrl} target="_blank" rel="noopener noreferrer"
+                                                    {/* View PDF */}
+                                                    {(q.pdfBase64 || q.pdfUrl) && (
+                                                        <button
+                                                            onClick={() => {
+                                                                if (q.pdfBase64) {
+                                                                    const bytes = Uint8Array.from(atob(q.pdfBase64), c => c.charCodeAt(0));
+                                                                    const blob = new Blob([bytes], { type: "application/pdf" });
+                                                                    const url = URL.createObjectURL(blob);
+                                                                    window.open(url, "_blank");
+                                                                    setTimeout(() => URL.revokeObjectURL(url), 5000);
+                                                                } else if (q.pdfUrl) {
+                                                                    window.open(q.pdfUrl, "_blank");
+                                                                }
+                                                            }}
                                                             className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-colors" title="Lihat PDF">
                                                             <Eye size={14} />
-                                                        </a>
+                                                        </button>
                                                     )}
 
                                                     {/* Download PDF — HANYA jika status approved */}
-                                                    {q.pdfUrl && isApproved && (
-                                                        <a href={q.pdfUrl} download
+                                                    {(q.pdfBase64 || q.pdfUrl) && isApproved && (
+                                                        <button
+                                                            onClick={() => {
+                                                                const safeName = q.noSurat.replace(/\//g, "-");
+                                                                if (q.pdfBase64) {
+                                                                    const bytes = Uint8Array.from(atob(q.pdfBase64), c => c.charCodeAt(0));
+                                                                    const blob = new Blob([bytes], { type: "application/pdf" });
+                                                                    const url = URL.createObjectURL(blob);
+                                                                    const a = document.createElement("a");
+                                                                    a.href = url; a.download = `${safeName}.pdf`;
+                                                                    a.style.display = "none";
+                                                                    document.body.appendChild(a);
+                                                                    a.click();
+                                                                    document.body.removeChild(a);
+                                                                    setTimeout(() => URL.revokeObjectURL(url), 3000);
+                                                                } else if (q.pdfUrl) {
+                                                                    const a = document.createElement("a");
+                                                                    a.href = q.pdfUrl; a.download = `${safeName}.pdf`;
+                                                                    a.click();
+                                                                }
+                                                            }}
                                                             className="p-1.5 rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors" title="Download PDF (Disetujui)">
                                                             <Download size={14} />
-                                                        </a>
+                                                        </button>
                                                     )}
 
                                                     {/* Tanda tangan — HANYA jika approved */}
@@ -518,7 +548,6 @@ export function QuotationPage() {
                                                             title="Tanda Tangan Digital"
                                                             className="p-1.5 rounded-lg text-slate-400 hover:bg-purple-50 hover:text-purple-600 transition-colors"
                                                             onClick={() => {
-                                                                // TODO: open signature modal / page
                                                                 alert("Fitur tanda tangan digital akan segera tersedia.");
                                                             }}>
                                                             <PenLine size={14} />
