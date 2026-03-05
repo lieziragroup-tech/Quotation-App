@@ -1,7 +1,7 @@
 /**
  * PDF Generator — PT Guci Emas Pratama
  * Menggunakan jsPDF untuk generate quotation PDF
- * Mereplikasi layout template Python (generate_quotation_v2.py)
+ * Mereplikasi layout template surat penawaran resmi
  */
 
 import jsPDF from "jspdf";
@@ -21,7 +21,7 @@ export interface QuotationPDFData {
     kepadaUp?: string;
     jenisLayanan: JenisLayanan;
     perihal?: string;
-    paragrafPembuka?: string;   // override otomatis jika diisi
+    paragrafPembuka?: string;
     items: QuotationItem[];
     biayaTambahan?: BiayaTambahan[];
     diskonPct?: number;
@@ -35,15 +35,16 @@ export interface QuotationPDFData {
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
-const PAGE_W = 210;     // A4 mm
-const PAGE_H = 297;
-const ML = 20;          // margin left
-const MR = 20;          // margin right
-const MT = 15;          // margin top
-const MB = 20;          // margin bottom
+const PAGE_W  = 210;   // A4 mm
+const PAGE_H  = 297;
+const ML      = 20;    // margin left
+const MR      = 20;    // margin right
+const MT      = 14;    // margin top
+const MB      = 18;    // margin bottom
 const USABLE_W = PAGE_W - ML - MR;
-const KOP_H = 28;       // kop surat height
-const FOOTER_H = 18;    // footer height
+const KOP_H   = 30;    // kop surat height (increased slightly)
+const FOOTER_H = 20;   // footer height
+const LINE_H  = 5;     // standard line height
 
 // ─── HELPER: HEX → RGB ───────────────────────────────────────────────────────
 
@@ -60,15 +61,22 @@ function hex(h: string): [number, number, number] {
 
 class QuotationRenderer {
     private doc: jsPDF;
-    private y: number;        // current Y cursor
+    private y: number;
     private pageNum = 1;
     private data: QuotationPDFData;
     private calc: ReturnType<typeof calcTotals>;
 
+    // Column widths for price table (computed once, reused)
+    private readonly colNo  = 9;
+    private readonly colPek: number;
+    private readonly colVol: number;
+    private readonly colHs: number;
+    private readonly colJml: number;
+
     constructor(data: QuotationPDFData) {
         this.data = data;
-        this.doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-        this.y = MT + KOP_H + 4;
+        this.doc  = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+        this.y    = MT + KOP_H + 6;
 
         this.calc = calcTotals({
             items: data.items,
@@ -77,478 +85,497 @@ class QuotationRenderer {
             ppn: data.ppn,
             ppnDppFaktor: data.ppnDppFaktor,
         });
+
+        // Distribute remaining width: Pekerjaan 38%, Volume 16%, HargaSatuan 22%, Jumlah rest
+        const remaining = USABLE_W - this.colNo;
+        this.colPek = remaining * 0.38;
+        this.colVol = remaining * 0.16;
+        this.colHs  = remaining * 0.22;
+        this.colJml = remaining - this.colPek - this.colVol - this.colHs;
     }
 
-    // ── Page management ──────────────────────────────────────────────────────
+    // ─── Page management ─────────────────────────────────────────────────────
 
     private checkPage(needed: number) {
         if (this.y + needed > PAGE_H - MB - FOOTER_H) {
-            this.addPage();
+            this.newPage();
         }
     }
 
-    private addPage() {
+    private newPage() {
         this.drawFooter();
         this.doc.addPage();
         this.pageNum++;
-        this.y = MT + KOP_H + 4;
+        this.y = MT + KOP_H + 6;
         this.drawKop();
     }
 
-    // ── Kop Surat ────────────────────────────────────────────────────────────
+    // ─── Kop Surat ───────────────────────────────────────────────────────────
 
     private drawKop() {
         const d = this.doc;
-        const topBar = MT;
+        const ty = MT;
 
-        // Green top bar
+        // Top green bar
         d.setFillColor(...hex(BRAND.green));
-        d.rect(ML, topBar, USABLE_W, 3, "F");
+        d.rect(ML, ty, USABLE_W, 2.5, "F");
 
         // Company name
-        d.setFontSize(16);
+        d.setFontSize(15);
         d.setFont("helvetica", "bold");
         d.setTextColor(...hex(BRAND.green));
-        d.text(COMPANY.name, ML, topBar + 10);
+        d.text(COMPANY.name, ML, ty + 9);
 
         // Tagline
         d.setFontSize(7.5);
         d.setFont("helvetica", "normal");
         d.setTextColor(...hex(BRAND.gray));
-        d.text("Jasa Anti Rayap & Pengendalian Hama Profesional  ·  Est. 1985", ML, topBar + 14);
-
-        // Green line separator
-        d.setDrawColor(...hex(BRAND.green));
-        d.setLineWidth(0.5);
-        d.line(ML, topBar + 16, ML + USABLE_W, topBar + 16);
-
-        // Address lines
-        d.setFontSize(7);
-        d.setFont("helvetica", "normal");
-        d.setTextColor(...hex(BRAND.gray));
-        d.text(`Head Office : ${COMPANY.head}`, ML, topBar + 19.5);
-        d.text(
-            `Telp : ${COMPANY.telp}  |  WhatsApp : ${COMPANY.wa}  |  E-Mail : ${COMPANY.email}  |  ${COMPANY.web}`,
-            ML, topBar + 22.5,
-        );
-        d.text(`Branch Office : ${COMPANY.branch}`, ML, topBar + 25.5);
-    }
-
-    // ── Footer ───────────────────────────────────────────────────────────────
-
-    private drawFooter() {
-        const d = this.doc;
-        const fy = PAGE_H - MB - FOOTER_H + 2;
+        d.text("Jasa Anti Rayap & Pengendalian Hama Profesional  ·  Est. 1985", ML, ty + 13.5);
 
         // Separator line
         d.setDrawColor(...hex(BRAND.green));
         d.setLineWidth(0.4);
+        d.line(ML, ty + 16, ML + USABLE_W, ty + 16);
+
+        // Contact info
+        d.setFontSize(6.8);
+        d.setFont("helvetica", "normal");
+        d.setTextColor(...hex(BRAND.gray));
+        d.text(`Head Office : ${COMPANY.head}`, ML, ty + 19.5);
+        d.text(
+            `Telp : ${COMPANY.telp}  |  WhatsApp : ${COMPANY.wa}  |  E-Mail : ${COMPANY.email}  |  ${COMPANY.web}`,
+            ML, ty + 23,
+        );
+        d.text(`Branch Office : ${COMPANY.branch}`, ML, ty + 26.5);
+    }
+
+    // ─── Footer ──────────────────────────────────────────────────────────────
+
+    private drawFooter() {
+        const d   = this.doc;
+        const fy  = PAGE_H - MB - FOOTER_H + 2;
+
+        d.setDrawColor(...hex(BRAND.green));
+        d.setLineWidth(0.4);
         d.line(ML, fy, ML + USABLE_W, fy);
 
-        // Company name footer
         d.setFontSize(7);
         d.setFont("helvetica", "bold");
         d.setTextColor(...hex(BRAND.green));
-        d.text(COMPANY.name, ML, fy + 4);
+        d.text(COMPANY.name, ML, fy + 4.5);
 
-        // Address footer
         d.setFontSize(6.5);
         d.setFont("helvetica", "normal");
         d.setTextColor(...hex(BRAND.gray));
-        d.text(`Head Office : ${COMPANY.head}`, ML, fy + 8);
+        d.text(`Head Office : ${COMPANY.head}`, ML, fy + 8.5);
         d.text(
             `Telp : ${COMPANY.telp}  |  WhatsApp : ${COMPANY.wa}  |  ${COMPANY.email}  |  ${COMPANY.web}`,
-            ML, fy + 11,
+            ML, fy + 12,
         );
-        d.text(`Branch Office : ${COMPANY.branch}`, ML, fy + 14);
+        d.text(`Branch Office : ${COMPANY.branch}`, ML, fy + 15.5);
 
-        // Page number
-        d.setFontSize(7);
+        d.setFontSize(7.5);
+        d.setFont("helvetica", "bold");
         d.setTextColor(...hex(BRAND.grayLight));
-        d.text(`Hal. ${this.pageNum}`, ML + USABLE_W, fy + 14, { align: "right" });
+        d.text(`Hal. ${this.pageNum}`, ML + USABLE_W, fy + 15.5, { align: "right" });
     }
 
-    // ── Text helpers ──────────────────────────────────────────────────────────
+    // ─── Text helpers ─────────────────────────────────────────────────────────
 
-    private write(
-        text: string,
-        x: number,
-        size = 9,
-        bold = false,
-        color: string = BRAND.dark,
-        align: "left" | "right" | "center" = "left",
+    private set(
+        size: number,
+        bold: boolean,
+        color: string,
     ) {
         this.doc.setFontSize(size);
         this.doc.setFont("helvetica", bold ? "bold" : "normal");
         this.doc.setTextColor(...hex(color));
-        this.doc.text(text, x, this.y, { align });
     }
 
-    private nl(gap = 5) { this.y += gap; }
+    private text(
+        txt: string,
+        x: number,
+        opts?: { align?: "left" | "right" | "center"; dy?: number },
+    ) {
+        const yy = this.y + (opts?.dy ?? 0);
+        this.doc.text(txt, x, yy, { align: opts?.align ?? "left" });
+    }
 
-    /**
-     * Wrap text dalam lebar tertentu, return lines
-     */
-    private wrapText(text: string, maxW: number, size: number): string[] {
+    private nl(gap: number = LINE_H) { this.y += gap; }
+
+    private wrap(txt: string, maxW: number, size: number): string[] {
         this.doc.setFontSize(size);
-        return this.doc.splitTextToSize(text, maxW) as string[];
+        return this.doc.splitTextToSize(txt, maxW) as string[];
     }
 
+    /** Write wrapped text, advance y by total height, return total height used. */
     private writeWrapped(
-        text: string,
+        txt: string,
         x: number,
         maxW: number,
         size = 9,
         bold = false,
-        color: string = BRAND.dark,
-        align: "left" | "right" | "center" = "left",
-        lineH = 5,
+        color = BRAND.dark,
+        lineH = LINE_H,
     ): number {
-        const lines = this.wrapText(text, maxW, size);
-        this.doc.setFontSize(size);
-        this.doc.setFont("helvetica", bold ? "bold" : "normal");
-        this.doc.setTextColor(...hex(color));
+        this.set(size, bold, color);
+        const lines = this.wrap(txt, maxW, size);
         lines.forEach((line, i) => {
-            this.doc.text(line, x, this.y + i * lineH, { align });
+            this.doc.text(line, x, this.y + i * lineH);
         });
         return lines.length * lineH;
     }
 
-    // ── Header Info ───────────────────────────────────────────────────────────
+    // ─── Section heading helper ───────────────────────────────────────────────
+
+    private sectionTitle(title: string) {
+        this.checkPage(10);
+        this.set(10, true, BRAND.green);
+        this.text(title, ML);
+        this.nl(6);
+    }
+
+    // ─── HR ──────────────────────────────────────────────────────────────────
+
+    private hr(color = BRAND.border, lw = 0.3) {
+        this.doc.setDrawColor(...hex(color));
+        this.doc.setLineWidth(lw);
+        this.doc.line(ML, this.y, ML + USABLE_W, this.y);
+    }
+
+    // ─── Header Info (Kepada, Perihal, Salam Pembuka) ─────────────────────────
 
     private buildHeaderInfo() {
         const d = this.doc;
         const { data } = this;
 
-        // Nomor surat (kiri) + Tanggal (kanan)
-        this.checkPage(8);
-        d.setFontSize(9);
-        d.setFont("helvetica", "normal");
-        d.setTextColor(...hex(BRAND.dark));
-        d.text(`No: `, ML, this.y);
-        d.setFont("helvetica", "bold");
-        d.text(data.noSurat, ML + 7, this.y);
-
-        d.setFont("helvetica", "normal");
+        // ── No. surat (kiri) + Tanggal (kanan) ──────────────────────────────
+        this.checkPage(10);
+        this.set(9, false, BRAND.dark);
+        // "No:" label
+        d.text("No:", ML, this.y);
+        // nomor surat — bold, offset setelah label
+        this.set(9, true, BRAND.dark);
+        d.text(data.noSurat, ML + 8, this.y);
+        // tanggal di kanan
+        this.set(9, false, BRAND.dark);
         d.text(`Tangerang Selatan, ${fmtDateID(data.tanggal)}`, ML + USABLE_W, this.y, { align: "right" });
-        this.nl(7);
+        this.nl(8);
 
-        // Kepada Yth
-        this.checkPage(20);
-        this.write("Kepada Yth.", ML, 9, false, BRAND.dark);
-        this.nl(5);
-        this.write(data.kepadaNama, ML, 9, true, BRAND.dark);
-        this.nl(5);
+        // ── Kepada ───────────────────────────────────────────────────────────
+        this.checkPage(30);
+        this.set(9, false, BRAND.dark);
+        this.text("Kepada Yth.", ML);
+        this.nl(LINE_H);
 
-        for (const line of data.kepadaAlamatLines) {
-            this.write(line, ML, 9, false, BRAND.dark);
-            this.nl(5);
+        this.set(9, true, BRAND.dark);
+        this.text(data.kepadaNama, ML);
+        this.nl(LINE_H);
+
+        this.set(9, false, BRAND.dark);
+        for (const line of data.kepadaAlamatLines.filter(Boolean)) {
+            this.text(line, ML);
+            this.nl(LINE_H);
         }
 
         if (data.kepadaUp) {
-            this.write(`Up : ${data.kepadaUp}`, ML, 9, false, BRAND.dark);
-            this.nl(5);
+            this.text(`Up : ${data.kepadaUp}`, ML);
+            this.nl(LINE_H);
         }
-        this.nl(2);
+        this.nl(3);
 
-        // Perihal
+        // ── Perihal ──────────────────────────────────────────────────────────
         this.checkPage(8);
         const perihal = data.perihal ?? LAYANAN_CONFIG[data.jenisLayanan]?.perihal ?? "Penawaran Harga";
-        d.setFontSize(9);
-        d.setFont("helvetica", "normal");
-        d.setTextColor(...hex(BRAND.dark));
+        this.set(9, false, BRAND.dark);
         d.text("Perihal: ", ML, this.y);
-        d.setFont("helvetica", "bold");
-        d.text(perihal, ML + 16, this.y);
-        this.nl(7);
+        this.set(9, true, BRAND.dark);
+        d.text(perihal, ML + 17, this.y);
+        this.nl(9);
 
-        // Pembuka
-        this.checkPage(30);
-        this.write("Dengan hormat,", ML, 9, false, BRAND.dark);
-        this.nl(5);
+        // ── Salam + Paragraf Pembuka ──────────────────────────────────────────
+        this.set(9, false, BRAND.dark);
+        this.text("Dengan hormat,", ML);
+        this.nl(LINE_H + 1);
 
-        const alamat = data.kepadaAlamatLines.join(", ");
+        const alamat = data.kepadaAlamatLines.filter(Boolean).join(", ");
         const pembuka = data.paragrafPembuka ?? buildParagrafPembuka(data.jenisLayanan, data.kepadaNama, alamat);
-        const h1 = this.writeWrapped(pembuka, ML, USABLE_W, 9, false, BRAND.dark, "left", 5);
+        const h1 = this.writeWrapped(pembuka, ML, USABLE_W, 9, false, BRAND.dark);
         this.nl(h1 + 3);
 
-        this.checkPage(10);
+        this.checkPage(8);
         const kalimatBerlaku = "Surat penawaran ini berlaku selama 30 (tiga puluh) hari sejak tanggal surat dibuat.";
-        const h2 = this.writeWrapped(kalimatBerlaku, ML, USABLE_W, 9, false, BRAND.dark, "left", 5);
+        const h2 = this.writeWrapped(kalimatBerlaku, ML, USABLE_W, 9, false, BRAND.dark);
         this.nl(h2 + 3);
 
-        this.checkPage(16);
+        this.checkPage(14);
         const kalimatPenutup = "Mohon proposal ini dipelajari dan kami dengan senang hati membantu apabila masih ada hal-hal yang kurang jelas. Demikian proposal penawaran ini kami sampaikan, atas perhatian dan kerjasama anda, kami ucapkan terima kasih.";
-        const h3 = this.writeWrapped(kalimatPenutup, ML, USABLE_W, 9, false, BRAND.dark, "left", 5);
-        this.nl(h3 + 5);
+        const h3 = this.writeWrapped(kalimatPenutup, ML, USABLE_W, 9, false, BRAND.dark);
+        this.nl(h3 + 6);
 
-        this.write("Jabat Erat,", ML, 9, false, BRAND.dark);
-        this.nl(5);
-        this.write("PT Guci Emas Pratama", ML, 9, true, BRAND.dark);
-        this.nl(6);
+        this.set(9, false, BRAND.dark);
+        this.text("Jabat Erat,", ML);
+        this.nl(LINE_H);
+        this.set(9, true, BRAND.dark);
+        this.text("PT Guci Emas Pratama", ML);
+        this.nl(7);
     }
 
-    // ── Separator HR ─────────────────────────────────────────────────────────
-
-    private buildSeparator() {
-        this.checkPage(4);
-        this.doc.setDrawColor(...hex(BRAND.border));
-        this.doc.setLineWidth(0.3);
-        this.doc.line(ML, this.y, ML + USABLE_W, this.y);
-        this.nl(5);
-    }
-
-    // ── Biaya Section ─────────────────────────────────────────────────────────
+    // ─── Biaya Section ────────────────────────────────────────────────────────
 
     private buildBiayaSection() {
         const d = this.doc;
         const { data, calc } = this;
 
-        // Section title
-        this.checkPage(8);
-        d.setFontSize(10);
-        d.setFont("helvetica", "bold");
-        d.setTextColor(...hex(BRAND.green));
-        d.text("BIAYA PELAKSANAAN", ML, this.y);
-        this.nl(6);
+        // ── Section title ────────────────────────────────────────────────────
+        this.sectionTitle("BIAYA PELAKSANAAN");
 
         this.checkPage(6);
-        d.setFontSize(9);
-        d.setFont("helvetica", "normal");
-        d.setTextColor(...hex(BRAND.dark));
-        d.text("Berdasarkan hasil survey, berikut penawaran harga yang kami ajukan:", ML, this.y);
-        this.nl(5);
+        this.set(9, false, BRAND.dark);
+        this.text("Berdasarkan hasil survey, berikut penawaran harga yang kami ajukan:", ML);
+        this.nl(LINE_H + 1);
 
-        // Column widths
-        const colNo = 8;
-        const colPek = USABLE_W * 0.42;
-        const colVol = USABLE_W * 0.14;
-        const colHs = USABLE_W * 0.20;
-        const colJml = USABLE_W - colNo - colPek - colVol - colHs;
+        // ── Table header ─────────────────────────────────────────────────────
+        const ROW_H  = 8;
+        const HDR_H  = 9;
+        const tblX   = ML;
 
-        // Table headers
-        const headerH = 8;
-        this.checkPage(headerH + 8);
+        // Column X positions
+        const xNo   = tblX;
+        const xPek  = xNo + this.colNo;
+        const xVol  = xPek + this.colPek;
+        const xHs   = xVol + this.colVol;
+        const xJml  = xHs + this.colHs;
+        const xEnd  = xJml + this.colJml;
+
+        this.checkPage(HDR_H + ROW_H);
+        const hdrY = this.y;
+
+        // Header background
         d.setFillColor(...hex(BRAND.tableHeader));
-        d.rect(ML, this.y - 5, USABLE_W, headerH, "F");
+        d.rect(tblX, hdrY - 6, USABLE_W, HDR_H, "F");
 
-        const hdrCols = [
-            { text: "No", x: ML + colNo / 2, align: "center" as const },
-            { text: "Pekerjaan", x: ML + colNo + 3, align: "left" as const },
-            { text: "Volume Kerja", x: ML + colNo + colPek + colVol / 2, align: "center" as const },
-            { text: "Harga Satuan", x: ML + colNo + colPek + colVol + colHs / 2, align: "center" as const },
-            { text: "Jumlah", x: ML + colNo + colPek + colVol + colHs + colJml / 2, align: "center" as const },
-        ];
-
+        // Header text
         d.setFontSize(8.5);
         d.setFont("helvetica", "bold");
         d.setTextColor(255, 255, 255);
-        hdrCols.forEach(c => d.text(c.text, c.x, this.y, { align: c.align }));
-        this.nl(headerH - 1);
+        d.text("No",           xNo + this.colNo / 2,        hdrY, { align: "center" });
+        d.text("Pekerjaan",    xPek + 2,                    hdrY);
+        d.text("Volume Kerja", xVol + this.colVol / 2,      hdrY, { align: "center" });
+        d.text("Harga Satuan", xHs  + this.colHs / 2,       hdrY, { align: "center" });
+        d.text("Jumlah",       xEnd - 2,                    hdrY, { align: "right" });
+        this.nl(HDR_H - 1);
 
-        // Item rows
-        const allItems = [
-            ...data.items.map(it => ({ ...it, isExtra: false })),
+        // ── Item rows ────────────────────────────────────────────────────────
+        const allRows: Array<{ no: string; desc: string; qty: number; unit: string; harga: number; extra: boolean }> = [
+            ...data.items.map((it, i) => ({
+                no:    String(i + 1),
+                desc:  it.desc,
+                qty:   it.qty,
+                unit:  it.unit,
+                harga: it.harga,
+                extra: false,
+            })),
             ...(data.biayaTambahan ?? []).map(b => ({
-                desc: b.label,
-                qty: 1,
-                unit: "ls",
+                no:    "",
+                desc:  b.label,
+                qty:   1,
+                unit:  "ls",
                 harga: b.amount,
-                isExtra: true,
+                extra: true,
             })),
         ];
 
-        allItems.forEach((item, idx) => {
-            const rowH = 8;
-            this.checkPage(rowH + 2);
+        allRows.forEach((row, idx) => {
+            this.checkPage(ROW_H + 2);
+            const rowStartY = this.y - 5;
 
-            // Alternating background
+            // Alternating background (non-header)
             if (idx % 2 === 1) {
                 d.setFillColor(...hex(BRAND.tableAlt));
-                d.rect(ML, this.y - 5, USABLE_W, rowH, "F");
+                d.rect(tblX, rowStartY, USABLE_W, ROW_H, "F");
             }
 
-            const sub = item.qty * item.harga;
-
+            // Row content
             d.setFontSize(8.5);
             d.setFont("helvetica", "normal");
             d.setTextColor(...hex(BRAND.dark));
 
             // No
-            d.text(item.isExtra ? "" : String(idx + 1), ML + colNo / 2, this.y, { align: "center" });
-            // Pekerjaan (wrap if long)
-            const descLines = this.wrapText(item.desc, colPek - 6, 8.5);
-            d.text(descLines[0] ?? item.desc, ML + colNo + 3, this.y);
+            if (row.no) d.text(row.no, xNo + this.colNo / 2, this.y, { align: "center" });
+
+            // Description — truncate if too long
+            const descLines = this.wrap(row.desc, this.colPek - 4, 8.5);
+            d.text(descLines[0] ?? "", xPek + 2, this.y);
+
             // Volume
-            d.text(`${item.qty.toLocaleString("id-ID")} ${item.unit}`, ML + colNo + colPek + colVol / 2, this.y, { align: "center" });
-            // Harga satuan
-            d.text(fmtIDR(item.harga), ML + colNo + colPek + colVol + colHs - 2, this.y, { align: "right" });
-            // Jumlah
+            d.text(
+                `${row.qty.toLocaleString("id-ID")} ${row.unit}`,
+                xVol + this.colVol / 2, this.y, { align: "center" },
+            );
+
+            // Harga satuan — right aligned
+            d.text(fmtIDR(row.harga), xHs + this.colHs - 2, this.y, { align: "right" });
+
+            // Jumlah — bold, right aligned
             d.setFont("helvetica", "bold");
-            d.text(fmtIDR(sub), ML + USABLE_W - 2, this.y, { align: "right" });
+            d.text(fmtIDR(row.qty * row.harga), xEnd - 2, this.y, { align: "right" });
 
-            // Grid lines
+            // Row bottom border
             d.setDrawColor(...hex(BRAND.border));
-            d.setLineWidth(0.3);
-            // bottom line
-            d.line(ML, this.y + 3, ML + USABLE_W, this.y + 3);
+            d.setLineWidth(0.25);
+            d.line(tblX, this.y + 3, xEnd, this.y + 3);
 
-            this.nl(rowH);
+            this.nl(ROW_H);
         });
 
-        // Outer border of table
-        const tableEndY = this.y;
-        const tableStartY = MT + KOP_H + 4 + (this.pageNum > 1 ? 0 : 0);
-        // Just vertical column separators on last row
-        d.setDrawColor(...hex(BRAND.border));
-        d.setLineWidth(0.3);
+        // ── Summary rows ─────────────────────────────────────────────────────
+        this.nl(1);
+        this.buildSummaryRows(xNo, xPek, xVol, xHs, xJml, xEnd);
 
-        // Summary table
-        this.nl(2);
-        this.buildSummaryTable(colNo, colPek, colVol, colHs, colJml);
-        void tableEndY;
-        void tableStartY;
-
-        // PPN note
-        this.nl(2);
+        // ── PPN note ─────────────────────────────────────────────────────────
+        this.nl(3);
         this.checkPage(8);
-        d.setFontSize(8);
-        d.setFont("helvetica", "italic");
-        d.setTextColor(...hex(BRAND.gray));
+        this.set(8, false, BRAND.gray);
         const ppnNote = data.ppn
             ? "*Biaya tersebut di atas sudah termasuk PPN (sesuai peraturan yang berlaku)."
             : "*Biaya tersebut di atas belum termasuk PPN (sesuai ketentuan yang berlaku).";
-        d.text(ppnNote, ML, this.y);
-        this.nl(7);
+        this.doc.setFont("helvetica", "italic");
+        this.text(ppnNote, ML);
+        this.nl(8);
     }
 
-    private buildSummaryTable(colNo: number, colPek: number, colVol: number, colHs: number, colJml: number) {
-        const d = this.doc;
+    // ─── Summary rows (Jumlah / Diskon / Total) ───────────────────────────────
+
+    private buildSummaryRows(
+        _xNo: number, _xPek: number, _xVol: number,
+        xHs: number, _xJml: number, xEnd: number,
+    ) {
+        const d    = this.doc;
         const { calc } = this;
 
-        const colE = colNo + colPek + colVol;
-        const xLabel = ML + colE + 3;
-        const xValue = ML + USABLE_W - 2;
+        // Summary starts from the "Harga Satuan" column onwards
+        const summaryX  = xHs;
+        const summaryW  = this.colHs + this.colJml;
+        const xLabel    = summaryX + 3;
 
-        const rows: { label: string; value: number; isTotal?: boolean }[] = [];
+        interface SummaryRow { label: string; value: number; isTotal?: boolean; isDiskon?: boolean }
+        const rows: SummaryRow[] = [];
         rows.push({ label: "Jumlah", value: calc.subtotalGross });
 
         if (calc.diskonRp > 0) {
-            const discLabel = calc.diskonPct ? `Diskon (${calc.diskonPct.toFixed(0)}%)` : "Diskon";
-            rows.push({ label: discLabel, value: calc.diskonRp });
+            const discPct = calc.diskonPct ? ` (${Number(calc.diskonPct).toFixed(0)}%)` : "";
+            rows.push({ label: `Diskon${discPct}`, value: calc.diskonRp, isDiskon: true });
             rows.push({ label: "Total Biaya", value: calc.setelahDiskon });
         }
+
         if (calc.dpp) {
-            rows.push({ label: "DPP Nilai Lain x 11/12", value: calc.dpp });
+            rows.push({ label: "DPP Nilai Lain (11/12)", value: calc.dpp });
             rows.push({ label: "PPN 12%", value: calc.ppnRp });
         } else if (calc.ppnRp > 0) {
             rows.push({ label: "PPN 11%", value: calc.ppnRp });
         }
+
         rows.push({ label: "TOTAL", value: calc.total, isTotal: true });
 
         rows.forEach(row => {
             const rowH = row.isTotal ? 9 : 7;
             this.checkPage(rowH + 2);
+            const rowStartY = this.y - 5;
 
             if (row.isTotal) {
-                // Green background
+                // Dark green background for total row
                 d.setFillColor(...hex(BRAND.totalBg));
-                d.rect(ML + colE, this.y - 5, colHs + colJml, rowH, "F");
-                d.setFontSize(9.5);
-                d.setFont("helvetica", "bold");
-                d.setTextColor(255, 255, 255);
+                d.rect(summaryX, rowStartY, summaryW, rowH, "F");
+                this.set(9.5, true, "#ffffff");
             } else {
-                d.setFontSize(8.5);
-                d.setFont("helvetica", "normal");
-                d.setTextColor(...hex(BRAND.dark));
+                this.set(8.5, false, BRAND.dark);
             }
 
+            // Label
             d.text(row.label, xLabel, this.y);
-            d.setFont("helvetica", row.isTotal ? "bold" : "normal");
-            if (!row.isTotal) d.setTextColor(...hex(BRAND.dark));
-            d.text(fmtIDR(row.value), xValue, this.y, { align: "right" });
 
-            // Border
-            d.setDrawColor(...hex(BRAND.border));
+            // Value — right aligned
+            const valStr = row.isDiskon ? `- ${fmtIDR(row.value)}` : fmtIDR(row.value);
+            if (!row.isTotal) this.set(8.5, false, BRAND.dark);
+            d.text(valStr, xEnd - 2, this.y, { align: "right" });
+
+            // Borders (left, inner divider, right, bottom)
+            d.setDrawColor(...hex(row.isTotal ? BRAND.totalBg : BRAND.border));
+            d.setLineWidth(row.isTotal ? 0 : 0.25);
+            d.line(summaryX, this.y + 3, xEnd, this.y + 3);    // bottom
             d.setLineWidth(0.3);
-            d.line(ML + colE, this.y + 3, ML + USABLE_W, this.y + 3);
-            d.line(ML + colE, this.y - rowH + 2, ML + colE, this.y + 3);
-            d.line(ML + colE + colHs, this.y - rowH + 2, ML + colE + colHs, this.y + 3);
-            d.line(ML + USABLE_W, this.y - rowH + 2, ML + USABLE_W, this.y + 3);
+            d.setDrawColor(...hex(BRAND.border));
+            d.line(summaryX, rowStartY, summaryX, this.y + 3);  // left
+            d.line(xEnd,     rowStartY, xEnd,     this.y + 3);  // right
+            // inner divider roughly where label ends
+            d.line(xHs + this.colHs, rowStartY, xHs + this.colHs, this.y + 3);
 
             this.nl(rowH);
         });
     }
 
-    // ── Pembayaran ───────────────────────────────────────────────────────────
+    // ─── Pembayaran ───────────────────────────────────────────────────────────
 
     private buildPembayaran() {
         const d = this.doc;
-        this.checkPage(25);
+        this.checkPage(30);
 
-        d.setFontSize(10);
-        d.setFont("helvetica", "bold");
-        d.setTextColor(...hex(BRAND.green));
-        d.text("PEMBAYARAN", ML, this.y);
-        this.nl(6);
+        this.sectionTitle("PEMBAYARAN");
 
-        d.setFontSize(9);
-        d.setFont("helvetica", "normal");
-        d.setTextColor(...hex(BRAND.dark));
-        d.text("Pembayaran dilakukan 2 (dua) tahap, yaitu:", ML, this.y);
-        this.nl(5);
+        this.set(9, false, BRAND.dark);
+        this.text("Pembayaran dilakukan 2 (dua) tahap, yaitu:", ML);
+        this.nl(LINE_H + 1);
 
-        d.text("• Tahap I, sebesar 50 % dari nilai kontrak, dibayar saat penandatanganan surat kontrak.", ML + 4, this.y);
-        this.nl(5);
-        d.text("• Tahap II, sebesar 50 % dari nilai kontrak, dibayarkan setelah pekerjaan selesai.", ML + 4, this.y);
-        this.nl(7);
+        const tahap = [
+            "Tahap I, sebesar 50 % dari nilai kontrak, dibayar saat penandatanganan surat kontrak.",
+            "Tahap II, sebesar 50 % dari nilai kontrak, dibayarkan setelah pekerjaan selesai.",
+        ];
+
+        tahap.forEach(t => {
+            this.checkPage(6);
+            const h = this.writeWrapped(`• ${t}`, ML + 3, USABLE_W - 3, 9, false, BRAND.dark);
+            this.nl(h + 2);
+        });
+
+        this.nl(3);
     }
 
-    // ── Garansi ──────────────────────────────────────────────────────────────
+    // ─── Garansi ─────────────────────────────────────────────────────────────
 
     private buildGaransi() {
         const { data } = this;
         if (!data.garansiTahun) return;
 
-        const d = this.doc;
+        const d   = this.doc;
         const thn = data.garansiTahun;
         const jenis = data.jenisGaransi ?? "Anti Rayap";
         const isPra = data.jenisLayanan.includes("pra") || data.jenisLayanan.includes("pipanisasi");
 
         this.checkPage(30);
-
-        d.setFontSize(10);
-        d.setFont("helvetica", "bold");
-        d.setTextColor(...hex(BRAND.green));
-        d.text("GARANSI", ML, this.y);
-        this.nl(6);
+        this.sectionTitle("GARANSI");
 
         const garansiTxt = isPra
             ? `Untuk pekerjaan ${jenis} ini, kami memberikan garansi bebas rayap yang dinyatakan ` +
-            `dalam Sertifikat jaminan sesuai standard Dep.PU.SK. SNI 03-2404-2000, yaitu: ` +
-            `Selama ${thn} (${angkaKeKata(thn)}) tahun untuk area tanah yang dianti rayap, ` +
-            `terhitung selambat-lambatnya 1 tahun sejak pekerjaan dimulai.`
+              `dalam Sertifikat jaminan sesuai standard Dep.PU.SK. SNI 03-2404-2000, yaitu: ` +
+              `Selama ${thn} (${angkaKeKata(thn)}) tahun untuk area tanah yang dianti rayap, ` +
+              `terhitung selambat-lambatnya 1 tahun sejak pekerjaan dimulai.`
             : `Untuk pekerjaan ${jenis} ini, kami memberikan garansi bebas rayap yang dinyatakan ` +
-            `dalam sertifikat jaminan sesuai standard Dep.PU.SK. SNI 03-2404-2000, yaitu: ` +
-            `Selama ${thn} (${angkaKeKata(thn)}) tahun, terhitung sejak pekerjaan ` +
-            `anti rayap selesai secara keseluruhan.`;
+              `dalam sertifikat jaminan sesuai standard Dep.PU.SK. SNI 03-2404-2000, yaitu: ` +
+              `Selama ${thn} (${angkaKeKata(thn)}) tahun, terhitung sejak pekerjaan ` +
+              `anti rayap selesai secara keseluruhan.`;
 
-        d.setFontSize(9);
-        d.setFont("helvetica", "normal");
-        d.setTextColor(...hex(BRAND.dark));
-        const h1 = this.writeWrapped(garansiTxt, ML, USABLE_W, 9, false, BRAND.dark, "left", 5);
+        const h1 = this.writeWrapped(garansiTxt, ML, USABLE_W, 9, false, BRAND.dark);
         this.nl(h1 + 3);
 
-        d.text("Garansi tidak termasuk penggantian barang/material yang dirusak oleh serangan rayap.", ML, this.y);
-        this.nl(6);
+        this.checkPage(8);
+        this.set(9, false, BRAND.dark);
+        this.text("Garansi tidak termasuk penggantian barang/material yang dirusak oleh serangan rayap.", ML);
+        this.nl(8);
 
-        // Pengontrolan
-        this.checkPage(30);
-        d.setFontSize(10);
-        d.setFont("helvetica", "bold");
-        d.setTextColor(...hex(BRAND.green));
-        d.text("PENGONTROLAN", ML, this.y);
-        this.nl(6);
+        // ── Pengontrolan ─────────────────────────────────────────────────────
+        this.checkPage(35);
+        this.sectionTitle("PENGONTROLAN");
 
         const ctrlItems = [
             "Pengontrolan I dilakukan 1 bulan, setelah pekerjaan selesai.",
@@ -557,78 +584,77 @@ class QuotationRenderer {
             "Pengontrolan IV dst dilakukan setelah pengontrolan ke III, dan 6 bulan sekali sampai garansi habis masa berlakunya.",
         ];
 
-        d.setFontSize(9);
-        d.setFont("helvetica", "normal");
-        d.setTextColor(...hex(BRAND.dark));
+        this.set(9, false, BRAND.dark);
         ctrlItems.forEach(txt => {
             this.checkPage(7);
-            d.text(`• ${txt}`, ML + 4, this.y);
-            this.nl(5);
+            const h = this.writeWrapped(`• ${txt}`, ML + 3, USABLE_W - 3, 9, false, BRAND.dark);
+            this.nl(h + 2);
         });
-        this.nl(2);
+        this.nl(4);
     }
 
-    // ── Penutup + TTD ─────────────────────────────────────────────────────────
+    // ─── Penutup + TTD ────────────────────────────────────────────────────────
 
     private buildPenutup() {
-        const d = this.doc;
+        const d   = this.doc;
         const mkt = this.data.marketingNama ?? "Marketing";
-        const wa = this.data.marketingWa;
+        const wa  = this.data.marketingWa;
 
-        this.checkPage(50);
+        this.checkPage(55);
+        this.sectionTitle("PENUTUP");
 
-        d.setFontSize(10);
-        d.setFont("helvetica", "bold");
-        d.setTextColor(...hex(BRAND.green));
-        d.text("PENUTUP", ML, this.y);
-        this.nl(6);
-
-        const penutupTxt = "Demikian proposal penawaran harga dan lampiran ini kami sampaikan. Apabila informasi " +
+        const penutupTxt =
+            "Demikian proposal penawaran harga dan lampiran ini kami sampaikan. Apabila informasi " +
             "yang kami berikan belum memuaskan, kami siap memberikan presentasi di hadapan " +
             "Bapak/Ibu. Untuk selanjutnya dapat menghubungi kami :";
-        d.setFontSize(9);
-        d.setFont("helvetica", "normal");
-        d.setTextColor(...hex(BRAND.dark));
-        const hp = this.writeWrapped(penutupTxt, ML, USABLE_W, 9, false, BRAND.dark, "left", 5);
-        this.nl(hp + 4);
 
-        d.text(`• Kantor : ${COMPANY.telp}`, ML + 4, this.y);
-        this.nl(5);
+        const hp = this.writeWrapped(penutupTxt, ML, USABLE_W, 9, false, BRAND.dark);
+        this.nl(hp + 5);
+
+        this.set(9, false, BRAND.dark);
+        this.text(`• Kantor : ${COMPANY.telp}`, ML + 3);
+        this.nl(LINE_H + 1);
+
         if (wa) {
-            d.text(`• ${mkt} : ${wa}`, ML + 4, this.y);
-            this.nl(5);
+            this.text(`• ${mkt} : ${wa}`, ML + 3);
+            this.nl(LINE_H + 1);
         }
-        this.nl(3);
-
-        const kamiTxt = "Atas perhatian dan kerja sama yang diberikan kami ucapkan terima kasih.";
-        d.text(kamiTxt, ML, this.y);
-        this.nl(8);
-
-        // Tanda tangan
-        d.text("Hormat kami,", ML, this.y);
-        this.nl(5);
-        d.setFont("helvetica", "bold");
-        d.text("PT Guci Emas Pratama", ML, this.y);
-        this.nl(20);  // space for signature
-
-        // Line above name
-        d.setDrawColor(...hex(BRAND.dark));
-        d.setLineWidth(0.5);
-        d.line(ML, this.y, ML + 50, this.y);
         this.nl(4);
 
-        d.setFont("helvetica", "bold");
-        d.setTextColor(...hex(BRAND.dark));
-        d.text(mkt, ML, this.y);
-        this.nl(5);
+        this.set(9, false, BRAND.dark);
+        this.text("Atas perhatian dan kerja sama yang diberikan kami ucapkan terima kasih.", ML);
+        this.nl(10);
+
+        // ── Tanda tangan ─────────────────────────────────────────────────────
+        this.set(9, false, BRAND.dark);
+        this.text("Hormat kami,", ML);
+        this.nl(LINE_H);
+        this.set(9, true, BRAND.dark);
+        this.text("PT Guci Emas Pratama", ML);
+        this.nl(22);  // ruang untuk tanda tangan
+
+        // Garis di atas nama
+        d.setDrawColor(...hex(BRAND.dark));
+        d.setLineWidth(0.5);
+        d.line(ML, this.y, ML + 48, this.y);
+        this.nl(4);
+
+        this.set(9, true, BRAND.dark);
+        this.text(mkt, ML);
+        this.nl(7);
     }
 
-    // ── MAIN RENDER ──────────────────────────────────────────────────────────
+    // ─── MAIN RENDER ─────────────────────────────────────────────────────────
 
     render(): Blob {
         this.drawKop();
         this.buildHeaderInfo();
-        this.buildSeparator();
+
+        // Divider sebelum tabel biaya
+        this.checkPage(4);
+        this.hr(BRAND.border, 0.3);
+        this.nl(5);
+
         this.buildBiayaSection();
         this.buildPembayaran();
 
@@ -659,10 +685,13 @@ export function generateQuotationPDF(data: QuotationPDFData): Blob {
  */
 export function downloadQuotationPDF(data: QuotationPDFData, filename?: string): void {
     const blob = generateQuotationPDF(data);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
     a.download = filename ?? `${data.noSurat.replace(/\//g, "-")}.pdf`;
+    a.style.display = "none";
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
 }
