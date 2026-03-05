@@ -13,7 +13,7 @@
  */
 
 import {
-    collection, query, where, orderBy, getDocs,
+    collection, query, where, getDocs,
     doc, getDoc, Timestamp, writeBatch,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -54,7 +54,7 @@ function toQuotation(id: string, data: Record<string, unknown>): Quotation {
         kepadaNama:         data.kepadaNama as string,
         kepadaAlamatLines:  (data.kepadaAlamatLines as string[]) ?? [],
         kepadaUp:           data.kepadaUp as string | undefined,
-        tanggal:            (data.tanggal as Timestamp).toDate(),
+        tanggal:            data.tanggal ? (data.tanggal as Timestamp).toDate() : new Date(),
         items:              (data.items as Quotation["items"]) ?? [],
         biayaTambahan:      (data.biayaTambahan as Quotation["biayaTambahan"]) ?? [],
         diskonPct:          (data.diskonPct as number) ?? 0,
@@ -77,7 +77,7 @@ function toQuotation(id: string, data: Record<string, unknown>): Quotation {
         pdfUrl:             data.pdfUrl as string | undefined,    // legacy field (compat)
         pdfBase64:          data.pdfBase64 as string | undefined, // new field
         companyId:          data.companyId as string,
-        createdAt:          (data.createdAt as Timestamp).toDate(),
+        createdAt:          data.createdAt ? (data.createdAt as Timestamp).toDate() : new Date(),
     };
 }
 
@@ -136,22 +136,31 @@ export interface GetQuotationsFilters {
 }
 
 export async function getQuotations(filters: GetQuotationsFilters): Promise<Quotation[]> {
-    const constraints = [
-        where("companyId", "==", filters.companyId),
-        orderBy("createdAt", "desc"),
-    ];
-    if (filters.byUid) {
-        constraints.splice(1, 0, where("marketingUid", "==", filters.byUid));
-    }
+    // Query sesederhana mungkin — hanya 1 where clause agar tidak butuh composite index.
+    // Sorting dan filtering tambahan dilakukan di client.
+    const constraints = filters.byUid
+        ? [where("companyId", "==", filters.companyId), where("marketingUid", "==", filters.byUid)]
+        : [where("companyId", "==", filters.companyId)];
 
     const q    = query(collection(db, COL), ...constraints);
     const snap = await getDocs(q);
 
-    let results = snap.docs.map(d => toQuotation(d.id, d.data() as Record<string, unknown>));
+    let results: Quotation[] = [];
+    for (const d of snap.docs) {
+        try {
+            results.push(toQuotation(d.id, d.data() as Record<string, unknown>));
+        } catch (e) {
+            console.warn('[getQuotations] skip doc', d.id, e);
+        }
+    }
 
+    // Filter client-side
     if (filters.kategori)    results = results.filter(r => r.kategori    === filters.kategori);
     if (filters.tipeKontrak) results = results.filter(r => r.tipeKontrak === filters.tipeKontrak);
     if (filters.status)      results = results.filter(r => r.status      === filters.status);
+
+    // Sort client-side: terbaru dulu
+    results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return results;
 }
