@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    Hash, Plus, ExternalLink, RefreshCw, Filter,
-    Search, Download, Loader2, AlertCircle,
+    Hash, Plus, Download, Loader2, AlertCircle,
     CheckCircle2, Clock, XCircle, FileText,
-    ChevronDown, X, PenLine,
+    ChevronDown, X, PenLine, Search, Filter, RefreshCw
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { getNomorSuratLog, addManualNomorSurat } from "../../services/nomorSuratService";
-import { fmtDateID, LAYANAN_CONFIG, TIPE_LABELS } from "../../lib/quotationConfig";
+import { fmtDateID, TIPE_LABELS } from "../../lib/quotationConfig";
 import type { NomorSuratLog, KategoriSurat, TipeKontrak, QuotationStatus, JenisLayanan } from "../../types";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -16,8 +15,8 @@ import type { NomorSuratLog, KategoriSurat, TipeKontrak, QuotationStatus, JenisL
 const STATUS_CONFIG: Record<QuotationStatus, { label: string; color: string; icon: React.ReactNode }> = {
     draft:    { label: "Draft",    color: "bg-slate-100 text-slate-600",   icon: <Clock size={11} /> },
     pending:  { label: "Pending",  color: "bg-amber-100 text-amber-700",   icon: <Clock size={11} /> },
-    approved: { label: "Disetujui",color: "bg-emerald-100 text-emerald-700",icon: <CheckCircle2 size={11} /> },
-    rejected: { label: "Ditolak", color: "bg-red-100 text-red-600",        icon: <XCircle size={11} /> },
+    approved: { label: "Disetujui", color: "bg-emerald-100 text-emerald-700", icon: <CheckCircle2 size={11} /> },
+    rejected: { label: "Ditolak",  color: "bg-red-100 text-red-600",        icon: <XCircle size={11} /> },
 };
 
 function StatusBadge({ status }: { status: QuotationStatus }) {
@@ -29,7 +28,7 @@ function StatusBadge({ status }: { status: QuotationStatus }) {
     );
 }
 
-function KategoriBadge({ kategori, isManual }: { kategori: KategoriSurat; isManual?: boolean }) {
+function KategoriBadge({ kategori, isManual }: { kategori: string; isManual?: boolean }) {
     if (isManual) {
         return (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
@@ -40,7 +39,10 @@ function KategoriBadge({ kategori, isManual }: { kategori: KategoriSurat; isManu
     if (kategori === "AR") {
         return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">🛡️ AR</span>;
     }
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-100 text-cyan-700">🦟 PCO</span>;
+    if (kategori === "PCO") {
+        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-100 text-cyan-700">🦟 PCO</span>;
+    }
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">📄 Lainnya</span>;
 }
 
 // ─── MODAL TAMBAH MANUAL ──────────────────────────────────────────────────────
@@ -55,27 +57,34 @@ interface ManualModalProps {
 
 function ManualEntryModal({ companyId, byUid, byName, onClose, onAdded }: ManualModalProps) {
     const [noSurat, setNoSurat]           = useState("");
-    const [kategori, setKategori]         = useState<KategoriSurat>("AR");
+    const [kategori, setKategori]         = useState<KategoriSurat | "LAINNYA">("AR");
     const [tipe, setTipe]                 = useState<TipeKontrak>("U");
-    const [jenisLayanan, setJenisLayanan] = useState<JenisLayanan>("anti_rayap_injeksi");
     const [kepada, setKepada]             = useState("");
     const [keterangan, setKeterangan]     = useState("");
     const [tanggal, setTanggal]           = useState(() => new Date().toISOString().split("T")[0]);
     const [loading, setLoading]           = useState(false);
     const [err, setErr]                   = useState("");
 
-    const arLayanan  = Object.entries(LAYANAN_CONFIG).filter(([, c]) => c.isAR);
-    const pcoLayanan = Object.entries(LAYANAN_CONFIG).filter(([, c]) => !c.isAR);
-    const layananList = kategori === "AR" ? arLayanan : pcoLayanan;
-
+    // Auto-generate format nomor surat ketika input pendukung berubah
     useEffect(() => {
-        // Reset jenis layanan ketika kategori berubah
-        setJenisLayanan(layananList[0]?.[0] as JenisLayanan ?? "anti_rayap_injeksi");
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [kategori]);
+        const dateObj = new Date(tanggal);
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        
+        let catCode = kategori;
+        if (kategori === "LAINNYA") catCode = "MISC" as any;
+
+        // Draft format: GP-AR/U/2026/03/XXXX
+        const generated = `GP-${catCode}/${tipe}/${year}/${month}/`;
+        setNoSurat(prev => {
+            // Jika sebelumnya kosong atau sudah berisi format otomatis, update. 
+            // Jika user sedang mengetik detail nomor urut, coba pertahankan ujungnya jika memungkinkan
+            return generated + (prev.split('/').pop() || "XXXX");
+        });
+    }, [kategori, tipe, tanggal]);
 
     const handleSave = async () => {
-        if (!noSurat.trim())  { setErr("Nomor surat wajib diisi."); return; }
+        if (!noSurat.trim() || noSurat.endsWith("XXXX")) { setErr("Lengkapi nomor surat dengan benar."); return; }
         if (!kepada.trim())   { setErr("Nama tujuan wajib diisi."); return; }
 
         setLoading(true);
@@ -83,9 +92,9 @@ function ManualEntryModal({ companyId, byUid, byName, onClose, onAdded }: Manual
         try {
             await addManualNomorSurat({
                 noSurat: noSurat.trim(),
-                kategori,
+                kategori: kategori as KategoriSurat,
                 tipe,
-                jenisLayanan,
+                jenisLayanan: "manual_entry" as JenisLayanan, // Dihilangkan dari UI, diisi default
                 kepada: kepada.trim(),
                 byUid, byName, companyId,
                 keteranganManual: keterangan.trim(),
@@ -102,7 +111,6 @@ function ManualEntryModal({ companyId, byUid, byName, onClose, onAdded }: Manual
     return (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-                {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
                     <h2 className="font-bold text-slate-900 flex items-center gap-2">
                         <PenLine size={16} className="text-amber-600" />
@@ -114,24 +122,14 @@ function ManualEntryModal({ companyId, byUid, byName, onClose, onAdded }: Manual
                 </div>
 
                 <div className="p-6 space-y-4">
-                    <p className="text-xs text-slate-500 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                        Gunakan fitur ini untuk mencatat nomor surat yang diterbitkan secara manual / di luar sistem, agar tetap terdokumentasi.
-                    </p>
-
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Nomor Surat *</label>
-                        <input className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 font-mono"
-                            placeholder="GP-AR/U/2026/03/0005 atau format lain"
-                            value={noSurat} onChange={e => setNoSurat(e.target.value)} />
-                    </div>
-
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                             <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Kategori</label>
                             <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
-                                value={kategori} onChange={e => setKategori(e.target.value as KategoriSurat)}>
+                                value={kategori} onChange={e => setKategori(e.target.value as any)}>
                                 <option value="AR">Anti Rayap (AR)</option>
                                 <option value="PCO">Pest Control (PCO)</option>
+                                <option value="LAINNYA">Lainnya</option>
                             </select>
                         </div>
                         <div className="space-y-1.5">
@@ -145,11 +143,17 @@ function ManualEntryModal({ companyId, byUid, byName, onClose, onAdded }: Manual
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Jenis Layanan</label>
-                        <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
-                            value={jenisLayanan} onChange={e => setJenisLayanan(e.target.value as JenisLayanan)}>
-                            {layananList.map(([val, cfg]) => <option key={val} value={val}>{cfg.label}</option>)}
-                        </select>
+                        <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Tanggal Surat</label>
+                        <input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300"
+                            value={tanggal} onChange={e => setTanggal(e.target.value)} />
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Nomor Surat *</label>
+                        <input className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 font-mono font-bold text-blue-600"
+                            placeholder="Contoh: GP-AR/U/2026/03/0001"
+                            value={noSurat} onChange={e => setNoSurat(e.target.value)} />
+                        <p className="text-[10px] text-slate-400 italic">* Sesuaikan bagian akhir nomor sesuai urutan manual Anda.</p>
                     </div>
 
                     <div className="space-y-1.5">
@@ -160,15 +164,9 @@ function ManualEntryModal({ companyId, byUid, byName, onClose, onAdded }: Manual
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Tanggal Surat</label>
-                        <input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300"
-                            value={tanggal} onChange={e => setTanggal(e.target.value)} />
-                    </div>
-
-                    <div className="space-y-1.5">
                         <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Keterangan</label>
                         <textarea className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
-                            rows={3} placeholder="Keterangan tambahan (opsional) — misal: diterbitkan via email, fisik, dll."
+                            rows={2} placeholder="Keterangan tambahan (opsional)"
                             value={keterangan} onChange={e => setKeterangan(e.target.value)} />
                     </div>
 
@@ -207,9 +205,8 @@ export function NomorSuratLogPage() {
     const [showModal, setShowModal] = useState(false);
     const [showFilter, setShowFilter] = useState(false);
 
-    // Filter state
     const [searchQ, setSearchQ]         = useState("");
-    const [fKategori, setFKategori]     = useState<"" | KategoriSurat>("");
+    const [fKategori, setFKategori]     = useState<"" | KategoriSurat | "LAINNYA">("");
     const [fTipe, setFTipe]             = useState<"" | TipeKontrak>("");
     const [fStatus, setFStatus]         = useState<"" | QuotationStatus>("");
     const [fSource, setFSource]         = useState<"" | "system" | "manual">("");
@@ -224,7 +221,7 @@ export function NomorSuratLogPage() {
             const data = await getNomorSuratLog({ companyId: user.companyId });
             setLogs(data);
         } catch (e) {
-            setError("Gagal memuat data. Periksa koneksi dan coba lagi.");
+            setError("Gagal memuat data. Periksa koneksi.");
             console.error(e);
         } finally {
             setLoading(false);
@@ -233,7 +230,6 @@ export function NomorSuratLogPage() {
 
     useEffect(() => { fetchLogs(); }, [user?.companyId]);
 
-    // Filtered list
     const filtered = logs.filter(log => {
         if (searchQ) {
             const q = searchQ.toLowerCase();
@@ -249,7 +245,6 @@ export function NomorSuratLogPage() {
         return true;
     });
 
-    // Stats
     const stats = {
         total:    logs.length,
         system:   logs.filter(l => !l.isManual).length,
@@ -262,25 +257,23 @@ export function NomorSuratLogPage() {
 
     return (
         <div className="p-6 max-w-6xl mx-auto">
-            {/* Header */}
             <div className="flex items-start justify-between mb-6 gap-4">
                 <div>
                     <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                         <Hash size={20} className="text-blue-600" />
                         Log Nomor Surat
                     </h1>
-                    <p className="text-sm text-slate-500 mt-0.5">Semua nomor surat yang diterbitkan — otomatis maupun manual</p>
+                    <p className="text-sm text-slate-500 mt-0.5">Dokumentasi nomor surat otomatis dan manual</p>
                 </div>
                 {canManage && (
                     <button onClick={() => setShowModal(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white text-sm font-semibold rounded-xl hover:bg-amber-600 transition-colors shrink-0">
+                        className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white text-sm font-semibold rounded-xl hover:bg-amber-600 transition-colors shrink-0 shadow-sm shadow-amber-200">
                         <PenLine size={15} />
                         Tambah Manual
                     </button>
                 )}
             </div>
 
-            {/* Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
                 {[
                     { label: "Total Surat",   value: stats.total,    color: "text-slate-700",   bg: "bg-slate-50" },
@@ -296,14 +289,12 @@ export function NomorSuratLogPage() {
                 ))}
             </div>
 
-            {/* Toolbar */}
             <div className="flex flex-wrap gap-2 mb-4">
-                {/* Search */}
-                <div className="flex items-center gap-2 flex-1 min-w-48 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                <div className="flex items-center gap-2 flex-1 min-w-48 bg-white border border-slate-200 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
                     <Search size={14} className="text-slate-400 shrink-0" />
                     <input
                         className="flex-1 text-sm bg-transparent outline-none text-slate-800 placeholder:text-slate-400"
-                        placeholder="Cari nomor surat, klien, atau nama..."
+                        placeholder="Cari nomor, klien, atau pembuat..."
                         value={searchQ}
                         onChange={e => setSearchQ(e.target.value)}
                     />
@@ -314,39 +305,37 @@ export function NomorSuratLogPage() {
                     )}
                 </div>
 
-                {/* Filter toggle */}
                 <button onClick={() => setShowFilter(f => !f)}
                     className={`flex items-center gap-1.5 px-3 py-2 border rounded-xl text-sm font-medium transition-colors
                         ${hasActiveFilter ? "bg-blue-50 border-blue-300 text-blue-700" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
                     <Filter size={14} />
                     Filter
-                    {hasActiveFilter && <span className="w-4 h-4 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center">!</span>}
                     <ChevronDown size={12} className={`transition-transform ${showFilter ? "rotate-180" : ""}`} />
                 </button>
 
-                {/* Refresh */}
                 <button onClick={fetchLogs} disabled={loading}
                     className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 bg-white text-slate-600 rounded-xl text-sm hover:bg-slate-50 transition-colors">
                     <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
                 </button>
             </div>
 
-            {/* Filter panel */}
             {showFilter && (
-                <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap gap-3">
+                <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap gap-3 animate-in fade-in slide-in-from-top-2">
                     <div className="space-y-1 min-w-32">
                         <label className="text-xs font-bold uppercase tracking-wide text-slate-400">Kategori</label>
                         <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white"
-                            value={fKategori} onChange={e => setFKategori(e.target.value as "" | KategoriSurat)}>
+                            value={fKategori} onChange={e => setFKategori(e.target.value as any)}>
                             <option value="">Semua</option>
                             <option value="AR">Anti Rayap</option>
                             <option value="PCO">Pest Control</option>
+                            <option value="LAINNYA">Lainnya</option>
                         </select>
                     </div>
+                    {/* ... (Filter tipe & status tetap sama) */}
                     <div className="space-y-1 min-w-32">
                         <label className="text-xs font-bold uppercase tracking-wide text-slate-400">Tipe</label>
                         <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white"
-                            value={fTipe} onChange={e => setFTipe(e.target.value as "" | TipeKontrak)}>
+                            value={fTipe} onChange={e => setFTipe(e.target.value as any)}>
                             <option value="">Semua</option>
                             <option value="U">Umum</option>
                             <option value="K">Kontrak</option>
@@ -355,89 +344,62 @@ export function NomorSuratLogPage() {
                     <div className="space-y-1 min-w-32">
                         <label className="text-xs font-bold uppercase tracking-wide text-slate-400">Status</label>
                         <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white"
-                            value={fStatus} onChange={e => setFStatus(e.target.value as "" | QuotationStatus)}>
+                            value={fStatus} onChange={e => setFStatus(e.target.value as any)}>
                             <option value="">Semua</option>
-                            <option value="draft">Draft</option>
-                            <option value="pending">Pending</option>
                             <option value="approved">Disetujui</option>
+                            <option value="pending">Pending</option>
                             <option value="rejected">Ditolak</option>
                         </select>
                     </div>
-                    <div className="space-y-1 min-w-36">
-                        <label className="text-xs font-bold uppercase tracking-wide text-slate-400">Sumber</label>
-                        <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white"
-                            value={fSource} onChange={e => setFSource(e.target.value as "" | "system" | "manual")}>
-                            <option value="">Semua</option>
-                            <option value="system">Dari Sistem</option>
-                            <option value="manual">Manual</option>
-                        </select>
-                    </div>
-                    {hasActiveFilter && (
-                        <div className="self-end">
-                            <button onClick={() => { setFKategori(""); setFTipe(""); setFStatus(""); setFSource(""); setSearchQ(""); }}
-                                className="px-3 py-2 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-                                Reset Filter
-                            </button>
-                        </div>
-                    )}
+                    <button onClick={() => { setFKategori(""); setFTipe(""); setFStatus(""); setFSource(""); setSearchQ(""); }}
+                        className="self-end px-3 py-2 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+                        Reset
+                    </button>
                 </div>
             )}
 
-            {/* Error */}
-            {error && (
-                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
-                    <AlertCircle size={15} /> {error}
-                </div>
-            )}
-
-            {/* Table */}
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                 {loading ? (
                     <div className="flex items-center justify-center py-16 text-slate-400">
                         <Loader2 size={24} className="animate-spin mr-2" /> Memuat data...
                     </div>
                 ) : filtered.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                        <Hash size={32} className="mb-3 opacity-30" />
-                        <p className="font-medium">{hasActiveFilter ? "Tidak ada data sesuai filter" : "Belum ada nomor surat"}</p>
-                        <p className="text-xs mt-1">{hasActiveFilter ? "Coba ubah atau reset filter" : "Nomor surat akan muncul setelah pertama kali generate quotation"}</p>
+                    <div className="flex flex-col items-center justify-center py-16 text-slate-400 text-center">
+                        <Hash size={32} className="mb-3 opacity-20" />
+                        <p className="font-medium">Tidak ada data ditemukan</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wide font-semibold">
+                                <tr className="bg-slate-50/50 border-b border-slate-100 text-xs text-slate-500 uppercase tracking-wide font-semibold">
                                     <th className="px-4 py-3 text-left">Nomor Surat</th>
                                     <th className="px-4 py-3 text-left">Tipe</th>
-                                    <th className="px-4 py-3 text-left">Layanan</th>
                                     <th className="px-4 py-3 text-left">Ditujukan Kepada</th>
-                                    <th className="px-4 py-3 text-left">Dibuat Oleh</th>
+                                    <th className="px-4 py-3 text-left">Pembuat</th>
                                     <th className="px-4 py-3 text-left">Tanggal</th>
                                     <th className="px-4 py-3 text-left">Status</th>
                                     <th className="px-4 py-3 text-center">Aksi</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-50">
                                 {filtered.map(log => (
-                                    <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                                    <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-2">
                                                 <code className="text-xs font-bold font-mono text-slate-800">{log.noSurat}</code>
                                                 <KategoriBadge kategori={log.kategori} isManual={log.isManual} />
                                             </div>
-                                            {log.isManual && log.keteranganManual && (
-                                                <p className="text-xs text-slate-400 mt-0.5 italic">{log.keteranganManual}</p>
+                                            {log.keteranganManual && (
+                                                <p className="text-[10px] text-slate-400 mt-0.5 italic">{log.keteranganManual}</p>
                                             )}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${log.tipe === "K" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${log.tipe === "K" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
                                                 {TIPE_LABELS[log.tipe]}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 text-xs text-slate-600 max-w-40">
-                                            {LAYANAN_CONFIG[log.jenisLayanan]?.label ?? log.jenisLayanan}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-slate-700 max-w-40 truncate">
+                                        <td className="px-4 py-3 text-slate-700 font-medium max-w-[180px] truncate">
                                             {log.kepada}
                                         </td>
                                         <td className="px-4 py-3 text-xs text-slate-500">
@@ -451,16 +413,13 @@ export function NomorSuratLogPage() {
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center justify-center gap-1">
-                                                {/* Buka quotation */}
                                                 {log.quoId && !log.isManual && (
-                                                    <button
-                                                        onClick={() => navigate(`/quotations`)}
-                                                        title="Lihat Quotation"
+                                                    <button onClick={() => navigate(`/quotations`)}
+                                                        title="Lihat List"
                                                         className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
                                                         <FileText size={14} />
                                                     </button>
                                                 )}
-                                                {/* Download PDF dari Storage */}
                                                 {!log.isManual && log.quoId && (
                                                     <DownloadPdfButton quoId={log.quoId} noSurat={log.noSurat} />
                                                 )}
@@ -472,17 +431,8 @@ export function NomorSuratLogPage() {
                         </table>
                     </div>
                 )}
-
-                {/* Footer count */}
-                {!loading && filtered.length > 0 && (
-                    <div className="px-4 py-3 border-t border-slate-100 text-xs text-slate-400 flex justify-between">
-                        <span>Menampilkan {filtered.length} dari {logs.length} entri</span>
-                        {hasActiveFilter && <span className="text-blue-600 font-medium">Filter aktif</span>}
-                    </div>
-                )}
             </div>
 
-            {/* Modal */}
             {showModal && user && (
                 <ManualEntryModal
                     companyId={user.companyId}
@@ -497,7 +447,6 @@ export function NomorSuratLogPage() {
 }
 
 // ─── DOWNLOAD BUTTON ──────────────────────────────────────────────────────────
-// Fetch pdfUrl dari quotation doc lalu trigger download
 
 function DownloadPdfButton({ quoId, noSurat }: { quoId: string; noSurat: string }) {
     const [loading, setLoading] = useState(false);
@@ -507,12 +456,10 @@ function DownloadPdfButton({ quoId, noSurat }: { quoId: string; noSurat: string 
         try {
             const { getQuotationById } = await import("../../services/quotationService");
             const quo = await getQuotationById(quoId);
-            if (!quo?.pdfUrl) { alert("PDF tidak tersedia."); return; }
-
-            // Buka di tab baru (URL dari Storage, bisa langsung didownload)
+            if (!quo?.pdfUrl) { alert("PDF tidak ditemukan."); return; }
             window.open(quo.pdfUrl, "_blank", "noopener,noreferrer");
         } catch {
-            alert("Gagal membuka PDF. Coba lagi.");
+            alert("Gagal mengunduh PDF.");
         } finally {
             setLoading(false);
         }
@@ -520,7 +467,7 @@ function DownloadPdfButton({ quoId, noSurat }: { quoId: string; noSurat: string 
 
     return (
         <button onClick={handleClick} disabled={loading}
-            title="Download PDF Arsip"
+            title="Download PDF"
             className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50">
             {loading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
         </button>
