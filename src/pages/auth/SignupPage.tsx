@@ -4,7 +4,6 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 import { getInviteByToken, markInviteUsed } from "../../services/inviteService";
-import { countActiveUsers, MAX_USERS_PER_COMPANY } from "../../services/userService";
 import { AlertCircle, Loader2, ShieldCheck, CheckCircle2 } from "lucide-react";
 import type { Invite } from "../../services/inviteService";
 
@@ -68,25 +67,18 @@ export function SignupPage() {
         if (!invite) return;
         setError("");
 
-        if (!name.trim())                        { setError("Nama lengkap wajib diisi."); return; }
-        if (password.length < 8)                 { setError("Password minimal 8 karakter."); return; }
-        if (password !== confirmPassword)         { setError("Konfirmasi password tidak cocok."); return; }
+        if (!name.trim())              { setError("Nama lengkap wajib diisi."); return; }
+        if (password.length < 8)       { setError("Password minimal 8 karakter."); return; }
+        if (password !== confirmPassword) { setError("Konfirmasi password tidak cocok."); return; }
 
         setLoading(true);
         try {
-            // 1. Cek slot user
-            const count = await countActiveUsers(invite.companyId);
-            if (count >= MAX_USERS_PER_COMPANY) {
-                setError(`Slot pengguna perusahaan sudah penuh (max ${MAX_USERS_PER_COMPANY} user).`);
-                return;
-            }
-
-            // 2. Buat Firebase Auth user
+            // 1. Buat Firebase Auth user — ini yang paling sering gagal (email duplikat dll)
             const credential = await createUserWithEmailAndPassword(auth, email, password);
             const uid = credential.user.uid;
 
-            // 3. Simpan Firestore doc SEBELUM markInviteUsed
-            //    (useAuth akan retry polling doc ini — harus ada dulu)
+            // 2. Simpan user doc ke Firestore
+            //    Sekarang sudah authenticated (uid dari credential) jadi rules allow write
             await setDoc(doc(db, "users", uid), {
                 uid,
                 email,
@@ -98,10 +90,10 @@ export function SignupPage() {
                 wa: "",
             });
 
-            // 4. Tandai invite terpakai (setelah doc user ada)
+            // 3. Tandai invite terpakai
             await markInviteUsed(token, uid);
 
-            // 5. Tampilkan sukses & redirect
+            // 4. Sukses — redirect ke dashboard
             setDone(true);
             setTimeout(() => navigate("/dashboard"), 2000);
 

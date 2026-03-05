@@ -232,6 +232,114 @@ function NotesModal({
 
 const PER_PAGE = 10;
 
+// ─── ACTION BUTTONS (shared between table row & mobile card) ─────────────────
+
+interface ActionButtonsProps {
+    q: Quotation;
+    isApproved: boolean;
+    isPending: boolean;
+    hasNotes: boolean;
+    isActing: boolean;
+    canApprove: boolean;
+    onSign: () => void;
+    onNotes: () => void;
+    onApprove: () => void;
+    onReject: () => void;
+}
+
+function ActionButtons({ q, isApproved, isPending, hasNotes, isActing, canApprove, onSign, onNotes, onApprove, onReject }: ActionButtonsProps) {
+    const openPdf = (base64: string) => {
+        const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        const blob  = new Blob([bytes], { type: "application/pdf" });
+        const url   = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+    };
+
+    const downloadPdf = (base64: string, filename: string) => {
+        const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        const blob  = new Blob([bytes], { type: "application/pdf" });
+        const url   = URL.createObjectURL(blob);
+        const a     = document.createElement("a");
+        a.href = url; a.download = filename;
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+    };
+
+    const safeName = q.noSurat.replace(/\//g, "-");
+
+    return (
+        <div className="flex items-center gap-1 flex-wrap">
+            {/* View PDF */}
+            {(q.pdfBase64 || q.pdfUrl) && (
+                <button onClick={() => q.pdfBase64 ? openPdf(q.pdfBase64) : window.open(q.pdfUrl, "_blank")}
+                    className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-colors" title="Lihat PDF">
+                    <Eye size={14} />
+                </button>
+            )}
+
+            {/* Download PDF (approved only) */}
+            {(q.pdfBase64 || q.pdfUrl) && isApproved && (
+                <button onClick={() => q.pdfBase64
+                        ? downloadPdf(q.pdfBase64, `${safeName}.pdf`)
+                        : (() => { const a = document.createElement("a"); a.href = q.pdfUrl!; a.download = `${safeName}.pdf`; a.click(); })()
+                    }
+                    className="p-1.5 rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors" title="Download PDF">
+                    <Download size={14} />
+                </button>
+            )}
+
+            {/* Tanda tangan (approved, belum ditandatangani) */}
+            {isApproved && !q.signedPdfBase64 && (
+                <button onClick={onSign}
+                    className="p-1.5 rounded-lg text-slate-400 hover:bg-purple-50 hover:text-purple-600 transition-colors" title="Tanda Tangan Digital">
+                    <PenLine size={14} />
+                </button>
+            )}
+
+            {/* Download signed PDF */}
+            {isApproved && q.signedPdfBase64 && (
+                <button onClick={() => downloadPdf(q.signedPdfBase64!, `${safeName}-SIGNED.pdf`)}
+                    className="p-1.5 rounded-lg text-green-500 hover:bg-green-50 transition-colors relative"
+                    title={`Sudah ditandatangani${q.signedBy ? " oleh " + q.signedBy : ""} — klik untuk download`}>
+                    <PenLine size={14} />
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-400 rounded-full" />
+                </button>
+            )}
+
+            {/* Notes admin */}
+            {hasNotes && (
+                <button onClick={onNotes}
+                    className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-50 hover:text-amber-600 transition-colors relative" title="Lihat Catatan Admin">
+                    <MessageSquare size={14} />
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full" />
+                </button>
+            )}
+
+            {/* Approve / Reject */}
+            {canApprove && isPending && (
+                <>
+                    <button onClick={onApprove} disabled={isActing}
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors disabled:opacity-50" title="Setujui">
+                        {isActing ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                    </button>
+                    <button onClick={onReject} disabled={isActing}
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50" title="Tolak">
+                        <XCircle size={14} />
+                    </button>
+                </>
+            )}
+
+            {!canApprove && isPending && (
+                <span className="text-xs text-slate-400 italic px-1">Menunggu...</span>
+            )}
+        </div>
+    );
+}
+
 export function QuotationPage() {
     const navigate = useNavigate();
     const { user } = useAuthStore();
@@ -453,196 +561,136 @@ export function QuotationPage() {
                         </p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full border-collapse">
-                            <thead>
-                                <tr>
-                                    {["Nomor Surat", "Layanan", "Tipe", "Kepada / Klien",
-                                        ...(canSeeAll ? ["Marketing"] : []),
-                                        "Total", "Status", "Tanggal", "Aksi"]
-                                        .map(h => (
-                                            <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 border-b border-slate-100 bg-slate-50 whitespace-nowrap">
-                                                {h}
-                                            </th>
-                                        ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {paged.map(q => {
-                                    const isAR = q.kategori === "AR";
-                                    const isApproved = q.status === "approved";
-                                    const isPending = q.status === "pending";
-                                    const isRejected = q.status === "rejected";
-                                    const hasNotes = isRejected && (q.rejectionReason || q.notesMarketing);
-                                    const isActing = actionLoading === q.id;
+                    <>
+                        {/* ── DESKTOP TABLE (hidden on mobile) ────────────────── */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full border-collapse">
+                                <thead>
+                                    <tr>
+                                        {["Nomor Surat", "Layanan", "Kepada / Klien",
+                                            ...(canSeeAll ? ["Marketing"] : []),
+                                            "Total", "Status", "Tgl", "Aksi"]
+                                            .map(h => (
+                                                <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 border-b border-slate-100 bg-slate-50 whitespace-nowrap">
+                                                    {h}
+                                                </th>
+                                            ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {paged.map(q => {
+                                        const isAR = q.kategori === "AR";
+                                        const isApproved = q.status === "approved";
+                                        const isPending  = q.status === "pending";
+                                        const isRejected = q.status === "rejected";
+                                        const hasNotes   = isRejected && (q.rejectionReason || q.notesMarketing);
+                                        const isActing   = actionLoading === q.id;
 
-                                    return (
-                                        <tr key={q.id} className={`hover:bg-slate-50 transition-colors ${isPending ? "bg-amber-50/30" : ""}`}>
-                                            <td className="px-4 py-3 whitespace-nowrap">
-                                                <code className={`text-xs font-bold px-2 py-1 rounded font-mono
-                                                    ${isAR ? "bg-purple-50 text-purple-700" : "bg-cyan-50 text-cyan-700"}`}>
-                                                    {q.noSurat}
-                                                </code>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <KategoriBadge kategori={q.kategori} />
-                                                    <span className="text-xs text-slate-500">
+                                        return (
+                                            <tr key={q.id} className={`hover:bg-slate-50 transition-colors ${isPending ? "bg-amber-50/30" : ""}`}>
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    <code className={`text-xs font-bold px-2 py-1 rounded font-mono ${isAR ? "bg-purple-50 text-purple-700" : "bg-cyan-50 text-cyan-700"}`}>
+                                                        {q.noSurat}
+                                                    </code>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <KategoriBadge kategori={q.kategori} />
+                                                        <TipeBadge tipe={q.tipeKontrak} />
+                                                    </div>
+                                                    <span className="text-xs text-slate-400 mt-0.5 block">
                                                         {LAYANAN_CONFIG[q.jenisLayanan]?.label.split("—")[1]?.trim() ?? q.jenisLayanan}
                                                     </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <TipeBadge tipe={q.tipeKontrak} />
-                                            </td>
-                                            <td className="px-4 py-3 max-w-[180px]">
-                                                <div className="text-sm font-semibold text-slate-900 truncate">{q.kepadaNama}</div>
-                                                {q.kepadaAlamatLines[0] && (
-                                                    <div className="text-xs text-slate-400 truncate">{q.kepadaAlamatLines[0]}</div>
+                                                </td>
+                                                <td className="px-4 py-3 max-w-[160px]">
+                                                    <div className="text-sm font-semibold text-slate-900 truncate">{q.kepadaNama}</div>
+                                                    {q.kepadaAlamatLines[0] && (
+                                                        <div className="text-xs text-slate-400 truncate">{q.kepadaAlamatLines[0]}</div>
+                                                    )}
+                                                </td>
+                                                {canSeeAll && (
+                                                    <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{q.marketingNama}</td>
                                                 )}
-                                            </td>
-                                            {canSeeAll && (
-                                                <td className="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">{q.marketingNama}</td>
-                                            )}
-                                            <td className="px-4 py-3 text-sm font-mono text-slate-700 whitespace-nowrap">
-                                                {formatRupiah(q.total)}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <StatusBadge status={q.status} />
-                                            </td>
-                                            <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
-                                                {formatDate(q.tanggal)}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-1">
+                                                <td className="px-4 py-3 text-sm font-mono text-slate-700 whitespace-nowrap">
+                                                    {formatRupiah(q.total)}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <StatusBadge status={q.status} />
+                                                </td>
+                                                <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
+                                                    {formatDate(q.tanggal)}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <ActionButtons q={q} isApproved={isApproved} isPending={isPending}
+                                                        hasNotes={!!hasNotes} isActing={isActing} canApprove={canApprove}
+                                                        onSign={() => setSignatureTarget(q)}
+                                                        onNotes={() => setNotesTarget(q)}
+                                                        onApprove={() => setApproveTarget(q)}
+                                                        onReject={() => setRejectTarget(q)} />
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
 
-                                                    {/* View PDF */}
-                                                    {(q.pdfBase64 || q.pdfUrl) && (
-                                                        <button
-                                                            onClick={() => {
-                                                                if (q.pdfBase64) {
-                                                                    const bytes = Uint8Array.from(atob(q.pdfBase64), c => c.charCodeAt(0));
-                                                                    const blob = new Blob([bytes], { type: "application/pdf" });
-                                                                    const url = URL.createObjectURL(blob);
-                                                                    window.open(url, "_blank");
-                                                                    setTimeout(() => URL.revokeObjectURL(url), 5000);
-                                                                } else if (q.pdfUrl) {
-                                                                    window.open(q.pdfUrl, "_blank");
-                                                                }
-                                                            }}
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-colors" title="Lihat PDF">
-                                                            <Eye size={14} />
-                                                        </button>
-                                                    )}
+                        {/* ── MOBILE CARDS (shown only on mobile) ──────────────── */}
+                        <div className="md:hidden divide-y divide-slate-100">
+                            {paged.map(q => {
+                                const isAR       = q.kategori === "AR";
+                                const isApproved = q.status === "approved";
+                                const isPending  = q.status === "pending";
+                                const isRejected = q.status === "rejected";
+                                const hasNotes   = isRejected && (q.rejectionReason || q.notesMarketing);
+                                const isActing   = actionLoading === q.id;
 
-                                                    {/* Download PDF — HANYA jika status approved */}
-                                                    {(q.pdfBase64 || q.pdfUrl) && isApproved && (
-                                                        <button
-                                                            onClick={() => {
-                                                                const safeName = q.noSurat.replace(/\//g, "-");
-                                                                if (q.pdfBase64) {
-                                                                    const bytes = Uint8Array.from(atob(q.pdfBase64), c => c.charCodeAt(0));
-                                                                    const blob = new Blob([bytes], { type: "application/pdf" });
-                                                                    const url = URL.createObjectURL(blob);
-                                                                    const a = document.createElement("a");
-                                                                    a.href = url; a.download = `${safeName}.pdf`;
-                                                                    a.style.display = "none";
-                                                                    document.body.appendChild(a);
-                                                                    a.click();
-                                                                    document.body.removeChild(a);
-                                                                    setTimeout(() => URL.revokeObjectURL(url), 3000);
-                                                                } else if (q.pdfUrl) {
-                                                                    const a = document.createElement("a");
-                                                                    a.href = q.pdfUrl; a.download = `${safeName}.pdf`;
-                                                                    a.click();
-                                                                }
-                                                            }}
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors" title="Download PDF (Disetujui)">
-                                                            <Download size={14} />
-                                                        </button>
-                                                    )}
+                                return (
+                                    <div key={q.id} className={`p-4 ${isPending ? "bg-amber-50/40" : "bg-white"}`}>
+                                        {/* Top row: nomor + status */}
+                                        <div className="flex items-start justify-between gap-2 mb-2">
+                                            <code className={`text-xs font-bold px-2 py-1 rounded font-mono leading-tight ${isAR ? "bg-purple-50 text-purple-700" : "bg-cyan-50 text-cyan-700"}`}>
+                                                {q.noSurat}
+                                            </code>
+                                            <StatusBadge status={q.status} />
+                                        </div>
 
-                                                    {/* Tanda tangan — HANYA jika approved */}
-                                                    {isApproved && !q.signedPdfBase64 && (
-                                                        <button
-                                                            title="Tanda Tangan Digital"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:bg-purple-50 hover:text-purple-600 transition-colors"
-                                                            onClick={() => setSignatureTarget(q)}>
-                                                            <PenLine size={14} />
-                                                        </button>
-                                                    )}
+                                        {/* Client name */}
+                                        <p className="text-sm font-semibold text-slate-900 mb-0.5">{q.kepadaNama}</p>
+                                        {q.kepadaAlamatLines[0] && (
+                                            <p className="text-xs text-slate-400 mb-2 truncate">{q.kepadaAlamatLines[0]}</p>
+                                        )}
 
-                                                    {/* Sudah ditandatangani — tampilkan badge + download */}
-                                                    {isApproved && q.signedPdfBase64 && (
-                                                        <button
-                                                            title={}
-                                                            className="p-1.5 rounded-lg text-green-500 hover:bg-green-50 transition-colors relative"
-                                                            onClick={() => {
-                                                                const bytes = Uint8Array.from(atob(q.signedPdfBase64!), c => c.charCodeAt(0));
-                                                                const blob = new Blob([bytes], { type: "application/pdf" });
-                                                                const url = URL.createObjectURL(blob);
-                                                                const a = document.createElement("a");
-                                                                a.href = url;
-                                                                a.download = ;
-                                                                a.style.display = "none";
-                                                                document.body.appendChild(a);
-                                                                a.click();
-                                                                document.body.removeChild(a);
-                                                                setTimeout(() => URL.revokeObjectURL(url), 3000);
-                                                            }}>
-                                                            <PenLine size={14} />
-                                                            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-400 rounded-full" />
-                                                        </button>
-                                                    )}
+                                        {/* Meta row */}
+                                        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                                            <KategoriBadge kategori={q.kategori} />
+                                            <TipeBadge tipe={q.tipeKontrak} />
+                                            <span className="text-xs text-slate-400">
+                                                {LAYANAN_CONFIG[q.jenisLayanan]?.label.split("—")[1]?.trim() ?? q.jenisLayanan}
+                                            </span>
+                                        </div>
 
-                                                    {/* Notes dari admin — tampil jika ditolak dan ada notes */}
-                                                    {hasNotes && (
-                                                        <button
-                                                            title="Lihat Catatan Admin"
-                                                            onClick={() => setNotesTarget(q)}
-                                                            className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-50 hover:text-amber-600 transition-colors relative">
-                                                            <MessageSquare size={14} />
-                                                            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full" />
-                                                        </button>
-                                                    )}
-
-                                                    {/* Approve / Reject — hanya admin & status pending */}
-                                                    {canApprove && isPending && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => setApproveTarget(q)}
-                                                                disabled={isActing}
-                                                                className="p-1.5 rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors disabled:opacity-50"
-                                                                title="Setujui">
-                                                                {isActing ? (
-                                                                    <RefreshCw size={14} className="animate-spin" />
-                                                                ) : (
-                                                                    <CheckCircle2 size={14} />
-                                                                )}
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setRejectTarget(q)}
-                                                                disabled={isActing}
-                                                                className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
-                                                                title="Tolak">
-                                                                <XCircle size={14} />
-                                                            </button>
-                                                        </>
-                                                    )}
-
-                                                    {/* Lock icon untuk pending (non-admin) */}
-                                                    {!canApprove && isPending && (
-                                                        <span className="text-xs text-slate-400 italic px-1">Menunggu...</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                        {/* Bottom row: total + date + actions */}
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-800 font-mono">{formatRupiah(q.total)}</p>
+                                                <p className="text-xs text-slate-400">{formatDate(q.tanggal)}{canSeeAll ? ` · ${q.marketingNama}` : ""}</p>
+                                            </div>
+                                            <ActionButtons q={q} isApproved={isApproved} isPending={isPending}
+                                                hasNotes={!!hasNotes} isActing={isActing} canApprove={canApprove}
+                                                onSign={() => setSignatureTarget(q)}
+                                                onNotes={() => setNotesTarget(q)}
+                                                onApprove={() => setApproveTarget(q)}
+                                                onReject={() => setRejectTarget(q)} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
                 )}
+
+                {/* Pagination */}
 
                 {/* Pagination */}
                 {totalPages > 1 && (
