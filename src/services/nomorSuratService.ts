@@ -107,7 +107,42 @@ export async function generateNomorSurat(params: GenerateNomorParams): Promise<N
     return { ...entry, id: "preview" };
 }
 
-// ─── PREVIEW NOMOR (dry-run) ──────────────────────────────────────────────────
+/**
+ * OPTIMIZED: Langsung simpan nomor surat yang sudah di-preview di step 1.
+ * Melewati getDocs query ulang — cukup addDoc dengan nomor yang sudah diketahui.
+ * Gunakan ini setelah previewNomorSurat() sudah dipanggil sebelumnya.
+ *
+ * CATATAN: Ada edge-case kecil jika ada user lain yang submit di momen yang sama.
+ * Untuk use-case ini (tim internal kecil) risk-nya sangat minimal.
+ */
+export async function commitNomorSurat(params: GenerateNomorParams & { noSurat: string }): Promise<NomorSuratLog> {
+    const { kategori, tipe, jenisLayanan, kepada, byUid, byName, companyId, noSurat } = params;
+    const now = new Date();
+
+    const entry: Omit<NomorSuratLog, "id"> = {
+        noSurat,
+        kategori,
+        tipe,
+        tipeLabel: TIPE_LABELS[tipe] ?? tipe,
+        jenisLayanan,
+        kepada,
+        byUid,
+        byName,
+        dibuat: now,
+        status: "draft",
+        quoId: null,
+        companyId,
+    };
+
+    const ref = await addDoc(collection(db, COL), {
+        ...entry,
+        dibuat: Timestamp.fromDate(now),
+    });
+
+    return { ...entry, id: ref.id };
+}
+
+
 
 /**
  * Preview nomor surat tanpa menyimpan ke Firestore.
