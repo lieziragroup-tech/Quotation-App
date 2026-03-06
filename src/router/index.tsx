@@ -18,6 +18,7 @@ import { ProfilePage } from "../pages/profile/ProfilePage";
 import { ComingSoonPage } from "../pages/ComingSoonPage";
 import { CashflowPage } from "../pages/cashflow/CashflowPage";
 import { PerformaPage } from "../pages/performance/PerformaPage";
+import { CustomersPage } from "../pages/customers/CustomersPage";
 
 // Pages — super_admin
 import { CompaniesPage } from "../pages/super-admin/CompaniesPage";
@@ -126,7 +127,7 @@ export const router = createBrowserRouter([
                 path: "customers",
                 element: (
                     <RoleGuard allowedRoles={["administrator", "admin_ops", "marketing"]}>
-                        <ComingSoonPage />
+                        <CustomersPage />
                     </RoleGuard>
                 ),
             },

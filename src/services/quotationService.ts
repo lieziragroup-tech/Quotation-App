@@ -187,7 +187,7 @@ export async function updateQuotationStatus(
 
     if (status === "approved") {
         if (approvedBy) updates.approvedBy = approvedBy;
-        updates.approvedAt    = Timestamp.fromDate(new Date());
+        updates.approvedAt      = Timestamp.fromDate(new Date());
         updates.rejectionReason = null;
         updates.notesMarketing  = null;
     }
@@ -198,8 +198,20 @@ export async function updateQuotationStatus(
         updates.approvedAt = Timestamp.fromDate(new Date());
     }
 
-    const { updateDoc } = await import("firebase/firestore");
-    await updateDoc(doc(db, COL, id), updates);
+    const { updateDoc, writeBatch, collection: col, query, where, getDocs } = await import("firebase/firestore");
+
+    // Sync status ke nomorSuratLog yang terhubung (quoId === id)
+    const logQuery = query(col(db, "nomorSuratLog"), where("quoId", "==", id));
+    const logSnap  = await getDocs(logQuery);
+
+    if (!logSnap.empty) {
+        const batch = writeBatch(db);
+        batch.update(doc(db, COL, id), updates);
+        logSnap.docs.forEach(d => batch.update(d.ref, { status }));
+        await batch.commit();
+    } else {
+        await updateDoc(doc(db, COL, id), updates);
+    }
 }
 
 // ─── LEGACY COMPAT (kalau ada code lain yang masih pakai createQuotation) ─────

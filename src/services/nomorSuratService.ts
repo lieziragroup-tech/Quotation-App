@@ -219,6 +219,17 @@ export async function updateNomorSuratStatus(
     });
 }
 
+// ─── DELETE ───────────────────────────────────────────────────────────────────
+
+/**
+ * Hapus nomor surat dari log.
+ * Hanya boleh dipanggil oleh administrator.
+ */
+export async function deleteNomorSurat(logId: string): Promise<void> {
+    const { deleteDoc } = await import("firebase/firestore");
+    await deleteDoc(doc(db, COL, logId));
+}
+
 // ─── TAMBAH MANUAL ────────────────────────────────────────────────────────────
 
 export interface AddManualNomorParams {
