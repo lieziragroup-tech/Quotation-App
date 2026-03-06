@@ -650,10 +650,8 @@ class QuotationRenderer {
         this.drawKop();
         this.buildHeaderInfo();
 
-        // Divider sebelum tabel biaya
-        this.checkPage(4);
-        this.hr(BRAND.border, 0.3);
-        this.nl(5);
+        // Tabel biaya selalu mulai di halaman baru
+        this.newPage();
 
         this.buildBiayaSection();
         this.buildPembayaran();
