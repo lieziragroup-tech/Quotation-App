@@ -217,3 +217,9 @@ export async function updateQuotationStatus(
 // ─── LEGACY COMPAT (kalau ada code lain yang masih pakai createQuotation) ─────
 
 export { saveQuotationBatch as addQuotationDoc };
+// ─── DELETE ───────────────────────────────────────────────────────────────────
+
+export async function deleteQuotation(id: string): Promise<void> {
+    const { deleteDoc } = await import("firebase/firestore");
+    await deleteDoc(doc(db, COL, id));
+}

@@ -209,17 +209,21 @@ function Step2({ nama, alamatLines, up, onNama, onAlamat, onUp, errors }: {
 // ─── STEP 3 ───────────────────────────────────────────────────────────────────
 
 function Step3({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor, garansiTahun, jenisGaransi,
-    onItems, onBiaya, onDiskon, onPpn, onPpnDpp, onGaransi, onJenisGaransi, jenisLayanan }: {
+    pembulatanRp,
+    onItems, onBiaya, onDiskon, onPpn, onPpnDpp, onGaransi, onJenisGaransi, onPembulatan, jenisLayanan }: {
     items: QuotationItem[]; biayaTambahan: BiayaTambahan[];
     diskonPct: number; ppn: boolean; ppnDppFaktor: number;
     garansiTahun: number; jenisGaransi: string;
+    pembulatanRp: number;
     onItems: (v: QuotationItem[]) => void; onBiaya: (v: BiayaTambahan[]) => void;
     onDiskon: (v: number) => void; onPpn: (v: boolean) => void; onPpnDpp: (v: number) => void;
     onGaransi: (v: number) => void; onJenisGaransi: (v: string) => void;
+    onPembulatan: (v: number) => void;
     jenisLayanan: JenisLayanan;
 }) {
     const isAR = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
     const calc = calcTotals({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor: ppnDppFaktor || undefined });
+    const totalSetelahPembulatan = calc.total + pembulatanRp;
     const UNITS = ["m2", "m1", "m3", "Kali", "Titik", "Lot", "ls", "Unit"];
 
     const updateItem  = (i: number, key: keyof QuotationItem, val: string | number) =>
@@ -357,6 +361,52 @@ function Step3({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor, garansiTahu
                             placeholder="Anti Rayap / Anti Rayap Pra-Konstruksi" />
                     </Field>
                 )}
+
+                {/* Pembulatan harga */}
+                <Field
+                    label="Pembulatan Harga"
+                    hint={pembulatanRp !== 0
+                        ? `Total akhir: ${fmtIDR(totalSetelahPembulatan)}`
+                        : "Opsional — tambah/kurangi untuk membulatkan total"}
+                >
+                    <div className="flex items-center gap-2">
+                        <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                            <button type="button"
+                                onClick={() => {
+                                    // Auto-hitung pembulatan ke atas ribuan terdekat
+                                    const rawTotal = calc.total;
+                                    const rounded = Math.ceil(rawTotal / 1000) * 1000;
+                                    onPembulatan(Math.round(rounded - rawTotal));
+                                }}
+                                className="px-3 py-2 text-xs bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700 font-medium border-r border-slate-200 whitespace-nowrap">
+                                ↑ Ribuan
+                            </button>
+                            <button type="button"
+                                onClick={() => {
+                                    const rawTotal = calc.total;
+                                    const rounded = Math.ceil(rawTotal / 10000) * 10000;
+                                    onPembulatan(Math.round(rounded - rawTotal));
+                                }}
+                                className="px-3 py-2 text-xs bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700 font-medium whitespace-nowrap">
+                                ↑ Puluhan rb
+                            </button>
+                        </div>
+                        <input
+                            type="number"
+                            step="1000"
+                            className={`${inputCls} font-mono text-center ${pembulatanRp > 0 ? "text-emerald-700" : pembulatanRp < 0 ? "text-red-600" : ""}`}
+                            value={pembulatanRp}
+                            onChange={e => onPembulatan(parseInt(e.target.value) || 0)}
+                            placeholder="0"
+                        />
+                        {pembulatanRp !== 0 && (
+                            <button type="button" onClick={() => onPembulatan(0)}
+                                className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50">
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+                </Field>
             </div>
 
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-2">
@@ -366,15 +416,18 @@ function Step3({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor, garansiTahu
                     { label: `Diskon (${diskonPct}%)`, value: -calc.diskonRp, show: calc.diskonRp > 0 },
                     { label: "Setelah Diskon", value: calc.setelahDiskon, show: calc.diskonRp > 0 },
                     { label: "PPN", value: calc.ppnRp, show: calc.ppnRp > 0 },
+                    { label: `Pembulatan`, value: pembulatanRp, show: pembulatanRp !== 0 },
                 ].filter(r => r.show).map(r => (
                     <div key={r.label} className="flex justify-between text-sm text-slate-600">
                         <span>{r.label}</span>
-                        <span className="font-mono">{fmtIDR(Math.abs(r.value))}</span>
+                        <span className={`font-mono ${r.value < 0 ? "text-red-500" : r.label === "Pembulatan" && r.value > 0 ? "text-emerald-600" : ""}`}>
+                            {r.value < 0 ? `- ${fmtIDR(Math.abs(r.value))}` : fmtIDR(Math.abs(r.value))}
+                        </span>
                     </div>
                 ))}
                 <div className="border-t border-slate-200 pt-2 flex justify-between font-bold">
                     <span className="text-slate-800">TOTAL</span>
-                    <span className="text-green-700 text-base font-mono">{fmtIDR(calc.total)}</span>
+                    <span className="text-green-700 text-base font-mono">{fmtIDR(totalSetelahPembulatan)}</span>
                 </div>
             </div>
         </div>
@@ -925,6 +978,7 @@ export function QuotationFormPage() {
     const [diskonPct, setDiskonPct] = useState(0);
     const [ppn, setPpn] = useState(false);
     const [ppnDppFaktor, setPpnDppFaktor] = useState(0);
+    const [pembulatanRp, setPembulatanRp] = useState(0);
     const [garansiTahun, setGaransiTahun] = useState(0);
     const [jenisGaransi, setJenisGaransi] = useState("Anti Rayap");
 
@@ -969,6 +1023,7 @@ export function QuotationFormPage() {
     }, [step, kepada, kepadaNama]);
 
     const calc = calcTotals({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor: ppnDppFaktor || undefined });
+    const totalFinal = calc.total + pembulatanRp;
 
     const validate = useCallback((): boolean => {
         const e: Record<string, string> = {};
@@ -1045,7 +1100,7 @@ export function QuotationFormPage() {
                 ppnDppFaktor: ppnDppFaktor || undefined,
                 garansiTahun: garansiTahun || undefined,
                 jenisGaransi: jenisGaransi || undefined,
-                subtotal: calc.subtotal, diskonRp: calc.diskonRp, ppnRp: calc.ppnRp, total: calc.total,
+                subtotal: calc.subtotal, diskonRp: calc.diskonRp, ppnRp: calc.ppnRp, total: totalFinal,
                 marketingUid: user.uid, marketingNama: user.name, marketingWa: user.wa,
                 status: "pending", companyId: user.companyId,
                 // Technical & Survey data
@@ -1114,9 +1169,11 @@ export function QuotationFormPage() {
                     onNama={setKepadaNama} onAlamat={setKepadaAlamat} onUp={setKepadaUp} errors={errors} />}
                 {step === 2 && <Step3 items={items} biayaTambahan={biayaTambahan} diskonPct={diskonPct}
                     ppn={ppn} ppnDppFaktor={ppnDppFaktor} garansiTahun={garansiTahun} jenisGaransi={jenisGaransi}
+                    pembulatanRp={pembulatanRp}
                     jenisLayanan={jenisLayanan} onItems={setItems} onBiaya={setBiayaTambahan}
                     onDiskon={setDiskonPct} onPpn={setPpn} onPpnDpp={setPpnDppFaktor}
-                    onGaransi={setGaransiTahun} onJenisGaransi={setJenisGaransi} />}
+                    onGaransi={setGaransiTahun} onJenisGaransi={setJenisGaransi}
+                    onPembulatan={setPembulatanRp} />}
                 {step === 3 && <Step3b
                     jenisLayanan={jenisLayanan}
                     surveyPhotos={surveyPhotos} onPhotos={setSurveyPhotos}
@@ -1127,7 +1184,7 @@ export function QuotationFormPage() {
                 />}
                 {step === 4 && <Step5 noSurat={noPreview} jenisLayanan={jenisLayanan} tipe={tipe}
                     kepadaNama={kepadaNama || kepada} kepadaAlamatLines={kepadaAlamat}
-                    total={calc.total} marketingNama={user?.name ?? ""} marketingWa={user?.wa} />}
+                    total={totalFinal} marketingNama={user?.name ?? ""} marketingWa={user?.wa} />}
 
                 {/* Error dari genState (muncul di bawah form setelah overlay ditutup) */}
                 {genState.step === "error" && genState.errorMsg && (

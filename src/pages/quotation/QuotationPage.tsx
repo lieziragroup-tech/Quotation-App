@@ -5,10 +5,10 @@ import {
     FileText, Plus, Search, RefreshCw,
     CheckCircle2, XCircle, Clock, FileX2,
     Eye, Download, Filter, ChevronLeft, ChevronRight,
-    PenLine, MessageSquare, AlertCircle,
+    PenLine, MessageSquare, AlertCircle, Trash2,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
-import { getQuotations, updateQuotationStatus } from "../../services/quotationService";
+import { getQuotations, updateQuotationStatus, deleteQuotation } from "../../services/quotationService";
 import { LAYANAN_CONFIG } from "../../lib/quotationConfig";
 import { formatDate, formatRupiah } from "../../lib/utils";
 import type { Quotation, QuotationStatus, KategoriSurat, TipeKontrak } from "../../types";
@@ -228,6 +228,51 @@ function NotesModal({
     );
 }
 
+// ─── DELETE MODAL ─────────────────────────────────────────────────────────────
+
+function DeleteModal({
+    open, onClose, onConfirm, quotation, loading,
+}: {
+    open: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    quotation: Quotation | null;
+    loading: boolean;
+}) {
+    if (!open || !quotation) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+                <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Trash2 size={22} className="text-red-600" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 text-center mb-1">Hapus Quotation?</h3>
+                <p className="text-sm text-slate-500 text-center mb-1">
+                    <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-xs">{quotation.noSurat}</code>
+                </p>
+                <p className="text-sm text-slate-500 text-center mb-4">
+                    Kepada <strong>{quotation.kepadaNama}</strong>
+                </p>
+                <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-5 text-xs text-red-600 text-center">
+                    ⚠ Tindakan ini permanen dan tidak dapat dibatalkan.
+                </div>
+                <div className="flex gap-2">
+                    <button onClick={onClose} disabled={loading}
+                        className="flex-1 px-4 py-2 text-sm rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium">
+                        Batal
+                    </button>
+                    <button onClick={onConfirm} disabled={loading}
+                        className="flex-1 px-4 py-2 text-sm rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                        {loading ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                        Hapus
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 const PER_PAGE = 10;
@@ -241,13 +286,15 @@ interface ActionButtonsProps {
     hasNotes: boolean;
     isActing: boolean;
     canApprove: boolean;
+    canDelete: boolean;
     onSign: () => void;
     onNotes: () => void;
     onApprove: () => void;
     onReject: () => void;
+    onDelete: () => void;
 }
 
-function ActionButtons({ q, isApproved, isPending, hasNotes, isActing, canApprove, onSign, onNotes, onApprove, onReject }: ActionButtonsProps) {
+function ActionButtons({ q, isApproved, isPending, hasNotes, isActing, canApprove, canDelete, onSign, onNotes, onApprove, onReject, onDelete }: ActionButtonsProps) {
     const openPdf = (base64: string) => {
         const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
         const blob  = new Blob([bytes], { type: "application/pdf" });
@@ -336,6 +383,14 @@ function ActionButtons({ q, isApproved, isPending, hasNotes, isActing, canApprov
             {!canApprove && isPending && (
                 <span className="text-xs text-slate-400 italic px-1">Menunggu...</span>
             )}
+
+            {/* Delete — hanya administrator */}
+            {canDelete && (
+                <button onClick={onDelete}
+                    className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors" title="Hapus Quotation">
+                    <Trash2 size={14} />
+                </button>
+            )}
         </div>
     );
 }
@@ -356,11 +411,14 @@ export function QuotationPage() {
     const [rejectTarget, setRejectTarget] = useState<Quotation | null>(null);
     const [approveTarget, setApproveTarget] = useState<Quotation | null>(null);
     const [notesTarget, setNotesTarget] = useState<Quotation | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<Quotation | null>(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     const canSeeAll = user?.role !== "marketing";
     const canApprove = user?.role === "super_admin" || user?.role === "administrator";
     const canCreate = user?.role === "super_admin" || user?.role === "administrator" || user?.role === "marketing";
+    const canDelete = user?.role === "administrator";
 
     const load = async () => {
         if (!user) return;
@@ -422,6 +480,20 @@ export function QuotationPage() {
             await load();
         } finally {
             setActionLoading(null);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
+        setDeleteLoading(true);
+        try {
+            await deleteQuotation(deleteTarget.id);
+            setQuotations(prev => prev.filter(q => q.id !== deleteTarget.id));
+            setDeleteTarget(null);
+        } catch {
+            alert("Gagal menghapus quotation. Coba lagi.");
+        } finally {
+            setDeleteLoading(false);
         }
     };
 
@@ -623,10 +695,12 @@ export function QuotationPage() {
                                                 <td className="px-4 py-3">
                                                     <ActionButtons q={q} isApproved={isApproved} isPending={isPending}
                                                         hasNotes={!!hasNotes} isActing={isActing} canApprove={canApprove}
+                                                        canDelete={canDelete}
                                                         onSign={() => setSignatureTarget(q)}
                                                         onNotes={() => setNotesTarget(q)}
                                                         onApprove={() => setApproveTarget(q)}
-                                                        onReject={() => setRejectTarget(q)} />
+                                                        onReject={() => setRejectTarget(q)}
+                                                        onDelete={() => setDeleteTarget(q)} />
                                                 </td>
                                             </tr>
                                         );
@@ -678,10 +752,12 @@ export function QuotationPage() {
                                             </div>
                                             <ActionButtons q={q} isApproved={isApproved} isPending={isPending}
                                                 hasNotes={!!hasNotes} isActing={isActing} canApprove={canApprove}
+                                                canDelete={canDelete}
                                                 onSign={() => setSignatureTarget(q)}
                                                 onNotes={() => setNotesTarget(q)}
                                                 onApprove={() => setApproveTarget(q)}
-                                                onReject={() => setRejectTarget(q)} />
+                                                onReject={() => setRejectTarget(q)}
+                                                onDelete={() => setDeleteTarget(q)} />
                                         </div>
                                     </div>
                                 );
@@ -729,6 +805,13 @@ export function QuotationPage() {
                 open={!!notesTarget}
                 onClose={() => setNotesTarget(null)}
                 quotation={notesTarget}
+            />
+            <DeleteModal
+                open={!!deleteTarget}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={handleDelete}
+                quotation={deleteTarget}
+                loading={deleteLoading}
             />
         </div>
     );
