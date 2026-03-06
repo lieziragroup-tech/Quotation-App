@@ -11,8 +11,8 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { X, RotateCcw, PenLine, Download, Check, Loader2, AlertCircle, ChevronRight } from "lucide-react";
 import jsPDF from "jspdf";
 import { doc, updateDoc, Timestamp } from "firebase/firestore";
-import { db } from "../../lib/firebase";
-import type { Quotation } from "../../types";
+import { db } from "../lib/firebase";
+import type { Quotation } from "../types";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
