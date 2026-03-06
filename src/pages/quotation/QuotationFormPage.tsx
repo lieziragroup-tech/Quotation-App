@@ -51,8 +51,8 @@ function StepIndicator({ current }: { current: number }) {
     );
 }
 
-function Field({ label, required, error, children }: {
-    label: string; required?: boolean; error?: string; children: React.ReactNode;
+function Field({ label, required, error, hint, children }: {
+    label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode;
 }) {
     return (
         <div className="space-y-1.5">
@@ -60,6 +60,7 @@ function Field({ label, required, error, children }: {
                 {label}{required && <span className="text-red-500 ml-0.5">*</span>}
             </label>
             {children}
+            {hint && <p className="text-[11px] text-slate-400 italic">{hint}</p>}
             {error && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{error}</p>}
         </div>
     );
