@@ -19,6 +19,7 @@ import { ComingSoonPage } from "../pages/ComingSoonPage";
 import { CashflowPage } from "../pages/cashflow/CashflowPage";
 import { PerformaPage } from "../pages/performance/PerformaPage";
 import { CustomersPage } from "../pages/customers/CustomersPage";
+import { SettingsPage } from "../pages/settings/SettingsPage";
 
 // Pages — super_admin
 import { CompaniesPage } from "../pages/super-admin/CompaniesPage";
@@ -151,7 +152,7 @@ export const router = createBrowserRouter([
                 path: "settings",
                 element: (
                     <RoleGuard allowedRoles={["administrator"]}>
-                        <ComingSoonPage />
+                        <SettingsPage />
                     </RoleGuard>
                 ),
             },
