@@ -313,7 +313,7 @@ export function CompanyUsersPage() {
     const hasAdmin = users.some(u => u.role === "administrator");
 
     return (
-        <div className="p-6 max-w-screen-lg mx-auto space-y-5">
+        <div className="p-4 md:p-6 max-w-screen-lg mx-auto space-y-5">
             {/* Header */}
             <div className="flex items-center gap-3">
                 <button onClick={() => navigate("/super-admin/companies")}
@@ -371,7 +371,9 @@ export function CompanyUsersPage() {
                         <p className="text-sm">Belum ada user di perusahaan ini.</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <>
+                    {/* Desktop table */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr>
@@ -439,6 +441,43 @@ export function CompanyUsersPage() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Mobile cards */}
+                    <div className="md:hidden divide-y divide-slate-100">
+                        {users.map(u => (
+                            <div key={u.uid} className="p-4 flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-sm shrink-0">
+                                    {u.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-slate-900 truncate">{u.name}</p>
+                                    <p className="text-xs text-slate-400 truncate">{u.email}</p>
+                                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-bold ${ROLE_COLORS[u.role] ?? ""}`}>
+                                            {ROLE_LABELS[u.role] ?? u.role}
+                                        </span>
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${u.isActive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                                            {u.isActive ? <><CheckCircle2 size={10} /> Aktif</> : <><XCircle size={10} /> Nonaktif</>}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-1 shrink-0">
+                                    <button onClick={() => handleToggleActive(u)} disabled={togglingUid === u.uid}
+                                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 ${u.isActive ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}>
+                                        {togglingUid === u.uid ? <Loader2 size={11} className="animate-spin" /> : u.isActive ? <XCircle size={11} /> : <CheckCircle2 size={11} />}
+                                        {u.isActive ? "Nonaktif" : "Aktifkan"}
+                                    </button>
+                                    <button onClick={() => handleResendActivation(u)} disabled={resendingUid === u.uid}
+                                        title="Kirim link aktivasi/reset password ke email ini"
+                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors disabled:opacity-40">
+                                        {resendingUid === u.uid ? <Loader2 size={11} className="animate-spin" /> : resendDoneUid === u.uid ? <Check size={11} className="text-emerald-600" /> : <Mail size={11} />}
+                                        {resendDoneUid === u.uid ? "Terkirim!" : "Link"}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    </>
                 )}
             </div>
 

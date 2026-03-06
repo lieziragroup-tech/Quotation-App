@@ -227,7 +227,7 @@ export function TeamPage() {
     const slotPct = Math.min((slotUsed / slotMax) * 100, 100);
 
     return (
-        <div className="p-6 max-w-screen-lg mx-auto space-y-5">
+        <div className="p-4 md:p-6 max-w-screen-lg mx-auto space-y-5">
             {/* Header */}
             <div className="flex items-start justify-between">
                 <div>
@@ -287,6 +287,9 @@ export function TeamPage() {
                         <p className="text-sm">Belum ada anggota tim.</p>
                     </div>
                 ) : (
+                    <>
+                    {/* Desktop table */}
+                    <div className="hidden md:block overflow-x-auto">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr>
@@ -345,6 +348,40 @@ export function TeamPage() {
                             ))}
                         </tbody>
                     </table>
+                    </div>
+
+                    {/* Mobile cards */}
+                    <div className="md:hidden divide-y divide-slate-100">
+                        {members.map(m => (
+                            <div key={m.uid} className="p-4 flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm shrink-0">
+                                    {m.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-slate-900 truncate">{m.name}</p>
+                                    <p className="text-xs text-slate-400 truncate">{m.email}</p>
+                                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-bold ${ROLE_COLORS[m.role] ?? "bg-slate-100 text-slate-500"}`}>
+                                            {ALL_ROLE_LABELS[m.role] ?? m.role}
+                                        </span>
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${m.isActive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${m.isActive ? "bg-emerald-500" : "bg-red-500"}`} />
+                                            {m.isActive ? "Aktif" : "Nonaktif"}
+                                        </span>
+                                    </div>
+                                </div>
+                                {m.uid !== user?.uid && m.role !== "administrator" && (
+                                    <button onClick={() => setToggleTarget(m)} disabled={toggling === m.uid}
+                                        className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40
+                                            ${m.isActive ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}>
+                                        {toggling === m.uid ? <Loader2 size={11} className="animate-spin" /> : m.isActive ? <XCircle size={11} /> : <CheckCircle2 size={11} />}
+                                        {m.isActive ? "Nonaktif" : "Aktifkan"}
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    </>
                 )}
             </div>
 

@@ -282,7 +282,7 @@ function CreateSPKModal({
                                         <AlertCircle size={14} /> Belum ada teknisi aktif di perusahaan ini.
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                         {teknisis.map(t => (
                                             <button
                                                 key={t.uid}
@@ -307,7 +307,7 @@ function CreateSPKModal({
                             </div>
 
                             {/* Step 3: Jadwal */}
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wide text-slate-400 mb-1">
                                         3. Tanggal Jadwal *
@@ -471,7 +471,7 @@ function SPKDetailModal({
                     </div>
 
                     {/* Info grid */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <InfoBlock icon={<User size={13} />} label="Teknisi" value={spk.technicianName} />
                         <InfoBlock icon={<CalendarDays size={13} />} label="Jadwal" value={fmt(spk.scheduleDate)} />
                         <InfoBlock icon={<MapPin size={13} />} label="Lokasi" value={(spk as any).lokasi || "—"} />
@@ -609,7 +609,7 @@ export function SPKPage() {
     }), [spkList]);
 
     return (
-        <div className="p-6 max-w-screen-xl mx-auto space-y-5">
+        <div className="p-4 md:p-6 max-w-screen-xl mx-auto space-y-5">
 
             {/* ── Header ── */}
             <div className="flex items-center justify-between gap-4">
@@ -698,7 +698,9 @@ export function SPKPage() {
                         )}
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <>
+                    {/* Desktop table */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr>
@@ -755,6 +757,34 @@ export function SPKPage() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Mobile cards */}
+                    <div className="md:hidden divide-y divide-slate-100">
+                        {filtered.map(spk => {
+                            const cfg = STATUS_CONFIG[spk.status];
+                            return (
+                                <div key={spk.id} className="p-4 cursor-pointer active:bg-slate-50"
+                                    onClick={() => setSelected(spk)}>
+                                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-mono text-slate-400">{(spk as any).quotationNoSurat}</p>
+                                            <p className="text-sm font-semibold text-slate-900 truncate">{(spk as any).perihal}</p>
+                                        </div>
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold shrink-0 ${cfg.color}`}>
+                                            {cfg.icon} {cfg.label}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-slate-700 truncate">{spk.customerName}</p>
+                                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                                        <span>{spk.technicianName}</span>
+                                        <span>·</span>
+                                        <span>{fmt(spk.scheduleDate)}</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    </>
                 )}
             </div>
 

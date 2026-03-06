@@ -253,7 +253,7 @@ export function CashflowPage() {
         : `${MONTHS_ID[filterMonth - 1]} ${filterYear}`;
 
     return (
-        <div className="p-6 max-w-screen-xl mx-auto space-y-6">
+        <div className="p-4 md:p-6 max-w-screen-xl mx-auto space-y-6">
 
             {/* ── Header ── */}
             <div className="flex items-center justify-between gap-4">
@@ -407,7 +407,9 @@ export function CashflowPage() {
                         {filtered.length === 0 ? (
                             <p className="text-sm text-slate-400 py-8 text-center">Tidak ada data untuk periode ini.</p>
                         ) : (
-                            <div className="overflow-x-auto">
+                            <>
+                            {/* Desktop table */}
+                            <div className="hidden md:block overflow-x-auto">
                                 <table className="w-full border-collapse">
                                     <thead>
                                         <tr>
@@ -447,6 +449,35 @@ export function CashflowPage() {
                                     </tfoot>
                                 </table>
                             </div>
+
+                            {/* Mobile cards */}
+                            <div className="md:hidden divide-y divide-slate-100">
+                                {filtered
+                                    .sort((a, b) => b.approvedAt.getTime() - a.approvedAt.getTime())
+                                    .map(r => (
+                                        <div key={r.id} className="p-4 space-y-1.5">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-medium text-slate-800 truncate">{r.kepadaNama}</p>
+                                                    <code className="text-xs text-slate-400 font-mono">{r.noSurat}</code>
+                                                </div>
+                                                <p className="text-sm font-bold text-slate-900 whitespace-nowrap shrink-0">{formatRupiah(r.total)}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className={`inline-flex px-2 py-0.5 rounded text-xs font-bold ${r.kategori === "AR" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"}`}>
+                                                    {r.kategori === "AR" ? "Anti Rayap" : "Pest Control"}
+                                                </span>
+                                                <span className="text-xs text-slate-400">{r.marketingNama}</span>
+                                                <span className="text-xs text-slate-400">{r.approvedAt.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                                    <span className="text-sm font-bold text-slate-700">Total</span>
+                                    <span className="text-sm font-bold text-emerald-700">{formatRupiah(totalRevenue)}</span>
+                                </div>
+                            </div>
+                            </>
                         )}
                     </div>
                 </>

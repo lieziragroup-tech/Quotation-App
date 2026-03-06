@@ -337,7 +337,7 @@ export function PerformaPage() {
     const COLORS = ["#3b82f6","#10b981","#f59e0b","#8b5cf6","#ef4444","#06b6d4"];
 
     return (
-        <div className="p-6 max-w-screen-xl mx-auto space-y-6">
+        <div className="p-4 md:p-6 max-w-screen-xl mx-auto space-y-6">
 
             {/* ── Header ── */}
             <div className="flex items-center justify-between gap-4">
@@ -494,7 +494,7 @@ export function PerformaPage() {
                     {/* ── AR vs PCO comparison ── */}
                     <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                         <SectionTitle>Perbandingan AR vs PCO — {periodLabel}</SectionTitle>
-                        <div className="grid grid-cols-2 gap-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                             {[
                                 { label: "Anti Rayap", revenue: marketingStats.reduce((s,m)=>s+m.ar,0), count: periodQuotations.filter(q=>q.kategori==="AR").length, color: "emerald" },
                                 { label: "Pest Control", revenue: marketingStats.reduce((s,m)=>s+m.pco,0), count: periodQuotations.filter(q=>q.kategori==="PCO").length, color: "blue" },
@@ -513,7 +513,7 @@ export function PerformaPage() {
                         <div className="px-5 py-3 border-b border-slate-100">
                             <SectionTitle>Tren Quotation per Marketing (6 Bulan)</SectionTitle>
                         </div>
-                        <div className="overflow-x-auto">
+                        <div className="hidden md:block overflow-x-auto">
                             <table className="w-full border-collapse">
                                 <thead>
                                     <tr>
@@ -559,6 +559,36 @@ export function PerformaPage() {
                                     })}
                                 </tbody>
                             </table>
+                        </div>
+
+                        {/* Mobile cards */}
+                        <div className="md:hidden divide-y divide-slate-100 px-1">
+                            {marketingStats.map((m, idx) => {
+                                const color = COLORS[idx % COLORS.length];
+                                const rowTotal = trendData.reduce((s, t) => s + (t.counts[m.uid] ?? 0), 0);
+                                return (
+                                    <div key={m.uid} className="p-4 flex items-center gap-3">
+                                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
+                                            style={{ backgroundColor: color }}>
+                                            {m.nama[0]?.toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-slate-800">{m.nama}</p>
+                                            <div className="flex gap-3 mt-1 flex-wrap">
+                                                {trendData.slice(-3).map((t, i) => (
+                                                    <span key={i} className="text-xs text-slate-400">
+                                                        {t.label}: <span className="font-bold text-slate-700">{t.counts[m.uid] ?? 0}</span>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <p className="text-lg font-bold text-slate-900">{rowTotal}</p>
+                                            <p className="text-xs text-slate-400">total</p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </>

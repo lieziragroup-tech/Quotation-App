@@ -77,7 +77,7 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, onLayanan, onTipe, onKep
                 {/* Anti Rayap group */}
                 <div className="mb-3">
                     <p className="text-xs font-semibold text-purple-600 mb-2 flex items-center gap-1">🛡️ Anti Rayap (AR)</p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {arItems.map(([val, cfg]) => {
                             const sel = jenisLayanan === val;
                             return (
@@ -93,7 +93,7 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, onLayanan, onTipe, onKep
                 {/* Pest Control group */}
                 <div>
                     <p className="text-xs font-semibold text-cyan-600 mb-2 flex items-center gap-1">🦟 Pest Control (PCO)</p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {pcoItems.map(([val, cfg]) => {
                             const sel = jenisLayanan === val;
                             return (
@@ -109,7 +109,7 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, onLayanan, onTipe, onKep
             </Field>
 
             <Field label="Tipe Surat" required>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {(["U", "K"] as TipeKontrak[]).map(v => (
                         <button key={v} type="button" onClick={() => onTipe(v)}
                             className={`px-4 py-3 border rounded-xl text-left transition-all
@@ -228,8 +228,8 @@ function Step3({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor, garansiTahu
                         <Plus size={12} /> Tambah Item
                     </button>
                 </div>
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-xs">
+                <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto">
+                    <table className="w-full text-xs min-w-[500px]">
                         <thead>
                             <tr className="bg-slate-50 border-b border-slate-200">
                                 <th className="px-3 py-2.5 text-left font-semibold text-slate-500 w-6">No</th>
@@ -309,7 +309,7 @@ function Step3({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor, garansiTahu
                 ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Diskon (%)">
                     <input type="number" min={0} max={100} step="0.01" className={inputCls}
                         value={diskonPct} onChange={e => onDiskon(parseFloat(e.target.value) || 0)} />
@@ -387,7 +387,7 @@ function Step4({ noSurat, jenisLayanan, tipe, kepadaNama, kepadaAlamatLines, tot
                 <p className="text-xs font-bold text-amber-600 mb-1 uppercase tracking-wide">⚠ Konfirmasi Generate</p>
                 <p className="text-sm text-amber-700">Nomor surat akan dikunci dan PDF di-generate. Nomor tidak bisa diubah setelah ini.</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                     { label: "Nomor Surat", value: noSurat, mono: true },
                     { label: "Jenis Layanan", value: cfg?.label, mono: false },
@@ -796,8 +796,8 @@ export function QuotationFormPage() {
     // ── Render success ─────────────────────────────────────────────────────────
     if (successData) {
         return (
-            <div className="p-6 max-w-2xl mx-auto">
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <div className="p-4 md:p-6 max-w-2xl mx-auto">
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
                     <SuccessScreen data={successData} onGoToList={() => navigate("/quotations")} />
                 </div>
             </div>
@@ -806,7 +806,7 @@ export function QuotationFormPage() {
 
     // ── Render form ────────────────────────────────────────────────────────────
     return (
-        <div className="p-6 max-w-2xl mx-auto">
+        <div className="p-4 md:p-6 max-w-2xl mx-auto">
             {/* Full-screen generating overlay */}
             <GeneratingOverlay genState={genState} />
 
@@ -826,7 +826,7 @@ export function QuotationFormPage() {
 
             <StepIndicator current={step} />
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
                 {step === 0 && <Step1 jenisLayanan={jenisLayanan} tipe={tipe} kepada={kepada} noPreview={noPreview}
                     onLayanan={setJenisLayanan} onTipe={setTipe} onKepada={setKepada} errors={errors} />}
                 {step === 1 && <Step2 nama={kepadaNama} alamatLines={kepadaAlamat} up={kepadaUp}

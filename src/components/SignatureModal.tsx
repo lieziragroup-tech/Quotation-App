@@ -401,7 +401,7 @@ export function SignatureModal({ quotation, signerName, onClose, onSigned }: Pro
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={step === "draw" || step === "done" ? onClose : undefined} />
 
             {/* Modal */}
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[95vh]">
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[98vh] md:max-h-[95vh]">
 
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
