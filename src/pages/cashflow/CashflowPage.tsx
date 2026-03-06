@@ -60,15 +60,17 @@ function StatCard({ icon, label, value, sub, color, trend }: {
     sub?: string; color: string; trend?: "up"|"down"|"neutral";
 }) {
     return (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-start gap-4">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
-                {icon}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
+                    {icon}
+                </div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400 leading-tight">{label}</p>
             </div>
-            <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-0.5">{label}</p>
-                <p className="text-xl font-bold text-slate-900 leading-tight">{value}</p>
+            <div className="min-w-0">
+                <p className="text-base font-bold text-slate-900 leading-tight truncate">{value}</p>
                 {sub && (
-                    <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                    <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1 flex-wrap">
                         {trend === "up"      && <ArrowUpRight size={11} className="text-emerald-500" />}
                         {trend === "down"    && <TrendingDown size={11} className="text-red-400" />}
                         {trend === "neutral" && <Minus size={11} className="text-slate-400" />}
