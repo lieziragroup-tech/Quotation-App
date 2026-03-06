@@ -13,6 +13,7 @@ import jsPDF from "jspdf";
 import { doc, updateDoc, Timestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import type { Quotation } from "../types";
+import { generateQuotationPDF } from "../lib/pdfGenerator";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -360,14 +361,33 @@ export function SignatureModal({ quotation, signerName, onClose, onSigned }: Pro
         setError("");
 
         try {
-            // Embed signature into PDF
-            const signedBlob = await embedSignatureIntoPdf(
-                quotation.pdfBase64,
-                preview,
-                signerName,
-                quotation.noSurat,
-                quotation.tanggal,
-            );
+            // Re-generate PDF with signature embedded directly in Penutup section
+            const signedBlob = generateQuotationPDF({
+                noSurat: quotation.noSurat,
+                tanggal: quotation.tanggal instanceof Date ? quotation.tanggal : new Date((quotation.tanggal as unknown as { seconds: number }).seconds * 1000),
+                kepadaNama: quotation.kepadaNama,
+                kepadaAlamatLines: quotation.kepadaAlamatLines,
+                kepadaUp: quotation.kepadaUp,
+                jenisLayanan: quotation.jenisLayanan,
+                perihal: quotation.perihal,
+                items: quotation.items,
+                biayaTambahan: quotation.biayaTambahan,
+                diskonPct: quotation.diskonPct,
+                ppn: quotation.ppn,
+                ppnDppFaktor: quotation.ppnDppFaktor,
+                garansiTahun: quotation.garansiTahun,
+                jenisGaransi: quotation.jenisGaransi,
+                marketingNama: quotation.marketingNama,
+                marketingWa: quotation.marketingWa,
+                // Technical data stored in quotation
+                surveyPhotos: quotation.surveyPhotos,
+                chemicals: quotation.chemicals,
+                metode: quotation.metode,
+                hamaDikendalikan: quotation.hamaDikendalikan,
+                teknikPelaksanaan: quotation.teknikPelaksanaan,
+                // Embed signature
+                signatureBase64: preview,
+            });
 
             // Convert to base64
             const signedPdfBase64 = await blobToBase64(signedBlob);
@@ -387,11 +407,32 @@ export function SignatureModal({ quotation, signerName, onClose, onSigned }: Pro
         }
     };
 
-    const handleDownloadSigned = async () => {
-        if (!preview || !quotation.pdfBase64) return;
-        const signedBlob = await embedSignatureIntoPdf(
-            quotation.pdfBase64, preview, signerName, quotation.noSurat, quotation.tanggal,
-        );
+    const handleDownloadSigned = () => {
+        if (!preview) return;
+        const signedBlob = generateQuotationPDF({
+            noSurat: quotation.noSurat,
+            tanggal: quotation.tanggal instanceof Date ? quotation.tanggal : new Date((quotation.tanggal as unknown as { seconds: number }).seconds * 1000),
+            kepadaNama: quotation.kepadaNama,
+            kepadaAlamatLines: quotation.kepadaAlamatLines,
+            kepadaUp: quotation.kepadaUp,
+            jenisLayanan: quotation.jenisLayanan,
+            perihal: quotation.perihal,
+            items: quotation.items,
+            biayaTambahan: quotation.biayaTambahan,
+            diskonPct: quotation.diskonPct,
+            ppn: quotation.ppn,
+            ppnDppFaktor: quotation.ppnDppFaktor,
+            garansiTahun: quotation.garansiTahun,
+            jenisGaransi: quotation.jenisGaransi,
+            marketingNama: quotation.marketingNama,
+            marketingWa: quotation.marketingWa,
+            surveyPhotos: quotation.surveyPhotos,
+            chemicals: quotation.chemicals,
+            metode: quotation.metode,
+            hamaDikendalikan: quotation.hamaDikendalikan,
+            teknikPelaksanaan: quotation.teknikPelaksanaan,
+            signatureBase64: preview,
+        });
         downloadBlob(signedBlob, `${quotation.noSurat.replace(/\//g, "-")}-SIGNED.pdf`);
     };
 

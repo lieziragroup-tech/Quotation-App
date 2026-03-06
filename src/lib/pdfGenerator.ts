@@ -5,7 +5,11 @@
  */
 
 import jsPDF from "jspdf";
-import type { QuotationItem, BiayaTambahan, JenisLayanan } from "../types";
+import type { QuotationItem, BiayaTambahan, JenisLayanan, SurveyPhoto, ChemicalItem } from "../types";
+import {
+    DEFAULT_CHEMICALS_AR, DEFAULT_CHEMICALS_PCO,
+    DEFAULT_HAMA_PCO, DEFAULT_TEKNIK_PCO, METODE_BY_LAYANAN,
+} from "../types";
 import {
     COMPANY, BRAND, LAYANAN_CONFIG,
     fmtIDR, fmtDateID, calcTotals, buildParagrafPembuka, angkaKeKata, isAntiRayap,
@@ -31,6 +35,14 @@ export interface QuotationPDFData {
     jenisGaransi?: string;
     marketingNama?: string;
     marketingWa?: string;
+    // Survey & Technical
+    surveyPhotos?: SurveyPhoto[];
+    chemicals?: ChemicalItem[];
+    metode?: string[];
+    hamaDikendalikan?: string;
+    teknikPelaksanaan?: string[];
+    // Signature embed (base64 PNG from canvas)
+    signatureBase64?: string;
 }
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -319,6 +331,154 @@ class QuotationRenderer {
         this.set(9, true, BRAND.dark);
         this.text("PT Guci Emas Pratama", ML);
         this.nl(7);
+    }
+
+    // ─── Chemical / Termitisida Table ─────────────────────────────────────────
+
+    private buildChemicalSection() {
+        const d = this.doc;
+        const isAR = isAntiRayap(this.data.jenisLayanan);
+        const chemicals = this.data.chemicals ??
+            (isAR ? DEFAULT_CHEMICALS_AR : DEFAULT_CHEMICALS_PCO);
+
+        const title = isAR ? "TERMITISIDA/PESTISIDA" : "PESTISIDA";
+        const subtitle = isAR
+            ? "Termitisida yang akan kami gunakan adalah sebagai berikut:"
+            : "Pestisida yang akan kami gunakan adalah sebagai berikut:";
+
+        this.checkPage(10 + chemicals.length * 8 + 10);
+        this.sectionTitle(title);
+        this.set(9, false, BRAND.dark);
+        this.text(subtitle, ML);
+        this.nl(LINE_H + 2);
+
+        // Table header
+        const COL_W = USABLE_W / 2;
+        const hdrY = this.y;
+        d.setFillColor(...hex(BRAND.tableHeader));
+        d.rect(ML, hdrY - 6, USABLE_W, 8, "F");
+        d.setFontSize(8.5);
+        d.setFont("helvetica", "bold");
+        d.setTextColor(255, 255, 255);
+        d.text("Bahan Aktif", ML + 3, hdrY);
+        d.text("Merk Dagang", ML + COL_W + 3, hdrY);
+        this.nl(7);
+
+        chemicals.forEach((c, idx) => {
+            this.checkPage(8);
+            const rowY = this.y - 5;
+            if (idx % 2 === 1) {
+                d.setFillColor(...hex(BRAND.tableAlt));
+                d.rect(ML, rowY, USABLE_W, 7, "F");
+            }
+            d.setFontSize(8.5);
+            d.setFont("helvetica", "normal");
+            d.setTextColor(...hex(BRAND.dark));
+            d.text(c.bahanAktif, ML + 3, this.y);
+            d.text(c.merkDagang, ML + COL_W + 3, this.y);
+            // Row border
+            d.setDrawColor(...hex(BRAND.border));
+            d.setLineWidth(0.2);
+            d.line(ML, this.y + 2, ML + USABLE_W, this.y + 2);
+            // Col divider
+            d.line(ML + COL_W, rowY, ML + COL_W, this.y + 2);
+            // Outer border
+            d.line(ML, rowY, ML, this.y + 2);
+            d.line(ML + USABLE_W, rowY, ML + USABLE_W, this.y + 2);
+            this.nl(7);
+        });
+        this.nl(5);
+    }
+
+    // ─── Metode Pelaksanaan (Anti Rayap) ──────────────────────────────────────
+
+    private buildMetodeSection() {
+        const metode = this.data.metode ??
+            METODE_BY_LAYANAN[this.data.jenisLayanan] ??
+            METODE_BY_LAYANAN["anti_rayap_injeksi"];
+
+        this.checkPage(15);
+        this.sectionTitle("METODE PELAKSANAAN");
+
+        const intro = `Dari survey yang dilakukan, kami menyimpulkan bahwa metode pengendalian yang perlu dilakukan adalah dengan menerapkan BARRIER SYSTEM – Paska Konstruksi. Berikut adalah rinciannya :`;
+        const h = this.writeWrapped(intro, ML, USABLE_W, 9, false, BRAND.dark);
+        this.nl(h + 4);
+
+        metode.forEach(item => {
+            this.checkPage(8);
+            const h2 = this.writeWrapped(`- ${item}`, ML + 4, USABLE_W - 4, 9, false, BRAND.dark);
+            this.nl(h2 + 2);
+        });
+        this.nl(4);
+    }
+
+    // ─── Hama & Teknik Pelaksanaan (Pest Control) ─────────────────────────────
+
+    private buildHamaDanTeknikSection() {
+        const hama = this.data.hamaDikendalikan ?? DEFAULT_HAMA_PCO;
+        const teknik = this.data.teknikPelaksanaan ?? DEFAULT_TEKNIK_PCO;
+
+        this.checkPage(15);
+        this.sectionTitle("HAMA YANG DIKENDALIKAN");
+        this.set(9, false, BRAND.dark);
+        this.text(hama, ML);
+        this.nl(LINE_H + 5);
+
+        this.checkPage(15);
+        this.sectionTitle("TEHNIK PELAKSANAAN");
+        teknik.forEach(item => {
+            this.checkPage(8);
+            const h = this.writeWrapped(`- ${item}`, ML + 4, USABLE_W - 4, 9, false, BRAND.dark);
+            this.nl(h + 2);
+        });
+        this.nl(4);
+    }
+
+    // ─── Survey Photos ────────────────────────────────────────────────────────
+
+    private buildSurveyPhotosSection() {
+        const photos = this.data.surveyPhotos;
+        if (!photos || photos.length === 0) return;
+
+        this.checkPage(20);
+        this.sectionTitle("DOKUMENTASI SURVEY");
+
+        const PHOTO_W = (USABLE_W - 6) / 2;   // 2 photos per row, 6mm gap
+        const PHOTO_H = PHOTO_W * 0.7;          // ~70% aspect ratio
+        const GAP = 6;
+
+        for (let i = 0; i < photos.length; i += 2) {
+            this.checkPage(PHOTO_H + 14);
+
+            const rowY = this.y;
+            const left = photos[i];
+            const right = photos[i + 1];
+
+            // Draw photos
+            try {
+                if (left?.base64) {
+                    this.doc.addImage(left.base64, "JPEG", ML, rowY, PHOTO_W, PHOTO_H);
+                }
+                if (right?.base64) {
+                    this.doc.addImage(right.base64, "JPEG", ML + PHOTO_W + GAP, rowY, PHOTO_W, PHOTO_H);
+                }
+            } catch {
+                // skip if image fails
+            }
+
+            this.nl(PHOTO_H + 2);
+
+            // Captions
+            this.set(8, false, BRAND.gray);
+            if (left?.caption) {
+                this.doc.text(left.caption, ML + PHOTO_W / 2, this.y, { align: "center" });
+            }
+            if (right?.caption) {
+                this.doc.text(right.caption, ML + PHOTO_W + GAP + PHOTO_W / 2, this.y, { align: "center" });
+            }
+            this.nl(8);
+        }
+        this.nl(3);
     }
 
     // ─── Biaya Section ────────────────────────────────────────────────────────
@@ -631,7 +791,22 @@ class QuotationRenderer {
         this.nl(LINE_H);
         this.set(9, true, BRAND.dark);
         this.text("PT Guci Emas Pratama", ML);
-        this.nl(22);  // ruang untuk tanda tangan
+        this.nl(3);
+
+        // Embed TTD jika ada
+        const sig = this.data.signatureBase64;
+        if (sig) {
+            try {
+                // Gambar TTD dengan aspect ratio terjaga, max 48x20mm
+                const SIG_W = 48;
+                const SIG_H = 20;
+                d.addImage(sig, "PNG", ML, this.y, SIG_W, SIG_H);
+            } catch {
+                // skip if image fails to load
+            }
+        }
+
+        this.nl(22); // ruang untuk tanda tangan (tetap ada meski ada gambar)
 
         // Garis di atas nama
         d.setDrawColor(...hex(BRAND.dark));
@@ -647,16 +822,31 @@ class QuotationRenderer {
     // ─── MAIN RENDER ─────────────────────────────────────────────────────────
 
     render(): Blob {
+        const isAR = isAntiRayap(this.data.jenisLayanan);
+
         this.drawKop();
         this.buildHeaderInfo();
 
-        // Tabel biaya selalu mulai di halaman baru
+        if (isAR) {
+            // Halaman 2: Survey Photos + Metode + Chemical (khusus AR)
+            this.newPage();
+            this.buildSurveyPhotosSection();
+            this.buildMetodeSection();
+            this.buildChemicalSection();
+        } else {
+            // Halaman 2: Hama + Teknik + Chemical (PCO)
+            this.newPage();
+            this.buildHamaDanTeknikSection();
+            this.buildChemicalSection();
+        }
+
+        // Halaman berikutnya: Tabel Biaya + Pembayaran + Garansi + Penutup
         this.newPage();
 
         this.buildBiayaSection();
         this.buildPembayaran();
 
-        if (this.data.jenisLayanan && isAntiRayap(this.data.jenisLayanan)) {
+        if (this.data.jenisLayanan && isAR) {
             this.buildGaransi();
         }
 

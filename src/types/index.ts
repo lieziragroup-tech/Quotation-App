@@ -81,6 +81,82 @@ export interface BiayaTambahan {
     amount: number;
 }
 
+// ── Survey & Technical Data ───────────────────────────────────────────────────
+
+export interface SurveyPhoto {
+    base64: string;
+    caption?: string;
+}
+
+export interface ChemicalItem {
+    bahanAktif: string;
+    merkDagang: string;
+}
+
+export const DEFAULT_CHEMICALS_AR: ChemicalItem[] = [
+    { bahanAktif: "Cypermethrin", merkDagang: "Cypergard 100 EC" },
+    { bahanAktif: "Imidakloprid", merkDagang: "Safe 1 200 SL" },
+];
+
+export const DEFAULT_CHEMICALS_PCO: ChemicalItem[] = [
+    { bahanAktif: "Cypermethrin + Lambda Cyhalothrin", merkDagang: "Cypergard 100 EC" },
+    { bahanAktif: "Lambda Cyhalothrin", merkDagang: "Demand CS" },
+    { bahanAktif: "Brodifacum", merkDagang: "Klerat" },
+];
+
+export const DEFAULT_HAMA_PCO =
+    "Nyamuk, Kecoa, Lalat, Tikus, Ngengat, Kaki Seribu dan Semut";
+
+export const DEFAULT_TEKNIK_PCO = [
+    "Penyemprotan pada seluruh area luar bangunan gedung dengan menggunakan swing fog.",
+    "Penyemprotan secara residual dengan menggunakan Cold Fogger ULV atau B&G (disesuaikan dengan kondisi lapangan) dilakukan pada: Koridor dan Office.",
+    "Penyemprotan secara residual dengan menggunakan B&G (disesuaikan dengan kondisi lapangan) dilakukan pada: Area Luar Bangunan.",
+    "Memberikan racun/umpan tikus pada tempat-tempat yang biasa dilalui tikus dan sekeliling luar bangunan dengan menggunakan umpan tikus.",
+];
+
+export const METODE_BY_LAYANAN: Record<string, string[]> = {
+    anti_rayap_injeksi: [
+        "Melakukan pengeboran di setiap sisi pondasi luar dan dalam bangunan dengan jarak 10-15 cm dari dinding bangunan. Jarak antar lubang bor sebesar 30-40 cm dengan kedalaman lubang 30-40 cm.",
+        "Melakukan injeksi larutan termitisida pada lubang bor sebanyak 2,5 Liter – 3 Liter.",
+        "Menutup lubang bor dengan bahan yang warnanya sama dengan warna lantai.",
+        "Melakukan pengeboran, penginjeksian larutan termitisida serta penambalan pada kusen pintu dan jendela.",
+        "Melakukan penyemprotan larutan termitisida pada plafon.",
+        "Membersihkan bekas pekerjaan anti rayap.",
+    ],
+    anti_rayap_soil: [
+        "Melakukan pengeboran di setiap sisi pondasi luar dan dalam bangunan dengan jarak 10-15 cm dari dinding bangunan. Jarak antar lubang bor sebesar 30-40 cm dengan kedalaman lubang 30-40 cm.",
+        "Melakukan injeksi larutan termitisida pada lubang bor sebanyak 2,5 Liter – 3 Liter.",
+        "Menutup lubang bor dengan bahan yang warnanya sama dengan warna lantai.",
+        "Melakukan pengeboran, penginjeksian larutan termitisida serta penambalan pada kusen pintu dan jendela.",
+        "Membersihkan bekas pekerjaan anti rayap.",
+    ],
+    anti_rayap_pra: [
+        "Melakukan pengolahan tanah dengan larutan termitisida menggunakan metode soil treatment sebelum konstruksi dimulai.",
+        "Pengaplikasian dilakukan pada seluruh permukaan tanah yang akan dibangun dengan dosis yang sesuai SNI.",
+        "Membuat barrier / penghalang kimia di antara tanah dan struktur bangunan.",
+        "Membersihkan area setelah pekerjaan selesai.",
+    ],
+    anti_rayap_pipanisasi: [
+        "Pemasangan sistem perpipaan permanen di dalam struktur bangunan.",
+        "Larutan termitisida disuntikkan secara berkala melalui pipa yang telah terpasang.",
+        "Sistem memungkinkan re-aplikasi tanpa perlu pengeboran ulang.",
+        "Membersihkan area setelah pekerjaan selesai.",
+    ],
+    anti_rayap_baiting: [
+        "Pemasangan stasiun umpan (bait station) di sekeliling bangunan dengan jarak 2-3 meter.",
+        "Monitoring stasiun umpan secara berkala untuk mendeteksi aktivitas rayap.",
+        "Penggantian umpan dengan bahan aktif apabila terdapat aktivitas rayap.",
+        "Pencatatan dan pelaporan kondisi setiap stasiun umpan.",
+    ],
+    anti_rayap_fumigasi: [
+        "Penutupan seluruh bangunan/area dengan tenda fumigasi yang kedap udara.",
+        "Penginjeksian gas fumigan ke dalam ruang tertutup.",
+        "Monitoring konsentrasi gas selama periode fumigasi berlangsung.",
+        "Aerasi dan pemastian kadar gas aman sebelum bangunan dapat dihuni kembali.",
+        "Pembersihan area setelah pekerjaan selesai.",
+    ],
+};
+
 export interface NomorSuratLog {
     id: string;
     noSurat: string;
@@ -133,6 +209,12 @@ export interface Quotation {
     signedPdfBase64?: string;
     signedAt?: Date;
     signedBy?: string;
+    // Survey & Technical
+    surveyPhotos?: SurveyPhoto[];
+    chemicals?: ChemicalItem[];
+    metode?: string[];          // AR: metode pelaksanaan
+    hamaDikendalikan?: string;  // PCO: hama yang dikendalikan
+    teknikPelaksanaan?: string[]; // PCO: teknik pelaksanaan
     companyId: string;
     createdAt: Date;
     customerId?: string;

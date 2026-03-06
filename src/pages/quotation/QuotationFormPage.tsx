@@ -1,22 +1,28 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     ArrowLeft, ArrowRight, Check, FileText,
     Plus, Trash2, Loader2, AlertCircle,
     Clock, ExternalLink, Hash,
     FileCheck2, Database, ShieldCheck,
+    Camera, X, FlaskConical, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { commitNomorSurat, previewNomorSurat } from "../../services/nomorSuratService";
 import { saveQuotationBatch } from "../../services/quotationService";
 import { generateQuotationPDF } from "../../lib/pdfGenerator";
 import { LAYANAN_CONFIG, calcTotals, fmtIDR, TIPE_LABELS } from "../../lib/quotationConfig";
-import type { JenisLayanan, TipeKontrak, KategoriSurat, QuotationItem, BiayaTambahan } from "../../types";
+import type { JenisLayanan, TipeKontrak, KategoriSurat, QuotationItem, BiayaTambahan, SurveyPhoto, ChemicalItem } from "../../types";
+import {
+    DEFAULT_CHEMICALS_AR, DEFAULT_CHEMICALS_PCO,
+    DEFAULT_HAMA_PCO, DEFAULT_TEKNIK_PCO, METODE_BY_LAYANAN,
+} from "../../types";
 
 const STEPS = [
     { label: "Jenis & Tipe" },
     { label: "Data Klien" },
     { label: "Tabel Harga" },
+    { label: "Teknis & Foto" },
     { label: "Konfirmasi" },
 ];
 
@@ -372,9 +378,250 @@ function Step3({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor, garansiTahu
     );
 }
 
-// ─── STEP 4 ───────────────────────────────────────────────────────────────────
+// ─── STEP 3b — TEKNIS & FOTO SURVEY ──────────────────────────────────────────
 
-function Step4({ noSurat, jenisLayanan, tipe, kepadaNama, kepadaAlamatLines, total, marketingNama, marketingWa }: {
+const inputCls2 = "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400";
+
+function Step3b({
+    jenisLayanan,
+    surveyPhotos, onPhotos,
+    chemicals, onChemicals,
+    metode, onMetode,
+    hamaDikendalikan, onHama,
+    teknikPelaksanaan, onTeknik,
+}: {
+    jenisLayanan: JenisLayanan;
+    surveyPhotos: SurveyPhoto[]; onPhotos: (p: SurveyPhoto[]) => void;
+    chemicals: ChemicalItem[]; onChemicals: (c: ChemicalItem[]) => void;
+    metode: string[]; onMetode: (m: string[]) => void;
+    hamaDikendalikan: string; onHama: (h: string) => void;
+    teknikPelaksanaan: string[]; onTeknik: (t: string[]) => void;
+}) {
+    const isAR = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
+    const fileRef = useRef<HTMLInputElement>(null);
+    const [showMetode, setShowMetode] = useState(false);
+    const [showTeknik, setShowTeknik] = useState(false);
+
+    const handleAddPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files ?? []);
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const base64 = (ev.target?.result as string) ?? "";
+                onPhotos([...surveyPhotos, { base64, caption: file.name.replace(/\.[^.]+$/, "") }]);
+            };
+            reader.readAsDataURL(file);
+        });
+        e.target.value = "";
+    };
+
+    const updateCaption = (idx: number, caption: string) => {
+        const updated = surveyPhotos.map((p, i) => i === idx ? { ...p, caption } : p);
+        onPhotos(updated);
+    };
+
+    const removePhoto = (idx: number) => {
+        onPhotos(surveyPhotos.filter((_, i) => i !== idx));
+    };
+
+    const updateChemical = (idx: number, field: keyof ChemicalItem, val: string) => {
+        const updated = chemicals.map((c, i) => i === idx ? { ...c, [field]: val } : c);
+        onChemicals(updated);
+    };
+
+    const addChemical = () => onChemicals([...chemicals, { bahanAktif: "", merkDagang: "" }]);
+    const removeChemical = (idx: number) => onChemicals(chemicals.filter((_, i) => i !== idx));
+
+    const updateMetodeItem = (idx: number, val: string) => {
+        onMetode(metode.map((m, i) => i === idx ? val : m));
+    };
+    const addMetode = () => onMetode([...metode, ""]);
+    const removeMetode = (idx: number) => onMetode(metode.filter((_, i) => i !== idx));
+
+    const updateTeknikItem = (idx: number, val: string) => {
+        onTeknik(teknikPelaksanaan.map((t, i) => i === idx ? val : t));
+    };
+    const addTeknik = () => onTeknik([...teknikPelaksanaan, ""]);
+    const removeTeknik = (idx: number) => onTeknik(teknikPelaksanaan.filter((_, i) => i !== idx));
+
+    return (
+        <div className="space-y-5">
+
+            {/* FOTO SURVEY (AR only) */}
+            {isAR && (
+                <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                            <Camera size={15} className="text-blue-500" /> Foto Survey
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => fileRef.current?.click()}
+                            className="text-xs bg-blue-50 text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 font-medium hover:bg-blue-100"
+                        >
+                            + Tambah Foto
+                        </button>
+                        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAddPhoto} />
+                    </div>
+                    {surveyPhotos.length === 0 && (
+                        <p className="text-xs text-slate-400 text-center py-4 border border-dashed border-slate-200 rounded-lg">
+                            Belum ada foto. Tap "+ Tambah Foto" untuk upload.
+                        </p>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                        {surveyPhotos.map((photo, idx) => (
+                            <div key={idx} className="relative border border-slate-200 rounded-lg overflow-hidden">
+                                <img src={photo.base64} alt={photo.caption} className="w-full h-28 object-cover" />
+                                <button
+                                    type="button"
+                                    onClick={() => removePhoto(idx)}
+                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                                >
+                                    <X size={11} />
+                                </button>
+                                <input
+                                    className="w-full border-0 border-t border-slate-200 px-2 py-1 text-xs text-slate-600 focus:outline-none bg-white"
+                                    value={photo.caption ?? ""}
+                                    placeholder="Keterangan foto..."
+                                    onChange={e => updateCaption(idx, e.target.value)}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* METODE PELAKSANAAN (AR) */}
+            {isAR && (
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                    <button
+                        type="button"
+                        className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-700"
+                        onClick={() => setShowMetode(v => !v)}
+                    >
+                        <span className="flex items-center gap-2">
+                            <FlaskConical size={14} className="text-green-600" /> Metode Pelaksanaan
+                        </span>
+                        {showMetode ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </button>
+                    {showMetode && (
+                        <div className="px-4 pb-4 space-y-2 border-t border-slate-100">
+                            <p className="text-xs text-slate-400 pt-2">Template sudah terisi sesuai jenis layanan. Edit jika diperlukan.</p>
+                            {metode.map((item, idx) => (
+                                <div key={idx} className="flex gap-2 items-start">
+                                    <span className="text-xs text-slate-400 mt-2 shrink-0">{idx + 1}.</span>
+                                    <textarea
+                                        className={`${inputCls2} resize-none text-xs min-h-[52px]`}
+                                        value={item}
+                                        rows={2}
+                                        onChange={e => updateMetodeItem(idx, e.target.value)}
+                                    />
+                                    <button type="button" onClick={() => removeMetode(idx)} className="mt-1.5 text-red-400 hover:text-red-600">
+                                        <Trash2 size={13} />
+                                    </button>
+                                </div>
+                            ))}
+                            <button type="button" onClick={addMetode} className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1">
+                                <Plus size={12} /> Tambah poin
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* HAMA & TEKNIK (PCO) */}
+            {!isAR && (
+                <>
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2">
+                        <p className="text-sm font-bold text-slate-700 mb-1">Hama yang Dikendalikan</p>
+                        <input
+                            className={inputCls2}
+                            value={hamaDikendalikan}
+                            onChange={e => onHama(e.target.value)}
+                            placeholder="Nyamuk, Kecoa, Lalat, Tikus, ..."
+                        />
+                    </div>
+                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                        <button
+                            type="button"
+                            className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-700"
+                            onClick={() => setShowTeknik(v => !v)}
+                        >
+                            <span className="flex items-center gap-2">
+                                <FlaskConical size={14} className="text-green-600" /> Teknik Pelaksanaan
+                            </span>
+                            {showTeknik ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                        {showTeknik && (
+                            <div className="px-4 pb-4 space-y-2 border-t border-slate-100">
+                                <p className="text-xs text-slate-400 pt-2">Template sudah terisi. Edit jika diperlukan.</p>
+                                {teknikPelaksanaan.map((item, idx) => (
+                                    <div key={idx} className="flex gap-2 items-start">
+                                        <span className="text-xs text-slate-400 mt-2 shrink-0">-</span>
+                                        <textarea
+                                            className={`${inputCls2} resize-none text-xs min-h-[52px]`}
+                                            value={item}
+                                            rows={2}
+                                            onChange={e => updateTeknikItem(idx, e.target.value)}
+                                        />
+                                        <button type="button" onClick={() => removeTeknik(idx)} className="mt-1.5 text-red-400 hover:text-red-600">
+                                            <Trash2 size={13} />
+                                        </button>
+                                    </div>
+                                ))}
+                                <button type="button" onClick={addTeknik} className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1">
+                                    <Plus size={12} /> Tambah poin
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
+
+            {/* CHEMICAL / PESTISIDA */}
+            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+                <p className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                    <FlaskConical size={14} className="text-purple-500" />
+                    {isAR ? "Termitisida" : "Pestisida"}
+                </p>
+                <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2 text-xs font-bold text-slate-500 px-1">
+                        <span>Bahan Aktif</span>
+                        <span>Merk Dagang</span>
+                    </div>
+                    {chemicals.map((chem, idx) => (
+                        <div key={idx} className="grid grid-cols-2 gap-2 items-center">
+                            <input
+                                className={inputCls2}
+                                value={chem.bahanAktif}
+                                placeholder="Bahan aktif..."
+                                onChange={e => updateChemical(idx, "bahanAktif", e.target.value)}
+                            />
+                            <div className="flex gap-1">
+                                <input
+                                    className={inputCls2}
+                                    value={chem.merkDagang}
+                                    placeholder="Merk dagang..."
+                                    onChange={e => updateChemical(idx, "merkDagang", e.target.value)}
+                                />
+                                <button type="button" onClick={() => removeChemical(idx)} className="text-red-400 hover:text-red-600 shrink-0">
+                                    <Trash2 size={13} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                    <button type="button" onClick={addChemical} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                        <Plus size={12} /> Tambah chemical
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── STEP 5 (KONFIRMASI) ──────────────────────────────────────────────────────
+
+function Step5({ noSurat, jenisLayanan, tipe, kepadaNama, kepadaAlamatLines, total, marketingNama, marketingWa }: {
     noSurat: string; jenisLayanan: JenisLayanan; tipe: TipeKontrak;
     kepadaNama: string; kepadaAlamatLines: string[];
     total: number; marketingNama: string; marketingWa?: string;
@@ -682,6 +929,25 @@ export function QuotationFormPage() {
     const [genState, setGenState] = useState<GenState>({ step: "idle" });
     const [successData, setSuccessData] = useState<SuccessData | null>(null);
 
+    // ── Technical & Survey state ───────────────────────────────────────────────
+    const isAR = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
+    const [surveyPhotos, setSurveyPhotos] = useState<SurveyPhoto[]>([]);
+    const [chemicals, setChemicals] = useState<ChemicalItem[]>(() =>
+        isAR ? DEFAULT_CHEMICALS_AR.map(c => ({ ...c })) : DEFAULT_CHEMICALS_PCO.map(c => ({ ...c }))
+    );
+    const [metode, setMetode] = useState<string[]>(() =>
+        (METODE_BY_LAYANAN[jenisLayanan] ?? METODE_BY_LAYANAN["anti_rayap_injeksi"]).map(m => m)
+    );
+    const [hamaDikendalikan, setHamaDikendalikan] = useState(DEFAULT_HAMA_PCO);
+    const [teknikPelaksanaan, setTeknikPelaksanaan] = useState<string[]>(DEFAULT_TEKNIK_PCO.map(t => t));
+
+    // Reset technical data when jenisLayanan changes
+    useEffect(() => {
+        const ar = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
+        setChemicals(ar ? DEFAULT_CHEMICALS_AR.map(c => ({ ...c })) : DEFAULT_CHEMICALS_PCO.map(c => ({ ...c })));
+        setMetode((METODE_BY_LAYANAN[jenisLayanan] ?? METODE_BY_LAYANAN["anti_rayap_injeksi"]).map(m => m));
+    }, [jenisLayanan]);
+
     const kategori: KategoriSurat = LAYANAN_CONFIG[jenisLayanan]?.kategori ?? "PCO";
 
     useEffect(() => {
@@ -752,6 +1018,12 @@ export function QuotationFormPage() {
                         jenisGaransi: jenisGaransi || undefined,
                         marketingNama: user.name,
                         marketingWa: user.wa,
+                        // Technical & Survey
+                        surveyPhotos: surveyPhotos.length > 0 ? surveyPhotos : undefined,
+                        chemicals: chemicals.length > 0 ? chemicals : undefined,
+                        metode: isAR && metode.length > 0 ? metode : undefined,
+                        hamaDikendalikan: !isAR ? hamaDikendalikan : undefined,
+                        teknikPelaksanaan: !isAR && teknikPelaksanaan.length > 0 ? teknikPelaksanaan : undefined,
                     });
                 }),
             ]);
@@ -773,6 +1045,12 @@ export function QuotationFormPage() {
                 subtotal: calc.subtotal, diskonRp: calc.diskonRp, ppnRp: calc.ppnRp, total: calc.total,
                 marketingUid: user.uid, marketingNama: user.name, marketingWa: user.wa,
                 status: "pending", companyId: user.companyId,
+                // Technical & Survey data
+                surveyPhotos: surveyPhotos.length > 0 ? surveyPhotos : undefined,
+                chemicals: chemicals.length > 0 ? chemicals : undefined,
+                metode: isAR && metode.length > 0 ? metode : undefined,
+                hamaDikendalikan: !isAR ? hamaDikendalikan : undefined,
+                teknikPelaksanaan: !isAR && teknikPelaksanaan.length > 0 ? teknikPelaksanaan : undefined,
             }, nomorEntry.id, pdfBlob);
 
             // ── Done ──────────────────────────────────────────────────────────
@@ -836,7 +1114,15 @@ export function QuotationFormPage() {
                     jenisLayanan={jenisLayanan} onItems={setItems} onBiaya={setBiayaTambahan}
                     onDiskon={setDiskonPct} onPpn={setPpn} onPpnDpp={setPpnDppFaktor}
                     onGaransi={setGaransiTahun} onJenisGaransi={setJenisGaransi} />}
-                {step === 3 && <Step4 noSurat={noPreview} jenisLayanan={jenisLayanan} tipe={tipe}
+                {step === 3 && <Step3b
+                    jenisLayanan={jenisLayanan}
+                    surveyPhotos={surveyPhotos} onPhotos={setSurveyPhotos}
+                    chemicals={chemicals} onChemicals={setChemicals}
+                    metode={metode} onMetode={setMetode}
+                    hamaDikendalikan={hamaDikendalikan} onHama={setHamaDikendalikan}
+                    teknikPelaksanaan={teknikPelaksanaan} onTeknik={setTeknikPelaksanaan}
+                />}
+                {step === 4 && <Step5 noSurat={noPreview} jenisLayanan={jenisLayanan} tipe={tipe}
                     kepadaNama={kepadaNama || kepada} kepadaAlamatLines={kepadaAlamat}
                     total={calc.total} marketingNama={user?.name ?? ""} marketingWa={user?.wa} />}
 
