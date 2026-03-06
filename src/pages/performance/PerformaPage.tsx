@@ -379,7 +379,7 @@ export function PerformaPage() {
             ) : (
                 <>
                     {/* ── Summary cards ── */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {[
                             { icon: <FileText size={18} />, label: "Total Quotation", value: String(totalQuos), sub: "dibuat periode ini", color: "bg-blue-100 text-blue-600" },
                             { icon: <Award size={18} />, label: "Approved", value: String(totalApproved), sub: `dari ${totalQuos} quotation`, color: "bg-emerald-100 text-emerald-600" },
@@ -406,7 +406,7 @@ export function PerformaPage() {
                                 <p className="text-sm">Belum ada data marketing.</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {marketingStats.map((m, idx) => {
                                     const trendValues = trendData.map(t => t.counts[m.uid] ?? 0);
                                     const color = COLORS[idx % COLORS.length];
@@ -440,7 +440,7 @@ export function PerformaPage() {
                                             </div>
 
                                             {/* Stats row */}
-                                            <div className="grid grid-cols-4 gap-2 mb-4">
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                                                 {[
                                                     { label: "Total", val: m.total, color: "text-slate-700" },
                                                     { label: "Approved", val: m.approved, color: "text-emerald-600" },

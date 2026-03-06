@@ -39,8 +39,11 @@ function StepIndicator({ current }: { current: number }) {
                         </div>
                         <div className={`flex-1 h-0.5 ${i === STEPS.length - 1 ? "opacity-0" : i < current ? "bg-blue-500" : "bg-slate-200"}`} />
                     </div>
-                    <span className={`text-xs mt-1.5 font-medium ${i === current ? "text-blue-600" : i < current ? "text-slate-500" : "text-slate-300"}`}>
+                    <span className={`text-xs mt-1.5 font-medium hidden sm:block ${i === current ? "text-blue-600" : i < current ? "text-slate-500" : "text-slate-300"}`}>
                         {s.label}
+                    </span>
+                    <span className={`text-xs mt-1.5 font-medium sm:hidden ${i === current ? "text-blue-600" : "text-transparent"}`}>
+                        {i === current ? s.label : "."}
                     </span>
                 </div>
             ))}
@@ -468,7 +471,7 @@ function Step3b({
                             Belum ada foto. Tap "+ Tambah Foto" untuk upload.
                         </p>
                     )}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {surveyPhotos.map((photo, idx) => (
                             <div key={idx} className="relative border border-slate-200 rounded-lg overflow-hidden">
                                 <img src={photo.base64} alt={photo.caption} className="w-full h-28 object-cover" />

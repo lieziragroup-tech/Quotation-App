@@ -306,7 +306,7 @@ export function CashflowPage() {
             ) : (
                 <>
                     {/* ── Stat cards ── */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <StatCard icon={<DollarSign size={20} />} label="Total Revenue" value={formatRupiah(totalRevenue)}
                             sub={delta !== null ? `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}% vs bulan lalu` : "periode dipilih"}
                             color="bg-emerald-100 text-emerald-600"
@@ -320,8 +320,8 @@ export function CashflowPage() {
                     </div>
 
                     {/* ── Chart + AR/PCO breakdown ── */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                        <div className="lg:col-span-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <div className="md:col-span-2">
                             <RevenueBarChart buckets={filterMonth === "all" ? monthBuckets : monthBuckets} />
                         </div>
 
