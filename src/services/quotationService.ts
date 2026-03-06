@@ -184,10 +184,11 @@ export async function updateQuotationStatus(
     notesMarketing?: string,
 ): Promise<void> {
     const updates: Record<string, unknown> = { status };
+    const now = Timestamp.fromDate(new Date());
 
     if (status === "approved") {
         if (approvedBy) updates.approvedBy = approvedBy;
-        updates.approvedAt      = Timestamp.fromDate(new Date());
+        updates.approvedAt      = now;
         updates.rejectionReason = null;
         updates.notesMarketing  = null;
     }
@@ -195,7 +196,19 @@ export async function updateQuotationStatus(
     if (status === "rejected") {
         if (rejectionReason)  updates.rejectionReason = rejectionReason;
         if (notesMarketing)   updates.notesMarketing  = notesMarketing;
-        updates.approvedAt = Timestamp.fromDate(new Date());
+        updates.approvedAt = now;
+    }
+
+    if (status === "sent_to_client") {
+        updates.sentToClientAt = now;
+    }
+
+    if (status === "deal") {
+        updates.dealAt = now;
+    }
+
+    if (status === "cancelled") {
+        // no extra fields
     }
 
     const { updateDoc, writeBatch, collection: col, query, where, getDocs } = await import("firebase/firestore");

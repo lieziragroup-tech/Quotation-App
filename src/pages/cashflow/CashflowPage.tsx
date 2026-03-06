@@ -95,7 +95,7 @@ function RevenueBarChart({ buckets }: { buckets: MonthBucket[] }) {
             <div className="flex items-center justify-between mb-5">
                 <div>
                     <p className="text-sm font-bold text-slate-800">Tren Revenue</p>
-                    <p className="text-xs text-slate-400 mt-0.5">dari quotation approved</p>
+                    <p className="text-xs text-slate-400 mt-0.5">dari quotation deal & approved</p>
                 </div>
                 <BarChart3 size={16} className="text-slate-300" />
             </div>
@@ -157,7 +157,7 @@ export function CashflowPage() {
             const snap = await getDocs(query(
                 collection(db, "quotations"),
                 where("companyId", "==", companyId),
-                where("status", "==", "approved"),
+                where("status", "in", ["approved", "deal"]),
             ));
             setRows(snap.docs.map(d => {
                 const x = d.data();
@@ -170,7 +170,7 @@ export function CashflowPage() {
                     kategori: x.kategori as "AR" | "PCO",
                     marketingNama: x.marketingNama as string,
                     marketingUid: x.marketingUid as string,
-                    approvedAt: x.approvedAt ? (x.approvedAt as Timestamp).toDate() : (x.createdAt as Timestamp).toDate(),
+                    approvedAt: (x.dealAt || x.approvedAt) ? ((x.dealAt || x.approvedAt) as Timestamp).toDate() : (x.createdAt as Timestamp).toDate(),
                     createdAt: (x.createdAt as Timestamp).toDate(),
                     jenisLayanan: x.jenisLayanan as string,
                 };
@@ -263,7 +263,7 @@ export function CashflowPage() {
                     <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                         <DollarSign size={22} className="text-emerald-600" /> Cashflow
                     </h1>
-                    <p className="text-sm text-slate-400 mt-0.5">Revenue dari quotation approved</p>
+                    <p className="text-sm text-slate-400 mt-0.5">Revenue dari quotation deal & approved</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <button onClick={load} className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">

@@ -41,7 +41,7 @@ export interface Customer {
     createdAt: Date;
 }
 
-export type QuotationStatus = "draft" | "pending" | "approved" | "rejected";
+export type QuotationStatus = "draft" | "pending" | "approved" | "rejected" | "sent_to_client" | "deal" | "cancelled";
 export type ServiceType = "pest_control" | "anti_rayap";
 export type ServiceMethod =
     | "spraying"
@@ -54,20 +54,26 @@ export type ServiceMethod =
 // ─── QUOTATION MODULE TYPES ───────────────────────────────────────────────────
 
 export type JenisLayanan =
-    | "anti_rayap_injeksi"
+    | "anti_rayap_injeksi_pasca"
+    | "anti_rayap_injeksi_pra"
+    | "anti_rayap_injeksi_renovasi"
     | "anti_rayap_pipanisasi"
     | "anti_rayap_baiting"
-    | "anti_rayap_pra"
+    | "anti_rayap_pra_konstruksi"
+    | "anti_rayap_pasca_konstruksi"
+    | "anti_rayap_renovasi"
     | "anti_rayap_soil"
     | "anti_rayap_fumigasi"
     | "pest_spraying"
     | "pest_fogging"
     | "pest_rodent"
     | "pest_baiting"
-    | "pest_umum";
+    | "pest_umum"
+    | "ph_anti_rayap"
+    | "ph_pest_control";
 
 export type TipeKontrak = "U" | "K";
-export type KategoriSurat = "AR" | "PCO";
+export type KategoriSurat = "AR" | "PCO" | "PH";
 
 export interface QuotationItem {
     desc: string;
@@ -115,6 +121,51 @@ export const DEFAULT_TEKNIK_PCO = [
 ];
 
 export const METODE_BY_LAYANAN: Record<string, string[]> = {
+    anti_rayap_injeksi_pasca: [
+        "Melakukan pengeboran di setiap sisi pondasi luar dan dalam bangunan dengan jarak 10-15 cm dari dinding bangunan. Jarak antar lubang bor sebesar 30-40 cm dengan kedalaman lubang 30-40 cm.",
+        "Melakukan injeksi larutan termitisida pada lubang bor sebanyak 2,5 Liter – 3 Liter.",
+        "Menutup lubang bor dengan bahan yang warnanya sama dengan warna lantai.",
+        "Melakukan pengeboran, penginjeksian larutan termitisida serta penambalan pada kusen pintu dan jendela.",
+        "Melakukan penyemprotan larutan termitisida pada plafon.",
+        "Membersihkan bekas pekerjaan anti rayap.",
+    ],
+    anti_rayap_injeksi_pra: [
+        "Melakukan pengolahan tanah dengan larutan termitisida menggunakan metode soil treatment sebelum konstruksi dimulai.",
+        "Melakukan pengeboran dan injeksi termitisida pada pondasi dan sloof bangunan.",
+        "Pengaplikasian dilakukan pada seluruh permukaan tanah yang akan dibangun dengan dosis yang sesuai SNI.",
+        "Membuat barrier / penghalang kimia di antara tanah dan struktur bangunan.",
+        "Membersihkan area setelah pekerjaan selesai.",
+    ],
+    anti_rayap_injeksi_renovasi: [
+        "Melakukan inspeksi awal untuk menentukan titik-titik yang terinfeksi dan jalur sarang rayap.",
+        "Melakukan pengeboran pada dinding, lantai, dan kusen yang terindikasi terdapat koloni rayap.",
+        "Melakukan injeksi larutan termitisida pada lubang bor sebanyak 2,5 Liter – 3 Liter.",
+        "Menutup lubang bor dengan bahan yang warnanya sama dengan warna permukaan.",
+        "Melakukan penyemprotan larutan termitisida pada area renovasi yang terpapar.",
+        "Membersihkan bekas pekerjaan anti rayap.",
+    ],
+    anti_rayap_pra_konstruksi: [
+        "Melakukan pengolahan tanah dengan larutan termitisida menggunakan metode soil treatment sebelum konstruksi dimulai.",
+        "Pengaplikasian dilakukan pada seluruh permukaan tanah yang akan dibangun dengan dosis yang sesuai SNI.",
+        "Membuat barrier / penghalang kimia di antara tanah dan struktur bangunan.",
+        "Membersihkan area setelah pekerjaan selesai.",
+    ],
+    anti_rayap_pasca_konstruksi: [
+        "Melakukan pengeboran di setiap sisi pondasi luar dan dalam bangunan yang telah selesai dibangun.",
+        "Melakukan injeksi larutan termitisida pada lubang bor sebanyak 2,5 Liter – 3 Liter.",
+        "Menutup lubang bor dengan bahan yang warnanya sama dengan warna lantai.",
+        "Melakukan pengeboran dan penginjeksian pada kusen pintu dan jendela.",
+        "Melakukan penyemprotan termitisida pada plafon dan dinding.",
+        "Membersihkan bekas pekerjaan anti rayap.",
+    ],
+    anti_rayap_renovasi: [
+        "Melakukan inspeksi awal untuk menentukan titik-titik yang terinfeksi.",
+        "Melakukan pengeboran pada area renovasi yang terindikasi terinfeksi rayap.",
+        "Melakukan injeksi larutan termitisida secara menyeluruh.",
+        "Menutup lubang bor dengan material yang sesuai.",
+        "Melakukan penyemprotan permukaan yang terekspos selama renovasi.",
+        "Membersihkan bekas pekerjaan anti rayap.",
+    ],
     anti_rayap_injeksi: [
         "Melakukan pengeboran di setiap sisi pondasi luar dan dalam bangunan dengan jarak 10-15 cm dari dinding bangunan. Jarak antar lubang bor sebesar 30-40 cm dengan kedalaman lubang 30-40 cm.",
         "Melakukan injeksi larutan termitisida pada lubang bor sebanyak 2,5 Liter – 3 Liter.",
@@ -204,6 +255,8 @@ export interface Quotation {
     rejectionReason?: string;
     approvedBy?: string;
     approvedAt?: Date;
+    dealAt?: Date;
+    sentToClientAt?: Date;
     pdfUrl?: string;
     pdfBase64?: string;
     signedPdfBase64?: string;
@@ -214,7 +267,8 @@ export interface Quotation {
     chemicals?: ChemicalItem[];
     metode?: string[];          // AR: metode pelaksanaan
     hamaDikendalikan?: string;  // PCO: hama yang dikendalikan
-    teknikPelaksanaan?: string[]; // PCO: teknik pelaksanaan
+    teknikPelaksanaan?: string[];
+    peralatan?: string[]; // PCO: teknik pelaksanaan
     companyId: string;
     createdAt: Date;
     customerId?: string;
