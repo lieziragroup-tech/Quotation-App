@@ -153,7 +153,7 @@ export const router = createBrowserRouter([
             {
                 path: "tracking",
                 element: (
-                    <RoleGuard allowedRoles={["administrator", "admin_ops", "marketing"]}>
+                    <RoleGuard allowedRoles={["administrator", "admin_ops"]}>
                         <TrackingPage />
                     </RoleGuard>
                 ),
