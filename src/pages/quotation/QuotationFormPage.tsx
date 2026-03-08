@@ -11,8 +11,8 @@ import { useAuthStore } from "../../store/authStore";
 import { commitNomorSurat, previewNomorSurat } from "../../services/nomorSuratService";
 import { saveQuotationBatch } from "../../services/quotationService";
 import { generateQuotationPDF } from "../../lib/pdfGenerator";
-import { LAYANAN_CONFIG, calcTotals, fmtIDR, TIPE_LABELS } from "../../lib/quotationConfig";
-import type { JenisLayanan, TipeKontrak, KategoriSurat, QuotationItem, BiayaTambahan, SurveyPhoto, ChemicalItem } from "../../types";
+import { LAYANAN_CONFIG, calcTotals, fmtIDR, TIPE_LABELS, KONDISI_BANGUNAN_LABELS } from "../../lib/quotationConfig";
+import type { JenisLayanan, TipeKontrak, KategoriSurat, QuotationItem, BiayaTambahan, SurveyPhoto, ChemicalItem, KondisiBangunan } from "../../types";
 import {
     DEFAULT_CHEMICALS_AR, DEFAULT_CHEMICALS_PCO,
     DEFAULT_HAMA_PCO, DEFAULT_TEKNIK_PCO, METODE_BY_LAYANAN,
@@ -70,7 +70,6 @@ const inputCls = "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg fo
 
 // ─── STEP 1 ───────────────────────────────────────────────────────────────────
 
-// Peralatan preset per kategori
 const PERALATAN_AR = [
     "Mesin Bor Listrik", "Mata Bor Beton Ø10mm", "Mata Bor Beton Ø12mm",
     "Soil Injector / Pompa Injeksi", "Sprayer Punggung", "Selang Injeksi",
@@ -84,78 +83,50 @@ const PERALATAN_PCO = [
     "Tangga / Alat Akses", "Kamera Dokumentasi",
 ];
 
-// Sub-tipe untuk layanan Injeksi
-const INJEKSI_SUBTYPES: { val: JenisLayanan; label: string; desc: string }[] = [
-    { val: "anti_rayap_injeksi_pasca",    label: "Pasca-Konstruksi", desc: "Bangunan sudah jadi" },
-    { val: "anti_rayap_injeksi_pra",      label: "Pra-Konstruksi",  desc: "Sebelum konstruksi" },
-    { val: "anti_rayap_injeksi_renovasi", label: "Renovasi",         desc: "Saat renovasi berlangsung" },
-];
-
-function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, onLayanan, onTipe, onKepada, onPeralatan, errors }: {
+function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangunan,
+    onLayanan, onTipe, onKepada, onPeralatan, onKondisi, errors }: {
     jenisLayanan: JenisLayanan; tipe: TipeKontrak; kepada: string; noPreview: string;
-    peralatan: string[];
+    peralatan: string[]; kondisiBangunan: KondisiBangunan;
     onLayanan: (v: JenisLayanan) => void; onTipe: (v: TipeKontrak) => void;
     onKepada: (v: string) => void; onPeralatan: (v: string[]) => void;
+    onKondisi: (v: KondisiBangunan) => void;
     errors: Record<string, string>;
 }) {
     const kategori = LAYANAN_CONFIG[jenisLayanan]?.kategori ?? "PCO";
-    const isAR = kategori === "AR" || kategori === "PH";
-    const isInjeksi = jenisLayanan.startsWith("anti_rayap_injeksi");
-    const isPCO = !LAYANAN_CONFIG[jenisLayanan]?.isAR;
+    const isAR = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
+    const isPH = kategori === "PH";
+    const isPCO = !isAR;
 
-    const arItems  = Object.entries(LAYANAN_CONFIG).filter(([, c]) => c.isAR && !([
-        "anti_rayap_injeksi_pasca","anti_rayap_injeksi_pra","anti_rayap_injeksi_renovasi"
-    ] as string[]).includes("") );
-    
-    // Group: injeksi (parent), lainnya, PCO, PH
-    const arNonInjeksi = Object.entries(LAYANAN_CONFIG).filter(([k, c]) => 
-        c.isAR && !k.startsWith("anti_rayap_injeksi") && !k.startsWith("ph_")
-    );
+    const arItems  = Object.entries(LAYANAN_CONFIG).filter(([k, c]) => c.isAR && !k.startsWith("ph_"));
     const pcoItems = Object.entries(LAYANAN_CONFIG).filter(([k, c]) => !c.isAR && !k.startsWith("ph_"));
     const phItems  = Object.entries(LAYANAN_CONFIG).filter(([k]) => k.startsWith("ph_"));
 
-    const isInjeksiParent = isInjeksi; // true jika salah satu sub injeksi terpilih
+    const presetPeralatan = isPCO && !isPH ? PERALATAN_PCO : PERALATAN_AR;
 
-    const presetPeralatan = isPCO ? PERALATAN_PCO : PERALATAN_AR;
-    const togglePeralatan = (item: string) => {
+    const togglePeralatan = (item: string) =>
         onPeralatan(peralatan.includes(item)
             ? peralatan.filter(p => p !== item)
-            : [...peralatan, item]
-        );
-    };
+            : [...peralatan, item]);
+
+    const KONDISI_OPTIONS: { val: KondisiBangunan; label: string; desc: string }[] = [
+        { val: "pasca_konstruksi", label: "Pasca-Konstruksi", desc: "Bangunan sudah jadi / selesai dibangun" },
+        { val: "pra_konstruksi",   label: "Pra-Konstruksi",   desc: "Sebelum konstruksi / tanah belum dibangun" },
+        { val: "renovasi",         label: "Renovasi",          desc: "Saat proses renovasi berlangsung" },
+    ];
 
     return (
         <div className="space-y-5">
             <Field label="Jenis Layanan" required error={errors.jenisLayanan}>
-                {/* ── Anti Rayap ── */}
+                {/* Anti Rayap */}
                 <div className="mb-4">
                     <p className="text-xs font-semibold text-purple-600 mb-2 flex items-center gap-1">🛡️ Anti Rayap (AR)</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-
-                        {/* Injeksi — parent button + sub-tipe */}
-                        <div className="col-span-full">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {INJEKSI_SUBTYPES.map(sub => {
-                                    const sel = jenisLayanan === sub.val;
-                                    return (
-                                        <button key={sub.val} type="button" onClick={() => onLayanan(sub.val)}
-                                            className={`px-3 py-2.5 border rounded-lg text-left text-xs transition-all
-                                                ${sel ? "border-purple-500 bg-purple-50 text-purple-700 font-semibold ring-1 ring-purple-300" : "border-slate-200 bg-white text-slate-500 hover:border-purple-200"}`}>
-                                            <div className="font-semibold">💉 Injeksi — {sub.label}</div>
-                                            <div className={`text-[10px] mt-0.5 ${sel ? "text-purple-500" : "text-slate-400"}`}>{sub.desc}</div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Non-injeksi AR */}
-                        {arNonInjeksi.map(([val, cfg]) => {
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {arItems.map(([val, cfg]) => {
                             const sel = jenisLayanan === val;
                             return (
                                 <button key={val} type="button" onClick={() => onLayanan(val as JenisLayanan)}
                                     className={`px-3 py-2.5 border rounded-lg text-left text-xs transition-all
-                                        ${sel ? "border-purple-400 bg-purple-50 text-purple-700 font-semibold" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"}`}>
+                                        ${sel ? "border-purple-400 bg-purple-50 text-purple-700 font-semibold ring-1 ring-purple-300" : "border-slate-200 bg-white text-slate-600 hover:border-purple-200 hover:bg-purple-50/40"}`}>
                                     {cfg.label.replace("Anti Rayap — ", "")}
                                 </button>
                             );
@@ -163,16 +134,16 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, onLayanan, on
                     </div>
                 </div>
 
-                {/* ── Pest Control ── */}
+                {/* Pest Control */}
                 <div className="mb-4">
                     <p className="text-xs font-semibold text-cyan-600 mb-2 flex items-center gap-1">🦟 Pest Control (PCO)</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {pcoItems.map(([val, cfg]) => {
                             const sel = jenisLayanan === val;
                             return (
                                 <button key={val} type="button" onClick={() => onLayanan(val as JenisLayanan)}
                                     className={`px-3 py-2.5 border rounded-lg text-left text-xs transition-all
-                                        ${sel ? "border-cyan-400 bg-cyan-50 text-cyan-700 font-semibold" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"}`}>
+                                        ${sel ? "border-cyan-400 bg-cyan-50 text-cyan-700 font-semibold ring-1 ring-cyan-300" : "border-slate-200 bg-white text-slate-600 hover:border-cyan-200 hover:bg-cyan-50/40"}`}>
                                     {cfg.label.replace("Pest Control — ", "")}
                                 </button>
                             );
@@ -180,16 +151,16 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, onLayanan, on
                     </div>
                 </div>
 
-                {/* ── PH ── */}
+                {/* PH */}
                 <div>
                     <p className="text-xs font-semibold text-amber-600 mb-2 flex items-center gap-1">📋 Penawaran Harga (PH)</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {phItems.map(([val, cfg]) => {
                             const sel = jenisLayanan === val;
                             return (
                                 <button key={val} type="button" onClick={() => onLayanan(val as JenisLayanan)}
                                     className={`px-3 py-2.5 border rounded-lg text-left text-xs transition-all
-                                        ${sel ? "border-amber-400 bg-amber-50 text-amber-700 font-semibold" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"}`}>
+                                        ${sel ? "border-amber-400 bg-amber-50 text-amber-700 font-semibold ring-1 ring-amber-300" : "border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50/40"}`}>
                                     {cfg.label.replace("PH — ", "")}
                                 </button>
                             );
@@ -197,6 +168,34 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, onLayanan, on
                     </div>
                 </div>
             </Field>
+
+            {/* Kondisi Bangunan — hanya untuk AR */}
+            {isAR && !isPH && (
+                <Field label="Kondisi Bangunan" hint="Menentukan tipe pekerjaan dan beban kerja">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {KONDISI_OPTIONS.map(opt => {
+                            const sel = kondisiBangunan === opt.val;
+                            return (
+                                <button key={opt.val} type="button"
+                                    onClick={() => onKondisi(sel ? null : opt.val)}
+                                    className={`px-3 py-3 border rounded-xl text-left transition-all
+                                        ${sel ? "border-purple-400 bg-purple-50 ring-1 ring-purple-300" : "border-slate-200 bg-white hover:border-purple-200 hover:bg-purple-50/30"}`}>
+                                    <div className={`text-xs font-bold ${sel ? "text-purple-700" : "text-slate-700"}`}>
+                                        {opt.val === "pasca_konstruksi" ? "🏢" : opt.val === "pra_konstruksi" ? "🏗️" : "🔨"} {opt.label}
+                                    </div>
+                                    <div className={`text-[10px] mt-0.5 ${sel ? "text-purple-500" : "text-slate-400"}`}>{opt.desc}</div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {kondisiBangunan && (
+                        <p className="text-xs text-purple-600 font-medium mt-1.5">
+                            ✓ {KONDISI_OPTIONS.find(o => o.val === kondisiBangunan)?.label} dipilih
+                            <button type="button" onClick={() => onKondisi(null)} className="ml-2 text-slate-400 hover:text-red-500">✕ Hapus</button>
+                        </p>
+                    )}
+                </Field>
+            )}
 
             {/* Tipe Surat */}
             <Field label="Tipe Surat" required>
@@ -222,7 +221,7 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, onLayanan, on
             </Field>
 
             {/* Peralatan */}
-            <Field label="Peralatan yang Dibutuhkan" hint="Klik untuk pilih/batal — atau ketik manual di bawah">
+            <Field label="Peralatan yang Dibutuhkan" hint="Klik untuk pilih/hapus — opsional">
                 <div className="flex flex-wrap gap-1.5 mb-2">
                     {presetPeralatan.map(item => {
                         const active = peralatan.includes(item);
@@ -230,7 +229,7 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, onLayanan, on
                             <button key={item} type="button" onClick={() => togglePeralatan(item)}
                                 className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all
                                     ${active
-                                        ? isPCO ? "bg-cyan-100 text-cyan-700 border-cyan-300" : "bg-purple-100 text-purple-700 border-purple-300"
+                                        ? isAR ? "bg-purple-100 text-purple-700 border-purple-300" : "bg-cyan-100 text-cyan-700 border-cyan-300"
                                         : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"}`}>
                                 {active ? "✓ " : ""}{item}
                             </button>
@@ -250,19 +249,24 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, onLayanan, on
                         ${kategori === "AR" ? "bg-purple-100 text-purple-700" : kategori === "PH" ? "bg-amber-100 text-amber-700" : "bg-cyan-100 text-cyan-700"}`}>
                         {noPreview || "GP-…"}
                     </code>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${kategori === "AR" ? "bg-purple-100 text-purple-700" : kategori === "PH" ? "bg-amber-100 text-amber-700" : "bg-cyan-100 text-cyan-700"}`}>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded
+                        ${kategori === "AR" ? "bg-purple-100 text-purple-700" : kategori === "PH" ? "bg-amber-100 text-amber-700" : "bg-cyan-100 text-cyan-700"}`}>
                         {kategori === "AR" ? "🛡 Anti Rayap" : kategori === "PH" ? "📋 PH" : "🦟 Pest Control"}
                     </span>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded ${tipe === "K" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>
                         {TIPE_LABELS[tipe]}
                     </span>
+                    {kondisiBangunan && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-700">
+                            {kondisiBangunan === "pasca_konstruksi" ? "🏢 Pasca" : kondisiBangunan === "pra_konstruksi" ? "🏗️ Pra" : "🔨 Renovasi"}
+                        </span>
+                    )}
                 </div>
                 <p className="text-xs text-slate-400 mt-2">Perihal: <em>{LAYANAN_CONFIG[jenisLayanan]?.perihal}</em></p>
             </div>
         </div>
     );
 }
-
 
 // ─── STEP 2 ───────────────────────────────────────────────────────────────────
 
@@ -1087,6 +1091,7 @@ export function QuotationFormPage() {
     const [ppnDppFaktor, setPpnDppFaktor] = useState(0);
     const [pembulatanRp, setPembulatanRp] = useState(0);
     const [peralatan, setPeralatan] = useState<string[]>([]);
+    const [kondisiBangunan, setKondisiBangunan] = useState<KondisiBangunan>(null);
     const [garansiTahun, setGaransiTahun] = useState(0);
     const [jenisGaransi, setJenisGaransi] = useState("Anti Rayap");
 
@@ -1105,6 +1110,7 @@ export function QuotationFormPage() {
             setItems([{ desc: "", qty: 1, unit: "m2", harga: 0 }]);
             setPeralatan([]);
         }
+        setKondisiBangunan(null);
         setJenisLayanan(v);
     };
     const [surveyPhotos, setSurveyPhotos] = useState<SurveyPhoto[]>([]);
@@ -1229,6 +1235,7 @@ export function QuotationFormPage() {
                 hamaDikendalikan: !isAR ? hamaDikendalikan : undefined,
                 teknikPelaksanaan: !isAR && teknikPelaksanaan.length > 0 ? teknikPelaksanaan : undefined,
                 peralatan: peralatan.length > 0 ? peralatan : undefined,
+                kondisiBangunan: kondisiBangunan || undefined,
             }, nomorEntry.id, pdfBlob);
 
             // ── Done ──────────────────────────────────────────────────────────
@@ -1284,8 +1291,8 @@ export function QuotationFormPage() {
 
             <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
                 {step === 0 && <Step1 jenisLayanan={jenisLayanan} tipe={tipe} kepada={kepada} noPreview={noPreview}
-                    peralatan={peralatan}
-                    onLayanan={handleLayanan} onTipe={setTipe} onKepada={setKepada} onPeralatan={setPeralatan} errors={errors} />}
+                    peralatan={peralatan} kondisiBangunan={kondisiBangunan}
+                    onLayanan={handleLayanan} onTipe={setTipe} onKepada={setKepada} onPeralatan={setPeralatan} onKondisi={setKondisiBangunan} errors={errors} />}
                 {step === 1 && <Step2 nama={kepadaNama} alamatLines={kepadaAlamat} up={kepadaUp}
                     onNama={setKepadaNama} onAlamat={setKepadaAlamat} onUp={setKepadaUp} errors={errors} />}
                 {step === 2 && <Step3 items={items} biayaTambahan={biayaTambahan} diskonPct={diskonPct}

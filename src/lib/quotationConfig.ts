@@ -34,33 +34,28 @@ export interface LayananConfig {
     isAR: boolean;
 }
 
-/**
- * PERUBAHAN: Fumigasi dipindah ke Anti Rayap (AR).
- * Fumigasi menarget rayap kayu & struktur bangunan, sehingga
- * secara teknis & bisnis masuk kategori Anti Rayap, bukan Pest Control.
- */
 export const LAYANAN_CONFIG: Record<JenisLayanan, LayananConfig> = {
-    // ── Anti Rayap — Injeksi (dengan sub-tipe) ────────────────────────────────
-    anti_rayap_injeksi_pasca:    { label: "Anti Rayap — Injeksi Pasca-Konstruksi",  kategori: "AR",  perihal: "Penawaran Harga Anti Rayap",               isAR: true  },
-    anti_rayap_injeksi_pra:      { label: "Anti Rayap — Injeksi Pra-Konstruksi",    kategori: "AR",  perihal: "Penawaran Harga Anti Rayap Pra-Konstruksi", isAR: true  },
-    anti_rayap_injeksi_renovasi: { label: "Anti Rayap — Injeksi Renovasi",          kategori: "AR",  perihal: "Penawaran Harga Anti Rayap Renovasi",       isAR: true  },
-    // ── Anti Rayap — Lainnya ──────────────────────────────────────────────────
-    anti_rayap_pipanisasi:       { label: "Anti Rayap — Pipanisasi",                kategori: "AR",  perihal: "Penawaran Harga Anti Rayap Pra-Konstruksi", isAR: true  },
-    anti_rayap_baiting:          { label: "Anti Rayap — Baiting System",            kategori: "AR",  perihal: "Penawaran Harga Anti Rayap",                isAR: true  },
-    anti_rayap_pra_konstruksi:   { label: "Anti Rayap — Pra-Konstruksi",            kategori: "AR",  perihal: "Penawaran Harga Anti Rayap Pra-Konstruksi", isAR: true  },
-    anti_rayap_pasca_konstruksi: { label: "Anti Rayap — Pasca-Konstruksi",          kategori: "AR",  perihal: "Penawaran Harga Anti Rayap",                isAR: true  },
-    anti_rayap_renovasi:         { label: "Anti Rayap — Renovasi",                  kategori: "AR",  perihal: "Penawaran Harga Anti Rayap Renovasi",       isAR: true  },
-    anti_rayap_soil:             { label: "Anti Rayap — Soil",                      kategori: "AR",  perihal: "Penawaran Harga Anti Rayap",                isAR: true  },
-    anti_rayap_fumigasi:         { label: "Anti Rayap — Fumigasi",                  kategori: "AR",  perihal: "Penawaran Harga Fumigasi Anti Rayap",       isAR: true  },
+    // ── Anti Rayap ────────────────────────────────────────────────────────────
+    anti_rayap_injeksi:    { label: "Anti Rayap — Injeksi",         kategori: "AR",  perihal: "Penawaran Harga Anti Rayap",               isAR: true  },
+    anti_rayap_pipanisasi: { label: "Anti Rayap — Pipanisasi",      kategori: "AR",  perihal: "Penawaran Harga Anti Rayap",               isAR: true  },
+    anti_rayap_baiting:    { label: "Anti Rayap — Baiting System",  kategori: "AR",  perihal: "Penawaran Harga Anti Rayap",               isAR: true  },
+    anti_rayap_soil:       { label: "Anti Rayap — Soil",            kategori: "AR",  perihal: "Penawaran Harga Anti Rayap",               isAR: true  },
+    anti_rayap_fumigasi:   { label: "Anti Rayap — Fumigasi",        kategori: "AR",  perihal: "Penawaran Harga Fumigasi Anti Rayap",      isAR: true  },
     // ── Pest Control ──────────────────────────────────────────────────────────
-    pest_spraying:               { label: "Pest Control — Spraying",                kategori: "PCO", perihal: "Penawaran Harga Pest Control",              isAR: false },
-    pest_fogging:                { label: "Pest Control — Fogging/ULV",             kategori: "PCO", perihal: "Penawaran Harga Pest Control (Fogging)",    isAR: false },
-    pest_rodent:                 { label: "Pest Control — Rodent Control",          kategori: "PCO", perihal: "Penawaran Harga Rodent Control",            isAR: false },
-    pest_baiting:                { label: "Pest Control — Baiting",                 kategori: "PCO", perihal: "Penawaran Harga Pest Control",              isAR: false },
-    pest_umum:                   { label: "Pest Control — General",                 kategori: "PCO", perihal: "Penawaran Harga Jasa Pengendalian Hama",    isAR: false },
+    pest_spraying:         { label: "Pest Control — Spraying",      kategori: "PCO", perihal: "Penawaran Harga Pest Control",             isAR: false },
+    pest_fogging:          { label: "Pest Control — Fogging/ULV",   kategori: "PCO", perihal: "Penawaran Harga Pest Control (Fogging)",   isAR: false },
+    pest_rodent:           { label: "Pest Control — Rodent Control",kategori: "PCO", perihal: "Penawaran Harga Rodent Control",           isAR: false },
+    pest_baiting:          { label: "Pest Control — Baiting",       kategori: "PCO", perihal: "Penawaran Harga Pest Control",             isAR: false },
+    pest_umum:             { label: "Pest Control — General",       kategori: "PCO", perihal: "Penawaran Harga Jasa Pengendalian Hama",   isAR: false },
     // ── Penawaran Harga (PH) ──────────────────────────────────────────────────
-    ph_anti_rayap:               { label: "PH — Anti Rayap",                        kategori: "PH",  perihal: "Penawaran Harga Anti Rayap",                isAR: true  },
-    ph_pest_control:             { label: "PH — Pest Control",                      kategori: "PH",  perihal: "Penawaran Harga Jasa Pengendalian Hama",    isAR: false },
+    ph_anti_rayap:         { label: "PH — Anti Rayap",              kategori: "PH",  perihal: "Penawaran Harga Anti Rayap",               isAR: true  },
+    ph_pest_control:       { label: "PH — Pest Control",            kategori: "PH",  perihal: "Penawaran Harga Jasa Pengendalian Hama",   isAR: false },
+};
+
+export const KONDISI_BANGUNAN_LABELS: Record<string, string> = {
+    pasca_konstruksi: "Pasca-Konstruksi",
+    pra_konstruksi:   "Pra-Konstruksi",
+    renovasi:         "Renovasi",
 };
 
 export const TIPE_LABELS: Record<string, string> = {
