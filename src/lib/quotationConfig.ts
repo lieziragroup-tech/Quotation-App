@@ -52,9 +52,6 @@ export const LAYANAN_CONFIG: Record<JenisLayanan, LayananConfig> = {
     pest_rodent:           { label: "Pest Control — Rodent Control",kategori: "PCO", perihal: "Penawaran Harga Rodent Control",           isAR: false },
     pest_baiting:          { label: "Pest Control — Baiting",       kategori: "PCO", perihal: "Penawaran Harga Pest Control",             isAR: false },
     pest_umum:             { label: "Pest Control — General",       kategori: "PCO", perihal: "Penawaran Harga Jasa Pengendalian Hama",   isAR: false },
-    // ── Penawaran Harga (PH) ──────────────────────────────────────────────────
-    ph_anti_rayap:         { label: "PH — Anti Rayap",              kategori: "PH",  perihal: "Penawaran Harga Anti Rayap",               isAR: true  },
-    ph_pest_control:       { label: "PH — Pest Control",            kategori: "PH",  perihal: "Penawaran Harga Jasa Pengendalian Hama",   isAR: false },
 };
 
 export const KONDISI_BANGUNAN_LABELS: Record<string, string> = {
@@ -66,7 +63,6 @@ export const KONDISI_BANGUNAN_LABELS: Record<string, string> = {
 export const TIPE_LABELS: Record<string, string> = {
     U: "Umum",
     K: "Kontrak",
-    PH: "Penawaran Harga",
 };
 
 export function buildNomorSurat(
@@ -82,7 +78,6 @@ export function buildNomorSurat(
 export const KATEGORI_LABELS: Record<string, string> = {
     AR: "Anti Rayap",
     PCO: "Pest Control",
-    PH: "Penawaran Harga",
 };
 
 export function fmtIDR(amount: number): string {

@@ -264,7 +264,7 @@ export function PerformaPage() {
             if (!map[q.marketingUid]) {
                 map[q.marketingUid] = {
                     uid: q.marketingUid, nama: q.marketingNama,
-                    total: 0, approved: 0, pending: 0, rejected: 0,
+                    total: 0, approved: 0, pending: 0, rejected: 0, deal: 0,
                     revenue: 0, ar: 0, pco: 0,
                     winRate: 0, revenueAchievement: 0, countAchievement: 0,
                 };
@@ -276,10 +276,11 @@ export function PerformaPage() {
             const s = map[q.marketingUid];
             if (!s) return;
             s.total++;
-            if (q.status === "approved") { s.approved++; s.revenue += q.total; }
+            if (q.status === "approved" || q.status === "sent_to_client") { s.approved++; s.revenue += q.total; }
+            if (q.status === "deal") { s.approved++; s.deal++; s.revenue += q.total; }
             if (q.status === "pending")  s.pending++;
-            if (q.status === "rejected") s.rejected++;
-            if (q.status === "approved") {
+            if (q.status === "rejected" || q.status === "cancelled") s.rejected++;
+            if (q.status === "approved" || q.status === "deal" || q.status === "sent_to_client") {
                 if (q.kategori === "AR") s.ar += q.total;
                 else s.pco += q.total;
             }
@@ -291,6 +292,8 @@ export function PerformaPage() {
         Object.values(map).forEach(s => {
             const decided = s.approved + s.rejected;
             s.winRate = decided > 0 ? Math.round((s.approved / decided) * 100) : 0;
+            // deal rate = deal / approved
+            (s as any).dealRate = s.approved > 0 ? Math.round((s.deal / s.approved) * 100) : 0;
 
             const t = periodTargets.find(t => t.uid === s.uid);
             s.target = t;
@@ -327,6 +330,7 @@ export function PerformaPage() {
     // ── Summary stats ─────────────────────────────────────────────────────────
     const totalRevenue  = marketingStats.reduce((s, m) => s + m.revenue, 0);
     const totalApproved = marketingStats.reduce((s, m) => s + m.approved, 0);
+    const totalDeal = marketingStats.reduce((s, m) => s + m.deal, 0);
     const totalQuos     = marketingStats.reduce((s, m) => s + m.total, 0);
     const avgWinRate    = marketingStats.length > 0
         ? Math.round(marketingStats.reduce((s, m) => s + m.winRate, 0) / marketingStats.length) : 0;
@@ -384,7 +388,7 @@ export function PerformaPage() {
                             { icon: <FileText size={18} />, label: "Total Quotation", value: String(totalQuos), sub: "dibuat periode ini", color: "bg-blue-100 text-blue-600" },
                             { icon: <Award size={18} />, label: "Approved", value: String(totalApproved), sub: `dari ${totalQuos} quotation`, color: "bg-emerald-100 text-emerald-600" },
                             { icon: <Percent size={18} />, label: "Avg Win Rate", value: `${avgWinRate}%`, sub: "rata-rata tim", color: "bg-violet-100 text-violet-600" },
-                            { icon: <TrendingUp size={18} />, label: "Total Revenue", value: formatRupiah(totalRevenue), sub: "dari approved", color: "bg-amber-100 text-amber-600" },
+                            { icon: <TrendingUp size={18} />, label: "Total Revenue", value: formatRupiah(totalRevenue), sub: `${totalDeal} deal dari ${totalApproved} approved`, color: "bg-amber-100 text-amber-600" },
                         ].map(c => (
                             <div key={c.label} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-start gap-3">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${c.color}`}>{c.icon}</div>
@@ -428,7 +432,7 @@ export function PerformaPage() {
                                                                 m.winRate >= 40 ? "bg-amber-100 text-amber-700" :
                                                                 "bg-red-100 text-red-600"
                                                             }`}>
-                                                                WR {m.winRate}%
+                                                                WR {m.winRate}% · Deal {(m as any).dealRate ?? 0}%
                                                             </span>
                                                         </div>
                                                     </div>

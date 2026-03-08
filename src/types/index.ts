@@ -64,13 +64,12 @@ export type JenisLayanan =
     | "pest_rodent"
     | "pest_baiting"
     | "pest_umum"
-    | "ph_anti_rayap"
-    | "ph_pest_control";
+;
 
 export type KondisiBangunan = "pasca_konstruksi" | "pra_konstruksi" | "renovasi" | null;
 
 export type TipeKontrak = "U" | "K" | "PH";
-export type KategoriSurat = "AR" | "PCO" | "PH";
+export type KategoriSurat = "AR" | "PCO";
 
 export interface QuotationItem {
     desc: string;

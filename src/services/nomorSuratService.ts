@@ -57,13 +57,7 @@ export interface GenerateNomorParams {
 export async function generateNomorSurat(params: GenerateNomorParams): Promise<NomorSuratLog> {
     let { kategori, tipe, jenisLayanan, kepada, byUid, byName, companyId, dryRun = false } = params;
 
-    // PH: kategori dari LAYANAN_CONFIG adalah "PH", tapi nomor surat pakai AR/PCO + tipe PH
-    if (kategori === "PH" as string) {
-        const { LAYANAN_CONFIG } = await import("../lib/quotationConfig");
-        const isAR = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
-        kategori = isAR ? "AR" : "PCO";
-        tipe = "PH" as typeof tipe;
-    }
+    // tipe "PH" → kategori tetap AR/PCO (sudah benar dari LAYANAN_CONFIG), tipe = PH
 
     const now = new Date();
     const yyyy = String(now.getFullYear());
@@ -162,13 +156,7 @@ export async function previewNomorSurat(
     companyId: string,
     jenisLayanan?: string,
 ): Promise<string> {
-    // PH: remap kategori ke AR/PCO, tipe ke PH
-    if (kategori === "PH" as string && jenisLayanan) {
-        const { LAYANAN_CONFIG } = await import("../lib/quotationConfig");
-        const isAR = (LAYANAN_CONFIG as Record<string, { isAR: boolean }>)[jenisLayanan]?.isAR ?? false;
-        kategori = isAR ? "AR" : "PCO";
-        tipe = "PH" as TipeKontrak;
-    }
+    // tipe "PH" uses AR/PCO as kategori naturally
     const now = new Date();
     const yyyy = String(now.getFullYear());
     const mm = String(now.getMonth() + 1).padStart(2, "0");

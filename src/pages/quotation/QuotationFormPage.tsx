@@ -137,14 +137,12 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangun
 }) {
     const kategori = LAYANAN_CONFIG[jenisLayanan]?.kategori ?? "PCO";
     const isAR = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
-    const isPH = kategori === "PH";
     const isPCO = !isAR;
 
     const arItems  = Object.entries(LAYANAN_CONFIG).filter(([k, c]) => c.isAR && !k.startsWith("ph_"));
     const pcoItems = Object.entries(LAYANAN_CONFIG).filter(([k, c]) => !c.isAR && !k.startsWith("ph_"));
-    const phItems  = Object.entries(LAYANAN_CONFIG).filter(([k]) => k.startsWith("ph_"));
 
-    const presetPeralatan = isPCO && !isPH ? PERALATAN_PCO : PERALATAN_AR;
+    const presetPeralatan = isPCO ? PERALATAN_PCO : PERALATAN_AR;
 
     const togglePeralatan = (item: string) =>
         onPeralatan(peralatan.includes(item)
@@ -194,22 +192,6 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangun
                     </div>
                 </div>
 
-                {/* PH */}
-                <div>
-                    <p className="text-xs font-semibold text-amber-600 mb-2 flex items-center gap-1">📋 Penawaran Harga (PH)</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {phItems.map(([val, cfg]) => {
-                            const sel = jenisLayanan === val;
-                            return (
-                                <button key={val} type="button" onClick={() => onLayanan(val as JenisLayanan)}
-                                    className={`px-3 py-2.5 border rounded-lg text-left text-xs transition-all
-                                        ${sel ? "border-amber-400 bg-amber-50 text-amber-700 font-semibold ring-1 ring-amber-300" : "border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50/40"}`}>
-                                    {cfg.label.replace("PH — ", "")}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
             </Field>
 
             {/* Kondisi Bangunan — hanya untuk AR */}
@@ -240,31 +222,29 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangun
                 </Field>
             )}
 
-            {/* Tipe Surat — disembunyikan untuk PH (otomatis) */}
-            {!isPH ? (
-                <Field label="Tipe Surat" required>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {(["U", "K"] as TipeKontrak[]).map(v => (
-                            <button key={v} type="button" onClick={() => onTipe(v)}
-                                className={`px-4 py-3 border rounded-xl text-left transition-all
-                                    ${tipe === v ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
-                                <div className={`text-sm font-bold ${tipe === v ? "text-blue-700" : "text-slate-700"}`}>{TIPE_LABELS[v]}</div>
-                                <div className="text-xs text-slate-400 mt-0.5">
-                                    {v === "U" ? "Penawaran biasa / satu kali" : "Kerjasama berkala / tahunan"}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </Field>
-            ) : (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
-                    <span className="text-lg">📋</span>
-                    <div>
-                        <p className="text-xs font-bold text-amber-700">Tipe: Penawaran Harga (PH)</p>
-                        <p className="text-xs text-amber-600 mt-0.5">Nomor surat: GP-{isAR ? "AR" : "PCO"}/PH/YYYY/MM/XXXX</p>
-                    </div>
+            {/* Tipe Surat */}
+            <Field label="Tipe Surat" required>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {([
+                        { v: "U",  label: "Umum",             desc: "Penawaran biasa / satu kali",    color: "blue"  },
+                        { v: "K",  label: "Kontrak",          desc: "Kerjasama berkala / tahunan",    color: "blue"  },
+                        { v: "PH", label: "Penawaran Harga",  desc: "GP-AR/PH atau GP-PCO/PH/…",     color: "amber" },
+                    ] as const).map(({ v, label, desc, color }) => (
+                        <button key={v} type="button" onClick={() => onTipe(v as TipeKontrak)}
+                            className={`px-4 py-3 border rounded-xl text-left transition-all
+                                ${tipe === v
+                                    ? color === "amber"
+                                        ? "border-amber-400 bg-amber-50 ring-1 ring-amber-300"
+                                        : "border-blue-500 bg-blue-50"
+                                    : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                            <div className={`text-sm font-bold ${tipe === v ? color === "amber" ? "text-amber-700" : "text-blue-700" : "text-slate-700"}`}>
+                                {v === "PH" ? "📋 " : ""}{label}
+                            </div>
+                            <div className="text-xs text-slate-400 mt-0.5">{desc}</div>
+                        </button>
+                    ))}
                 </div>
-            )}
+            </Field>
 
             {/* Klien */}
             <Field label="Ditujukan Kepada" required error={errors.kepada}>
@@ -301,14 +281,14 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangun
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Preview Nomor Surat</p>
                 <div className="flex items-center gap-3 flex-wrap">
                     <code className={`text-base font-bold px-3 py-1.5 rounded-lg font-mono
-                        ${kategori === "AR" ? "bg-purple-100 text-purple-700" : kategori === "PH" ? "bg-amber-100 text-amber-700" : "bg-cyan-100 text-cyan-700"}`}>
+                        ${kategori === "AR" ? "bg-purple-100 text-purple-700" : "bg-cyan-100 text-cyan-700"}`}>
                         {noPreview || "GP-…"}
                     </code>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded
-                        ${kategori === "AR" ? "bg-purple-100 text-purple-700" : kategori === "PH" ? "bg-amber-100 text-amber-700" : "bg-cyan-100 text-cyan-700"}`}>
-                        {kategori === "AR" ? "🛡 Anti Rayap" : kategori === "PH" ? "📋 PH" : "🦟 Pest Control"}
+                        ${kategori === "AR" ? "bg-purple-100 text-purple-700" : "bg-cyan-100 text-cyan-700"}`}>
+                        {kategori === "AR" ? "🛡 Anti Rayap" : "🦟 Pest Control"}
                     </span>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${tipe === "K" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${tipe === "K" ? "bg-amber-100 text-amber-700" : tipe === "PH" ? "bg-amber-100 text-amber-700 border border-amber-300" : "bg-slate-100 text-slate-500"}`}>
                         {TIPE_LABELS[tipe]}
                     </span>
                     {kondisiBangunan && (
@@ -1166,9 +1146,6 @@ export function QuotationFormPage() {
             setPeralatan([]);
         }
         setKondisiBangunan(null);
-        // PH jenis → tipe otomatis "PH"
-        if (v.startsWith("ph_")) setTipe("PH");
-        else if (tipe === "PH") setTipe("U"); // reset jika pindah dari PH
         setJenisLayanan(v);
     };
     const [surveyPhotos, setSurveyPhotos] = useState<SurveyPhoto[]>([]);
