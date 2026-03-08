@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, query, where, getDocs, Timestamp, orderBy, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { useAuthStore } from "../../store/authStore";
 import { ROLE_LABELS, formatRupiah } from "../../lib/utils";
@@ -219,8 +219,8 @@ export function DashboardPage() {
         setLoading(true);
         try {
             const q = canSeeAll
-                ? query(collection(db, "quotations"), where("companyId", "==", user.companyId), orderBy("tanggal", "desc"), limit(100))
-                : query(collection(db, "quotations"), where("companyId", "==", user.companyId), where("marketingUid", "==", user.uid), orderBy("tanggal", "desc"), limit(50));
+                ? query(collection(db, "quotations"), where("companyId", "==", user.companyId))
+                : query(collection(db, "quotations"), where("companyId", "==", user.companyId), where("marketingUid", "==", user.uid));
             const snap = await getDocs(q);
             const rows = snap.docs.map(d => {
                 const x = d.data();
