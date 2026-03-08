@@ -34,6 +34,11 @@ export interface LayananConfig {
     isAR: boolean;
 }
 
+/**
+ * PERUBAHAN: Fumigasi dipindah ke Anti Rayap (AR).
+ * Fumigasi menarget rayap kayu & struktur bangunan, sehingga
+ * secara teknis & bisnis masuk kategori Anti Rayap, bukan Pest Control.
+ */
 export const LAYANAN_CONFIG: Record<JenisLayanan, LayananConfig> = {
     // ── Anti Rayap ────────────────────────────────────────────────────────────
     anti_rayap_injeksi:    { label: "Anti Rayap — Injeksi",         kategori: "AR",  perihal: "Penawaran Harga Anti Rayap",               isAR: true  },
@@ -61,6 +66,7 @@ export const KONDISI_BANGUNAN_LABELS: Record<string, string> = {
 export const TIPE_LABELS: Record<string, string> = {
     U: "Umum",
     K: "Kontrak",
+    PH: "Penawaran Harga",
 };
 
 export function buildNomorSurat(

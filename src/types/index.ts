@@ -69,7 +69,7 @@ export type JenisLayanan =
 
 export type KondisiBangunan = "pasca_konstruksi" | "pra_konstruksi" | "renovasi" | null;
 
-export type TipeKontrak = "U" | "K";
+export type TipeKontrak = "U" | "K" | "PH";
 export type KategoriSurat = "AR" | "PCO" | "PH";
 
 export interface QuotationItem {

@@ -55,7 +55,15 @@ export interface GenerateNomorParams {
  * dryRun = true → hanya return preview tanpa simpan ke Firestore.
  */
 export async function generateNomorSurat(params: GenerateNomorParams): Promise<NomorSuratLog> {
-    const { kategori, tipe, jenisLayanan, kepada, byUid, byName, companyId, dryRun = false } = params;
+    let { kategori, tipe, jenisLayanan, kepada, byUid, byName, companyId, dryRun = false } = params;
+
+    // PH: kategori dari LAYANAN_CONFIG adalah "PH", tapi nomor surat pakai AR/PCO + tipe PH
+    if (kategori === "PH" as string) {
+        const { LAYANAN_CONFIG } = await import("../lib/quotationConfig");
+        const isAR = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
+        kategori = isAR ? "AR" : "PCO";
+        tipe = "PH" as typeof tipe;
+    }
 
     const now = new Date();
     const yyyy = String(now.getFullYear());
@@ -152,7 +160,15 @@ export async function previewNomorSurat(
     kategori: KategoriSurat,
     tipe: TipeKontrak,
     companyId: string,
+    jenisLayanan?: string,
 ): Promise<string> {
+    // PH: remap kategori ke AR/PCO, tipe ke PH
+    if (kategori === "PH" as string && jenisLayanan) {
+        const { LAYANAN_CONFIG } = await import("../lib/quotationConfig");
+        const isAR = (LAYANAN_CONFIG as Record<string, { isAR: boolean }>)[jenisLayanan]?.isAR ?? false;
+        kategori = isAR ? "AR" : "PCO";
+        tipe = "PH" as TipeKontrak;
+    }
     const now = new Date();
     const yyyy = String(now.getFullYear());
     const mm = String(now.getMonth() + 1).padStart(2, "0");

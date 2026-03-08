@@ -21,6 +21,7 @@ import { PerformaPage } from "../pages/performance/PerformaPage";
 import { CustomersPage } from "../pages/customers/CustomersPage";
 import { SettingsPage } from "../pages/settings/SettingsPage";
 import { StatusPHPage } from "../pages/status-ph/StatusPHPage";
+import { TrackingPage } from "../pages/tracking/TrackingPage";
 
 // Pages — super_admin
 import { CompaniesPage } from "../pages/super-admin/CompaniesPage";
@@ -146,6 +147,14 @@ export const router = createBrowserRouter([
                 element: (
                     <RoleGuard allowedRoles={["administrator"]}>
                         <PerformaPage />
+                    </RoleGuard>
+                ),
+            },
+            {
+                path: "tracking",
+                element: (
+                    <RoleGuard allowedRoles={["administrator", "admin_ops", "marketing"]}>
+                        <TrackingPage />
                     </RoleGuard>
                 ),
             },

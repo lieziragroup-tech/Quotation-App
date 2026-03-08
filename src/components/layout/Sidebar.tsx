@@ -6,7 +6,7 @@ import { useAuthStore } from "../../store/authStore";
 import type { UserRole } from "../../types";
 import { ROLE_LABELS, cn } from "../../lib/utils";
 import {
-    Send, LayoutDashboard, FileText, Users,
+    Send, ClipboardList, LayoutDashboard, FileText, Users,
     DollarSign, Settings, LogOut, ShieldCheck,
     TrendingUp, User, Hash, Menu, X,
 } from "lucide-react";
@@ -27,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
     { to: "/cashflow",        icon: <DollarSign size={18} />,      label: "Cashflow",        roles: ["administrator"] },
     { to: "/performance",     icon: <TrendingUp size={18} />,      label: "Performa",        roles: ["administrator"] },
     { to: "/status-ph",       icon: <Send size={18} />,           label: "Status PH",         roles: ["administrator", "admin_ops"] },
+    { to: "/tracking",        icon: <ClipboardList size={18} />,  label: "Tracking Order",    roles: ["administrator", "admin_ops", "marketing"] },
     { to: "/settings",        icon: <Settings size={18} />,        label: "Pengaturan",      roles: ["administrator"] },
     { to: "/profile",         icon: <User size={18} />,            label: "Profil Saya",     roles: ["administrator", "admin_ops", "marketing", "teknisi"] },
 ];

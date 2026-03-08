@@ -68,6 +68,49 @@ function Field({ label, required, error, hint, children }: {
 
 const inputCls = "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white text-slate-800";
 
+// ─── MANUAL PERALATAN INPUT ──────────────────────────────────────────────────
+
+function ManualPeralatanInput({ peralatan, onPeralatan, isAR }: {
+    peralatan: string[];
+    onPeralatan: (v: string[]) => void;
+    isAR: boolean;
+}) {
+    const [draft, setDraft] = useState("");
+
+    const addItem = () => {
+        const val = draft.trim();
+        if (!val || peralatan.includes(val)) { setDraft(""); return; }
+        onPeralatan([...peralatan, val]);
+        setDraft("");
+    };
+
+    return (
+        <div>
+            <div className="flex gap-2 mt-1.5">
+                <input
+                    className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    value={draft}
+                    onChange={e => setDraft(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }}
+                    placeholder="Tambah peralatan manual... (Enter)"
+                />
+                <button type="button" onClick={addItem}
+                    className="px-3 py-1.5 text-xs bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 font-medium">
+                    + Tambah
+                </button>
+            </div>
+            {/* Custom items (non-preset) */}
+            {peralatan.filter(p => !PERALATAN_AR.includes(p) && !PERALATAN_PCO.includes(p)).map(item => (
+                <div key={item} className="inline-flex items-center gap-1 mt-1.5 mr-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border bg-blue-50 text-blue-700 border-blue-200">
+                    ✓ {item}
+                    <button type="button" onClick={() => onPeralatan(peralatan.filter(p => p !== item))}
+                        className="ml-1 text-blue-400 hover:text-red-500">✕</button>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 // ─── STEP 1 ───────────────────────────────────────────────────────────────────
 
 const PERALATAN_AR = [
@@ -197,21 +240,31 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangun
                 </Field>
             )}
 
-            {/* Tipe Surat */}
-            <Field label="Tipe Surat" required>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {(["U", "K"] as TipeKontrak[]).map(v => (
-                        <button key={v} type="button" onClick={() => onTipe(v)}
-                            className={`px-4 py-3 border rounded-xl text-left transition-all
-                                ${tipe === v ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
-                            <div className={`text-sm font-bold ${tipe === v ? "text-blue-700" : "text-slate-700"}`}>{TIPE_LABELS[v]}</div>
-                            <div className="text-xs text-slate-400 mt-0.5">
-                                {v === "U" ? "Penawaran biasa / satu kali" : "Kerjasama berkala / tahunan"}
-                            </div>
-                        </button>
-                    ))}
+            {/* Tipe Surat — disembunyikan untuk PH (otomatis) */}
+            {!isPH ? (
+                <Field label="Tipe Surat" required>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {(["U", "K"] as TipeKontrak[]).map(v => (
+                            <button key={v} type="button" onClick={() => onTipe(v)}
+                                className={`px-4 py-3 border rounded-xl text-left transition-all
+                                    ${tipe === v ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                                <div className={`text-sm font-bold ${tipe === v ? "text-blue-700" : "text-slate-700"}`}>{TIPE_LABELS[v]}</div>
+                                <div className="text-xs text-slate-400 mt-0.5">
+                                    {v === "U" ? "Penawaran biasa / satu kali" : "Kerjasama berkala / tahunan"}
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </Field>
+            ) : (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <span className="text-lg">📋</span>
+                    <div>
+                        <p className="text-xs font-bold text-amber-700">Tipe: Penawaran Harga (PH)</p>
+                        <p className="text-xs text-amber-600 mt-0.5">Nomor surat: GP-{isAR ? "AR" : "PCO"}/PH/YYYY/MM/XXXX</p>
+                    </div>
                 </div>
-            </Field>
+            )}
 
             {/* Klien */}
             <Field label="Ditujukan Kepada" required error={errors.kepada}>
@@ -221,7 +274,7 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangun
             </Field>
 
             {/* Peralatan */}
-            <Field label="Peralatan yang Dibutuhkan" hint="Klik untuk pilih/hapus — opsional">
+            <Field label="Peralatan yang Dibutuhkan" hint="Klik preset atau ketik manual lalu tekan Enter">
                 <div className="flex flex-wrap gap-1.5 mb-2">
                     {presetPeralatan.map(item => {
                         const active = peralatan.includes(item);
@@ -236,8 +289,10 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangun
                         );
                     })}
                 </div>
+                {/* Manual input */}
+                <ManualPeralatanInput peralatan={peralatan} onPeralatan={onPeralatan} isAR={isAR} />
                 {peralatan.length > 0 && (
-                    <p className="text-[11px] text-slate-400">{peralatan.length} item dipilih</p>
+                    <p className="text-[11px] text-slate-400 mt-1">{peralatan.length} item dipilih</p>
                 )}
             </Field>
 
@@ -1111,6 +1166,9 @@ export function QuotationFormPage() {
             setPeralatan([]);
         }
         setKondisiBangunan(null);
+        // PH jenis → tipe otomatis "PH"
+        if (v.startsWith("ph_")) setTipe("PH");
+        else if (tipe === "PH") setTipe("U"); // reset jika pindah dari PH
         setJenisLayanan(v);
     };
     const [surveyPhotos, setSurveyPhotos] = useState<SurveyPhoto[]>([]);
@@ -1136,7 +1194,7 @@ export function QuotationFormPage() {
         if (!user?.companyId) return;
         let cancelled = false;
         const timer = setTimeout(async () => {
-            const no = await previewNomorSurat(kategori, tipe, user.companyId);
+            const no = await previewNomorSurat(kategori, tipe, user.companyId, jenisLayanan);
             if (!cancelled) setNoPreview(no);
         }, 300);
         return () => { cancelled = true; clearTimeout(timer); };
