@@ -108,7 +108,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 function MobileTopbar({ onOpen }: { onOpen: () => void }) {
     const location = useLocation();
     const { user } = useAuthStore();
-    const pageTitle = NAV_ITEMS.find(i => location.pathname.startsWith(i.to))?.label ?? "ERP Pest Control";
+    const pageTitle = NAV_ITEMS.find(i => i.type !== "group" && location.pathname.startsWith((i as NavItem).to))?.label ?? "ERP Pest Control";
 
     return (
         <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
