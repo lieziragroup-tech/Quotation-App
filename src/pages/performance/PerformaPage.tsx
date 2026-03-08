@@ -40,6 +40,7 @@ interface MarketingStats {
     approved: number;
     pending: number;
     rejected: number;
+    deal: number;
     revenue: number;
     ar: number;
     pco: number;

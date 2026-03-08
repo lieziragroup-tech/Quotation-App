@@ -195,7 +195,7 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangun
             </Field>
 
             {/* Kondisi Bangunan — hanya untuk AR */}
-            {isAR && !isPH && (
+            {isAR && (
                 <Field label="Kondisi Bangunan" hint="Menentukan tipe pekerjaan dan beban kerja">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         {KONDISI_OPTIONS.map(opt => {
