@@ -370,7 +370,7 @@ export function TrackingPage() {
             // Load tracking data
             const trackings = await getTrackingByCompany(user.companyId);
             const map: Record<string, OrderTracking> = {};
-            trackings.forEach(t => { map[t.quotationId] = t; });
+            trackings.forEach((t: OrderTracking) => { map[t.quotationId] = t; });
             setTrackingMap(map);
         } finally {
             setLoading(false);
