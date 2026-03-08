@@ -88,6 +88,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
                         {(item as NavItem).icon}
                         {(item as NavItem).label}
                     </NavLink>
+                    )
                 ))}
             </nav>
             <div className="px-3 py-4 border-t border-slate-100">
