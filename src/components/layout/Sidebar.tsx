@@ -24,7 +24,7 @@ const NAV_ITEMS: NavEntry[] = [
     { type: "group", label: "Penjualan" },
     { to: "/quotations",      icon: <FileText size={18} />,        label: "Quotation",        roles: ["administrator", "marketing", "admin_ops"] },
     { to: "/status-ph",       icon: <Send size={18} />,            label: "Status Penawaran", roles: ["administrator", "admin_ops"] },
-    { to: "/tracking",        icon: <ClipboardList size={18} />,   label: "Tracking Order",   roles: ["administrator", "admin_ops", "marketing"] },
+    { to: "/tracking",        icon: <ClipboardList size={18} />,   label: "Tracking Order",   roles: ["administrator", "admin_ops"] },
 
     // ── Klien ─────────────────────────────────────────────────────────────────
     { type: "group", label: "Klien" },
