@@ -23,9 +23,6 @@ const STATUS_CFG: Record<QuotationStatus, { label: string; icon: React.ReactNode
     sent_to_client:  { label: "Dikirim ke Klien",  icon: <Send size={12} />,         bg: "#fef9c3", text: "#854d0e", dot: "#eab308" },
     deal:            { label: "Deal ✓",             icon: <CheckCircle2 size={12} />, bg: "#dcfce7", text: "#14532d", dot: "#16a34a" },
     cancelled:       { label: "Batal",              icon: <XCircle size={12} />,     bg: "#f3f4f6", text: "#6b7280", dot: "#9ca3af" },
-    sent_to_client:  { label: "Dikirim ke Klien",  icon: <Send size={12} />,         bg: "#fef9c3", text: "#854d0e", dot: "#eab308" },
-    deal:            { label: "Deal ✓",             icon: <CheckCircle2 size={12} />, bg: "#dcfce7", text: "#14532d", dot: "#16a34a" },
-    cancelled:       { label: "Batal",              icon: <XCircle size={12} />,     bg: "#f3f4f6", text: "#6b7280", dot: "#9ca3af" },
 };
 
 function StatusBadge({ status }: { status: QuotationStatus }) {
