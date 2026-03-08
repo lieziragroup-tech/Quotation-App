@@ -11,25 +11,39 @@ import {
     TrendingUp, User, Hash, Menu, X,
 } from "lucide-react";
 
-interface NavItem {
-    to: string;
-    icon: React.ReactNode;
-    label: string;
-    roles: UserRole[];
-}
+// Separator sebagai penanda grup
+interface NavGroup { type: "group"; label: string }
+interface NavItem  { type?: undefined; to: string; icon: React.ReactNode; label: string; roles: UserRole[] }
+type NavEntry = NavItem | NavGroup;
 
-const NAV_ITEMS: NavItem[] = [
-    { to: "/dashboard",       icon: <LayoutDashboard size={18} />, label: "Dashboard",       roles: ["administrator", "admin_ops", "marketing", "teknisi"] },
-    { to: "/quotations",      icon: <FileText size={18} />,        label: "Quotation",       roles: ["administrator", "marketing", "admin_ops"] },
-    { to: "/nomor-surat-log", icon: <Hash size={18} />,            label: "Log Nomor Surat", roles: ["administrator", "admin_ops"] },
-    { to: "/team",            icon: <Users size={18} />,           label: "Tim",             roles: ["administrator"] },
-    { to: "/customers",       icon: <Users size={18} />,           label: "Pelanggan",       roles: ["administrator", "admin_ops", "marketing"] },
-    { to: "/cashflow",        icon: <DollarSign size={18} />,      label: "Cashflow",        roles: ["administrator"] },
-    { to: "/performance",     icon: <TrendingUp size={18} />,      label: "Performa",        roles: ["administrator"] },
-    { to: "/status-ph",       icon: <Send size={18} />,           label: "Status PH",         roles: ["administrator", "admin_ops"] },
-    { to: "/tracking",        icon: <ClipboardList size={18} />,  label: "Tracking Order",    roles: ["administrator", "admin_ops", "marketing"] },
-    { to: "/settings",        icon: <Settings size={18} />,        label: "Pengaturan",      roles: ["administrator"] },
-    { to: "/profile",         icon: <User size={18} />,            label: "Profil Saya",     roles: ["administrator", "admin_ops", "marketing", "teknisi"] },
+const NAV_ITEMS: NavEntry[] = [
+    // ── Utama ─────────────────────────────────────────────────────────────────
+    { to: "/dashboard",       icon: <LayoutDashboard size={18} />, label: "Dashboard",        roles: ["administrator", "admin_ops", "marketing", "teknisi"] },
+
+    // ── Penjualan ─────────────────────────────────────────────────────────────
+    { type: "group", label: "Penjualan" },
+    { to: "/quotations",      icon: <FileText size={18} />,        label: "Quotation",        roles: ["administrator", "marketing", "admin_ops"] },
+    { to: "/status-ph",       icon: <Send size={18} />,            label: "Status Penawaran", roles: ["administrator", "admin_ops"] },
+    { to: "/tracking",        icon: <ClipboardList size={18} />,   label: "Tracking Order",   roles: ["administrator", "admin_ops", "marketing"] },
+
+    // ── Klien ─────────────────────────────────────────────────────────────────
+    { type: "group", label: "Klien" },
+    { to: "/customers",       icon: <Users size={18} />,           label: "Pelanggan",        roles: ["administrator", "admin_ops", "marketing"] },
+
+    // ── Laporan ───────────────────────────────────────────────────────────────
+    { type: "group", label: "Laporan" },
+    { to: "/cashflow",        icon: <DollarSign size={18} />,      label: "Cashflow",         roles: ["administrator"] },
+    { to: "/performance",     icon: <TrendingUp size={18} />,      label: "Performa",         roles: ["administrator"] },
+    { to: "/nomor-surat-log", icon: <Hash size={18} />,            label: "Log Nomor Surat",  roles: ["administrator", "admin_ops"] },
+
+    // ── Manajemen ─────────────────────────────────────────────────────────────
+    { type: "group", label: "Manajemen" },
+    { to: "/team",            icon: <Users size={18} />,           label: "Tim",              roles: ["administrator"] },
+    { to: "/settings",        icon: <Settings size={18} />,        label: "Pengaturan",       roles: ["administrator"] },
+
+    // ── Akun ──────────────────────────────────────────────────────────────────
+    { type: "group", label: "Akun" },
+    { to: "/profile",         icon: <User size={18} />,            label: "Profil Saya",      roles: ["administrator", "admin_ops", "marketing", "teknisi"] },
 ];
 
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
@@ -42,7 +56,9 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
         navigate("/login");
     };
 
-    const visibleItems = NAV_ITEMS.filter(item => user && item.roles.includes(user.role));
+    const visibleItems = NAV_ITEMS.filter(item =>
+        item.type === "group" || (user && (item as NavItem).roles.includes(user.role))
+    );
 
     return (
         <div className="flex flex-col h-full">
@@ -58,14 +74,19 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
                 </div>
             </div>
             <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-                {visibleItems.map(item => (
-                    <NavLink key={item.to} to={item.to} onClick={onNavClick}
+                {visibleItems.map((item, idx) => (
+                    item.type === "group" ? (
+                        <div key={`group-${idx}`} className="px-2 pt-4 pb-1 first:pt-1">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{item.label}</p>
+                        </div>
+                    ) : (
+                    <NavLink key={(item as NavItem).to} to={(item as NavItem).to} onClick={onNavClick}
                         className={({ isActive }) => cn(
                             "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                             isActive ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                         )}>
-                        {item.icon}
-                        {item.label}
+                        {(item as NavItem).icon}
+                        {(item as NavItem).label}
                     </NavLink>
                 ))}
             </nav>
