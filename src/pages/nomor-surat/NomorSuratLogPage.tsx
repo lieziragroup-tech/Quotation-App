@@ -16,7 +16,10 @@ const STATUS_CONFIG: Record<QuotationStatus, { label: string; color: string; ico
     draft:    { label: "Draft",     color: "bg-slate-100 text-slate-600",      icon: <Clock size={11} /> },
     pending:  { label: "Pending",   color: "bg-amber-100 text-amber-700",      icon: <Clock size={11} /> },
     approved: { label: "Disetujui", color: "bg-emerald-100 text-emerald-700",  icon: <CheckCircle2 size={11} /> },
-    rejected: { label: "Ditolak",   color: "bg-red-100 text-red-600",          icon: <XCircle size={11} /> },
+    rejected:       { label: "Ditolak",         color: "bg-red-100 text-red-600",          icon: <XCircle size={11} /> },
+    sent_to_client: { label: "Dikirim Klien",   color: "bg-yellow-100 text-yellow-700",    icon: <Clock size={11} /> },
+    deal:           { label: "Deal",             color: "bg-emerald-100 text-emerald-700",  icon: <CheckCircle2 size={11} /> },
+    cancelled:      { label: "Batal",            color: "bg-slate-100 text-slate-500",      icon: <XCircle size={11} /> },
 };
 
 function StatusBadge({ status }: { status: QuotationStatus }) {

@@ -5,7 +5,7 @@ import {
     FileText, Plus, Search, RefreshCw,
     CheckCircle2, XCircle, Clock, FileX2,
     Eye, Download, Filter, ChevronLeft, ChevronRight,
-    PenLine, MessageSquare, AlertCircle, Trash2,
+    PenLine, MessageSquare, AlertCircle, Trash2, Send,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { getQuotations, updateQuotationStatus, deleteQuotation } from "../../services/quotationService";
@@ -16,10 +16,16 @@ import type { Quotation, QuotationStatus, KategoriSurat, TipeKontrak } from "../
 // ─── STATUS CONFIG ────────────────────────────────────────────────────────────
 
 const STATUS_CFG: Record<QuotationStatus, { label: string; icon: React.ReactNode; bg: string; text: string; dot: string }> = {
-    draft: { label: "Draft", icon: <FileX2 size={12} />, bg: "#f1f5f9", text: "#64748b", dot: "#94a3b8" },
-    pending: { label: "Menunggu", icon: <Clock size={12} />, bg: "#fef3c7", text: "#92400e", dot: "#f59e0b" },
-    approved: { label: "Disetujui", icon: <CheckCircle2 size={12} />, bg: "#dcfce7", text: "#14532d", dot: "#16a34a" },
-    rejected: { label: "Ditolak", icon: <XCircle size={12} />, bg: "#fee2e2", text: "#991b1b", dot: "#ef4444" },
+    draft:           { label: "Draft",             icon: <FileX2 size={12} />,      bg: "#f1f5f9", text: "#64748b", dot: "#94a3b8" },
+    pending:         { label: "Menunggu",           icon: <Clock size={12} />,       bg: "#fef3c7", text: "#92400e", dot: "#f59e0b" },
+    approved:        { label: "Disetujui Admin",   icon: <CheckCircle2 size={12} />, bg: "#dbeafe", text: "#1e40af", dot: "#3b82f6" },
+    rejected:        { label: "Ditolak",            icon: <XCircle size={12} />,     bg: "#fee2e2", text: "#991b1b", dot: "#ef4444" },
+    sent_to_client:  { label: "Dikirim ke Klien",  icon: <Send size={12} />,         bg: "#fef9c3", text: "#854d0e", dot: "#eab308" },
+    deal:            { label: "Deal ✓",             icon: <CheckCircle2 size={12} />, bg: "#dcfce7", text: "#14532d", dot: "#16a34a" },
+    cancelled:       { label: "Batal",              icon: <XCircle size={12} />,     bg: "#f3f4f6", text: "#6b7280", dot: "#9ca3af" },
+    sent_to_client:  { label: "Dikirim ke Klien",  icon: <Send size={12} />,         bg: "#fef9c3", text: "#854d0e", dot: "#eab308" },
+    deal:            { label: "Deal ✓",             icon: <CheckCircle2 size={12} />, bg: "#dcfce7", text: "#14532d", dot: "#16a34a" },
+    cancelled:       { label: "Batal",              icon: <XCircle size={12} />,     bg: "#f3f4f6", text: "#6b7280", dot: "#9ca3af" },
 };
 
 function StatusBadge({ status }: { status: QuotationStatus }) {
