@@ -481,19 +481,122 @@ class QuotationRenderer {
         this.nl(3);
     }
 
+    // ─── Biaya Section PCO (per bulan/periode) ────────────────────────────────
+
+    private buildBiayaSectionPCO() {
+        const d = this.doc;
+        const { data } = this;
+
+        this.nl(4);
+        this.sectionTitle("BIAYA PELAKSANAAN");
+
+        this.checkPage(6);
+        this.set(9, false, BRAND.dark);
+        const intro = "Program Pest Control yang kami tawarkan adalah program kontrak dengan pembayaran dilakukan setiap bulannya, berikut adalah biaya pekerjaannya:";
+        const h = this.writeWrapped(intro, ML, USABLE_W, 9, false, BRAND.dark);
+        this.nl(h + 6);
+
+        // ── Table header ─────────────────────────────────────────────────────
+        const COL_HAMA    = USABLE_W * 0.18;
+        const COL_METODE  = USABLE_W * 0.38;
+        const COL_KUNJUNG = USABLE_W * 0.22;
+        const COL_BIAYA   = USABLE_W - COL_HAMA - COL_METODE - COL_KUNJUNG;
+
+        const xHama    = ML;
+        const xMetode  = xHama    + COL_HAMA;
+        const xKunjung = xMetode  + COL_METODE;
+        const xBiaya   = xKunjung + COL_KUNJUNG;
+        const xEnd     = xBiaya   + COL_BIAYA;
+
+        const HDR_H = 9;
+        this.checkPage(HDR_H + 12);
+        const hdrY = this.y;
+
+        d.setFillColor(...hex(BRAND.tableHeader));
+        d.rect(ML, hdrY - 6, USABLE_W, HDR_H, "F");
+        d.setFontSize(8.5);
+        d.setFont("helvetica", "bold");
+        d.setTextColor(255, 255, 255);
+        d.text("Hama Sasaran",       xHama    + 2, hdrY);
+        d.text("Metode",             xMetode  + 2, hdrY);
+        d.text("Kunjungan",          xKunjung + COL_KUNJUNG / 2, hdrY, { align: "center" });
+        d.text("Biaya per Bulan",    xEnd - 2, hdrY, { align: "right" });
+        this.nl(HDR_H - 1);
+
+        // ── Items from data.items ─────────────────────────────────────────────
+        data.items.forEach((item, idx) => {
+            this.checkPage(12);
+            const rowH   = 10;
+            const rowY   = this.y - 5;
+
+            if (idx % 2 === 1) {
+                d.setFillColor(...hex(BRAND.tableAlt));
+                d.rect(ML, rowY, USABLE_W, rowH, "F");
+            }
+
+            d.setFontSize(8.5);
+            d.setFont("helvetica", "normal");
+            d.setTextColor(...hex(BRAND.dark));
+
+            // Hama (use unit field or desc split)
+            const hamaText = item.unit || "Umum";
+            d.text(hamaText.substring(0, 14), xHama + 2, this.y);
+
+            // Metode = desc
+            const descLines = this.doc.splitTextToSize(item.desc, COL_METODE - 4) as string[];
+            d.text(descLines[0] ?? "", xMetode + 2, this.y);
+
+            // Kunjungan (qty + unit = kali/bulan)
+            d.text(`${item.qty} ${item.unit}/bulan`, xKunjung + COL_KUNJUNG / 2, this.y, { align: "center" });
+
+            // Biaya — bold
+            d.setFont("helvetica", "bold");
+            d.text(`Rp ${item.harga.toLocaleString("id-ID")},-`, xEnd - 2, this.y, { align: "right" });
+
+            // Row border
+            d.setDrawColor(...hex(BRAND.border));
+            d.setLineWidth(0.25);
+            d.line(ML, this.y + 5, xEnd, this.y + 5);
+
+            this.nl(rowH);
+        });
+
+        // ── Total row ────────────────────────────────────────────────────────
+        this.checkPage(10);
+        const totalVal = data.items.reduce((s, it) => s + it.harga, 0);
+        const totalRowY = this.y - 5;
+        d.setFillColor(...hex(BRAND.totalBg));
+        d.rect(ML, totalRowY, USABLE_W, 9, "F");
+        d.setFontSize(9);
+        d.setFont("helvetica", "bold");
+        d.setTextColor(255, 255, 255);
+        d.text("Total Biaya", xHama + 2, this.y);
+        d.text(`Rp ${totalVal.toLocaleString("id-ID")},-`, xEnd - 2, this.y, { align: "right" });
+        this.nl(9);
+
+        // PPN note
+        this.nl(3);
+        this.checkPage(8);
+        this.set(8, false, BRAND.gray);
+        this.doc.setFont("helvetica", "italic");
+        this.text("*Harga belum termasuk PPN sesuai peraturan yang berlaku.", ML);
+        this.nl(8);
+    }
+
     // ─── Biaya Section ────────────────────────────────────────────────────────
 
     private buildBiayaSection() {
         const d = this.doc;
         const { data, calc } = this;
 
-        // ── Section title ────────────────────────────────────────────────────
+        // ── Section title ─────────────────────────────────────────────────────
+        this.nl(4); // <br> extra space before biaya section
         this.sectionTitle("BIAYA PELAKSANAAN");
 
         this.checkPage(6);
         this.set(9, false, BRAND.dark);
         this.text("Berdasarkan hasil survey, berikut penawaran harga yang kami ajukan:", ML);
-        this.nl(LINE_H + 1);
+        this.nl(LINE_H + 4); // extra gap before table
 
         // ── Table header ─────────────────────────────────────────────────────
         const ROW_H  = 8;
@@ -677,26 +780,39 @@ class QuotationRenderer {
 
     // ─── Pembayaran ───────────────────────────────────────────────────────────
 
-    private buildPembayaran() {
-        const d = this.doc;
+    private buildPembayaran(isAR: boolean) {
         this.checkPage(30);
-
         this.sectionTitle("PEMBAYARAN");
-
         this.set(9, false, BRAND.dark);
-        this.text("Pembayaran dilakukan 2 (dua) tahap, yaitu:", ML);
-        this.nl(LINE_H + 1);
 
-        const tahap = [
-            "Tahap I, sebesar 50 % dari nilai kontrak, dibayar saat penandatanganan surat kontrak.",
-            "Tahap II, sebesar 50 % dari nilai kontrak, dibayarkan setelah pekerjaan selesai.",
-        ];
-
-        tahap.forEach(t => {
-            this.checkPage(6);
-            const h = this.writeWrapped(`• ${t}`, ML + 3, USABLE_W - 3, 9, false, BRAND.dark);
-            this.nl(h + 2);
-        });
+        if (isAR) {
+            // Anti Rayap: 2 termin DP + Pelunasan
+            this.text("Pembayaran dilakukan 2 (dua) tahap, yaitu:", ML);
+            this.nl(LINE_H + 1);
+            const tahap = [
+                "Tahap I, sebesar 50% dari nilai kontrak, dibayar saat penandatanganan surat kontrak.",
+                "Tahap II, sebesar 50% dari nilai kontrak, dibayarkan setelah pekerjaan selesai.",
+            ];
+            tahap.forEach(t => {
+                this.checkPage(6);
+                const h = this.writeWrapped(`• ${t}`, ML + 3, USABLE_W - 3, 9, false, BRAND.dark);
+                this.nl(h + 2);
+            });
+        } else {
+            // Pest Control: bayar per periode/bulan
+            this.text("Pembayaran dilakukan setiap periode (per bulan), yaitu:", ML);
+            this.nl(LINE_H + 1);
+            const pco = [
+                "Pembayaran dilakukan di muka sebelum pekerjaan dimulai per periode.",
+                "Pembayaran dapat dilakukan melalui transfer bank atau tunai kepada petugas.",
+                "Harga di atas belum termasuk PPN sesuai peraturan yang berlaku.",
+            ];
+            pco.forEach(t => {
+                this.checkPage(6);
+                const h = this.writeWrapped(`• ${t}`, ML + 3, USABLE_W - 3, 9, false, BRAND.dark);
+                this.nl(h + 2);
+            });
+        }
 
         this.nl(3);
     }
@@ -843,8 +959,12 @@ class QuotationRenderer {
         // Halaman berikutnya: Tabel Biaya + Pembayaran + Garansi + Penutup
         this.newPage();
 
-        this.buildBiayaSection();
-        this.buildPembayaran();
+        if (isAR) {
+            this.buildBiayaSection();
+        } else {
+            this.buildBiayaSectionPCO();
+        }
+        this.buildPembayaran(isAR);
 
         if (this.data.jenisLayanan && isAR) {
             this.buildGaransi();
