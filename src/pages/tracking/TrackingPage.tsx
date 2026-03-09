@@ -330,6 +330,7 @@ function EditModal({
     const [tanggalMulai,  setTanggalMulai]  = useState("");
     const [tanggalSelesai, setTanggalSelesai] = useState("");
     const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!open) return;
@@ -362,15 +363,24 @@ function EditModal({
             const mulai = new Date(tanggalMulaiKontrak);
             setCicilan(generateCicilanBulanan(quotation.total, durasi, mulai)); // total = per-bulan
         }
-    }, [durasi, tanggalMulaiKontrak, isAR]);
+    }, [durasi, tanggalMulaiKontrak]); // eslint-disable-line
 
     const handleSave = async () => {
         setSaving(true);
+        setSaveError(null);
         try {
+            // PCO: generate cicilan on-demand jika belum ada
+            let cicilanFinal = cicilan;
+            if (!isAR && cicilanFinal.length === 0) {
+                const mulaiDate = tanggalMulaiKontrak ? new Date(tanggalMulaiKontrak) : new Date();
+                cicilanFinal = generateCicilanBulanan(quotation.total, durasi, mulaiDate);
+                setCicilan(cicilanFinal);
+            }
+
             const computed = computeStatusPembayaran({
                 kategori: quotation.kategori as "AR" | "PCO",
                 terminAR: isAR ? terminAR : undefined,
-                cicilanBulanan: !isAR ? cicilan : undefined,
+                cicilanBulanan: !isAR ? cicilanFinal : undefined,
                 statusPembayaran: "belum_bayar",
                 nominalDibayar: 0,
             });
@@ -387,7 +397,7 @@ function EditModal({
                 tanggalDeal:    (quotation as any).dealAt,
                 ...computed,
                 terminAR:       isAR ? terminAR : undefined,
-                cicilanBulanan: !isAR ? cicilan : undefined,
+                cicilanBulanan: !isAR ? cicilanFinal : undefined,
                 durasiKontrak:  !isAR ? durasi : undefined,
                 tanggalMulaiKontrak: !isAR && tanggalMulaiKontrak ? new Date(tanggalMulaiKontrak) : undefined,
                 statusPengerjaan,
@@ -413,7 +423,7 @@ function EditModal({
                 }),
                 ...computed,
                 terminAR:       isAR ? terminAR : undefined,
-                cicilanBulanan: !isAR ? cicilan : undefined,
+                cicilanBulanan: !isAR ? cicilanFinal : undefined,
                 durasiKontrak:  !isAR ? durasi : undefined,
                 tanggalMulaiKontrak: !isAR && tanggalMulaiKontrak ? new Date(tanggalMulaiKontrak) : undefined,
                 statusPengerjaan,
@@ -506,6 +516,11 @@ function EditModal({
                     <button onClick={onClose} className="flex-1 py-2.5 text-sm rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium">
                         Batal
                     </button>
+                    {saveError && (
+                        <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600">
+                            ⚠ {saveError}
+                        </div>
+                    )}
                     <button onClick={handleSave} disabled={saving}
                         className="flex-1 py-2.5 text-sm rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
                         {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
