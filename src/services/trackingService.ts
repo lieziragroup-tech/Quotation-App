@@ -115,20 +115,22 @@ export function monthKeyToLabel(key: string): string {
     return `${MONTHS_ID[parseInt(m) - 1]} ${y}`;
 }
 
-/** Generate cicilan bulanan untuk PCO baru */
+/** Generate cicilan bulanan untuk PCO baru
+ *  total = biaya per bulan (bukan total kontrak)
+ *  total kontrak = total × durasi
+ */
 export function generateCicilanBulanan(
-    total: number,
+    nominalPerBulan: number,
     durasi: number,
     tanggalMulai: Date,
 ): CicilanBulanan[] {
-    const perBulan = Math.round(total / durasi);
     return Array.from({ length: durasi }, (_, i) => {
         const d = new Date(tanggalMulai.getFullYear(), tanggalMulai.getMonth() + i, 1);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         return {
             bulan:   key,
             label:   monthKeyToLabel(key),
-            nominal: i === durasi - 1 ? total - perBulan * (durasi - 1) : perBulan, // last month gets remainder
+            nominal: nominalPerBulan,   // tiap bulan tagihan sama
             dibayar: false,
         };
     });
@@ -159,11 +161,11 @@ export function computeStatusPembayaran(tracking: Partial<OrderTracking>): {
         return { statusPembayaran: status, nominalDibayar: dibayar };
     }
     if (tracking.kategori === "PCO" && tracking.cicilanBulanan) {
-        const cicilan = tracking.cicilanBulanan;
-        const dibayar = cicilan.filter(c => c.dibayar).reduce((s, c) => s + c.nominal, 0);
-        const total   = cicilan.reduce((s, c) => s + c.nominal, 0);
+        const cicilan    = tracking.cicilanBulanan;
+        const dibayar    = cicilan.filter(c => c.dibayar).reduce((s, c) => s + c.nominal, 0);
+        const totalKontrak = cicilan.reduce((s, c) => s + c.nominal, 0);
         let status: StatusPembayaran = "belum_bayar";
-        if (dibayar >= total && total > 0) status = "lunas";
+        if (dibayar >= totalKontrak && totalKontrak > 0) status = "lunas";
         else if (dibayar > 0) status = "dp";
         return { statusPembayaran: status, nominalDibayar: dibayar };
     }

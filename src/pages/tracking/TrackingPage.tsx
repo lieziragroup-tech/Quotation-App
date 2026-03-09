@@ -219,20 +219,29 @@ function PCOCicilanSection({
                                 onChange={e => onTanggalMulaiChange(e.target.value)} />
                         </div>
                     </div>
-                    <p className="text-xs text-cyan-600">
-                        Cicilan per bulan: <strong>{fmtIDR(Math.round(total / Math.max(durasi, 1)))}</strong>
-                    </p>
+                    <div className="bg-white rounded-lg p-3 border border-cyan-200">
+                        <p className="text-xs text-slate-500">Tagihan per bulan</p>
+                        <p className="text-lg font-bold text-cyan-700">{fmtIDR(total)}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">selama {durasi} bulan → total kontrak {fmtIDR(total * durasi)}</p>
+                    </div>
                 </div>
             )}
 
             {cicilan.length > 0 && (
                 <>
                     {/* Progress */}
-                    <div className="flex items-center justify-between text-xs px-1 mb-1">
-                        <span className="text-slate-500">{sudahDibayar} dari {cicilan.length} bulan dibayar</span>
-                        <span className={`font-bold ${sudahDibayar === cicilan.length ? "text-emerald-600" : "text-slate-700"}`}>
-                            {fmtIDR(cicilan.filter(c => c.dibayar).reduce((s, c) => s + c.nominal, 0))} / {fmtIDR(total)}
-                        </span>
+                    {/* Summary strip */}
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs text-slate-500">Tagihan per bulan</p>
+                            <p className="text-base font-bold text-cyan-700">{fmtIDR(cicilan[0]?.nominal ?? 0)}</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-xs text-slate-500">{sudahDibayar} dari {cicilan.length} bulan lunas</p>
+                            <p className={`text-base font-bold ${sudahDibayar === cicilan.length ? "text-emerald-600" : "text-slate-700"}`}>
+                                {fmtIDR(cicilan.filter(c => c.dibayar).reduce((s, c) => s + c.nominal, 0))} diterima
+                            </p>
+                        </div>
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-2 mb-3 overflow-hidden">
                         <div className="h-full bg-cyan-500 rounded-full transition-all"
@@ -242,35 +251,45 @@ function PCOCicilanSection({
                     {/* Cicilan list */}
                     <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                         {cicilan.map((c, idx) => (
-                            <div key={c.bulan} className={`rounded-xl border p-3 transition-colors
-                                ${c.dibayar ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
-                                <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2">
-                                        <button onClick={() => toggleBulan(idx)}
-                                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0
-                                                ${c.dibayar ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-300 bg-white hover:border-emerald-400"}`}>
-                                            {c.dibayar && <CheckCircle2 size={11} />}
-                                        </button>
-                                        <span className={`text-sm font-semibold ${c.dibayar ? "text-emerald-700" : "text-slate-700"}`}>
-                                            {c.label}
-                                        </span>
-                                        {c.tanggalBayar && (
-                                            <span className="text-[10px] text-slate-400">
-                                                {c.tanggalBayar.toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <span className={`text-xs font-mono font-bold shrink-0 ${c.dibayar ? "text-emerald-600" : "text-slate-700"}`}>
-                                        {fmtIDR(c.nominal)}
+                            <div key={c.bulan}
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all
+                                    ${c.dibayar
+                                        ? "border-emerald-200 bg-emerald-50"
+                                        : "border-slate-200 bg-white hover:border-cyan-200"}`}>
+                                {/* Checkbox */}
+                                <button onClick={() => toggleBulan(idx)}
+                                    className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all
+                                        ${c.dibayar
+                                            ? "bg-emerald-500 border-emerald-500 text-white"
+                                            : "border-slate-300 bg-white hover:border-cyan-400"}`}>
+                                    {c.dibayar && <CheckCircle2 size={11} />}
+                                </button>
+
+                                {/* Label bulan */}
+                                <span className={`text-sm font-semibold flex-1 ${c.dibayar ? "text-emerald-700" : "text-slate-700"}`}>
+                                    {c.label}
+                                </span>
+
+                                {/* Tanggal bayar jika sudah */}
+                                {c.dibayar && c.tanggalBayar && (
+                                    <span className="text-[10px] text-emerald-500 shrink-0">
+                                        {c.tanggalBayar.toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
                                     </span>
-                                </div>
+                                )}
+
+                                {/* Nominal */}
+                                <span className={`text-xs font-bold font-mono shrink-0 ${c.dibayar ? "text-emerald-600" : "text-slate-400"}`}>
+                                    {fmtIDR(c.nominal)}
+                                </span>
+
+                                {/* Catatan inline jika sudah bayar */}
                                 {c.dibayar && (
-                                    <div className="mt-2 pl-7">
-                                        <input className="w-full px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-cyan-300"
-                                            placeholder="Catatan pembayaran bulan ini..."
-                                            value={c.catatan ?? ""}
-                                            onChange={e => updateCatatan(idx, e.target.value)} />
-                                    </div>
+                                    <input
+                                        className="w-24 px-2 py-0.5 text-xs border border-emerald-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-cyan-300"
+                                        placeholder="Catatan..."
+                                        value={c.catatan ?? ""}
+                                        onClick={e => e.stopPropagation()}
+                                        onChange={e => updateCatatan(idx, e.target.value)} />
                                 )}
                             </div>
                         ))}
@@ -341,7 +360,7 @@ function EditModal({
     useEffect(() => {
         if (!isAR && (isNew || cicilan.length === 0) && tanggalMulaiKontrak) {
             const mulai = new Date(tanggalMulaiKontrak);
-            setCicilan(generateCicilanBulanan(quotation.total, durasi, mulai));
+            setCicilan(generateCicilanBulanan(quotation.total, durasi, mulai)); // total = per-bulan
         }
     }, [durasi, tanggalMulaiKontrak, isAR]);
 
