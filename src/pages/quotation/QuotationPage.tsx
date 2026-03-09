@@ -601,11 +601,11 @@ export function QuotationPage() {
                             {v === "all" ? "Semua" : v === "AR" ? "Anti Rayap" : "Pest Control"}
                         </button>
                     ))}
-                    {(["all", "U", "K"] as const).map(v => (
+                    {(["all", "U", "K", "PH"] as const).map(v => (
                         <button key={v} onClick={() => { setFilterTipe(v); setPage(1); }}
                             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
                                 ${filterTipe === v ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-                            {v === "all" ? "Semua Tipe" : v === "U" ? "Umum" : "Kontrak"}
+                            {v === "all" ? "Semua Tipe" : v === "U" ? "Umum" : v === "K" ? "Kontrak" : "PH"}
                         </button>
                     ))}
                     <select
