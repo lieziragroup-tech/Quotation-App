@@ -482,6 +482,10 @@ class QuotationRenderer {
     }
 
     // ─── Biaya Section PCO (per bulan/periode) ────────────────────────────────
+    //
+    // Layout kolom:
+    //   Hama Sasaran | Metode | Kunjungan | Harga Satuan | Biaya per Bulan
+    //   250 m2       | Spray  | 2x/bulan  | Rp 2.500/m2  | Rp 625.000
 
     private buildBiayaSectionPCO() {
         const d = this.doc;
@@ -496,74 +500,85 @@ class QuotationRenderer {
         const h = this.writeWrapped(intro, ML, USABLE_W, 9, false, BRAND.dark);
         this.nl(h + 6);
 
-        // ── Table header ─────────────────────────────────────────────────────
-        const COL_HAMA    = USABLE_W * 0.18;
-        const COL_METODE  = USABLE_W * 0.38;
-        const COL_KUNJUNG = USABLE_W * 0.22;
-        const COL_BIAYA   = USABLE_W - COL_HAMA - COL_METODE - COL_KUNJUNG;
+        // ── Kolom layout ──────────────────────────────────────────────────────
+        // Hama | Metode | Volume/Kunjungan | Harga Satuan | Total per Bulan
+        const COL_HAMA   = USABLE_W * 0.16;
+        const COL_METODE = USABLE_W * 0.30;
+        const COL_VOL    = USABLE_W * 0.18;
+        const COL_HS     = USABLE_W * 0.18;
+        const COL_TOTAL  = USABLE_W - COL_HAMA - COL_METODE - COL_VOL - COL_HS;
 
-        const xHama    = ML;
-        const xMetode  = xHama    + COL_HAMA;
-        const xKunjung = xMetode  + COL_METODE;
-        const xBiaya   = xKunjung + COL_KUNJUNG;
-        const xEnd     = xBiaya   + COL_BIAYA;
+        const xHama  = ML;
+        const xMet   = xHama + COL_HAMA;
+        const xVol   = xMet  + COL_METODE;
+        const xHS    = xVol  + COL_VOL;
+        const xTotal = xHS   + COL_HS;
+        const xEnd   = xTotal + COL_TOTAL;
 
+        // ── Header ───────────────────────────────────────────────────────────
         const HDR_H = 9;
         this.checkPage(HDR_H + 12);
         const hdrY = this.y;
 
         d.setFillColor(...hex(BRAND.tableHeader));
         d.rect(ML, hdrY - 6, USABLE_W, HDR_H, "F");
-        d.setFontSize(8.5);
+        d.setFontSize(8);
         d.setFont("helvetica", "bold");
         d.setTextColor(255, 255, 255);
-        d.text("Hama Sasaran",       xHama    + 2, hdrY);
-        d.text("Metode",             xMetode  + 2, hdrY);
-        d.text("Kunjungan",          xKunjung + COL_KUNJUNG / 2, hdrY, { align: "center" });
-        d.text("Biaya per Bulan",    xEnd - 2, hdrY, { align: "right" });
+        d.text("Hama Sasaran",   xHama  + 2,           hdrY);
+        d.text("Metode",         xMet   + 2,            hdrY);
+        d.text("Volume",         xVol   + COL_VOL / 2,  hdrY, { align: "center" });
+        d.text("Harga Satuan",   xHS    + COL_HS / 2,   hdrY, { align: "center" });
+        d.text("Biaya/Bulan",    xEnd   - 2,            hdrY, { align: "right" });
         this.nl(HDR_H - 1);
 
-        // ── Items from data.items ─────────────────────────────────────────────
+        // ── Items ─────────────────────────────────────────────────────────────
         data.items.forEach((item, idx) => {
             this.checkPage(12);
-            const rowH   = 10;
-            const rowY   = this.y - 5;
+            const ROW_H = 10;
+            const rowY  = this.y - 5;
+            const total = item.qty * item.harga;   // ← qty × harga = biaya per bulan
 
             if (idx % 2 === 1) {
                 d.setFillColor(...hex(BRAND.tableAlt));
-                d.rect(ML, rowY, USABLE_W, rowH, "F");
+                d.rect(ML, rowY, USABLE_W, ROW_H, "F");
             }
 
-            d.setFontSize(8.5);
+            d.setFontSize(8);
             d.setFont("helvetica", "normal");
             d.setTextColor(...hex(BRAND.dark));
 
-            // Hama (use unit field or desc split)
-            const hamaText = item.unit || "Umum";
-            d.text(hamaText.substring(0, 14), xHama + 2, this.y);
+            // Hama sasaran — ambil dari desc singkat (sebelum tanda "-" atau max 12 char)
+            const hamaLabel = item.desc.split(" ")[0] ?? item.desc;
+            d.text(hamaLabel.substring(0, 14), xHama + 2, this.y);
 
-            // Metode = desc
-            const descLines = this.doc.splitTextToSize(item.desc, COL_METODE - 4) as string[];
-            d.text(descLines[0] ?? "", xMetode + 2, this.y);
+            // Metode — sisa desc
+            const metodeFull = item.desc;
+            const metodeLines = this.doc.splitTextToSize(metodeFull, COL_METODE - 4) as string[];
+            d.text(metodeLines[0] ?? "", xMet + 2, this.y);
 
-            // Kunjungan (qty + unit = kali/bulan)
-            d.text(`${item.qty} ${item.unit}/bulan`, xKunjung + COL_KUNJUNG / 2, this.y, { align: "center" });
+            // Volume — qty + unit
+            d.text(`${item.qty.toLocaleString("id-ID")} ${item.unit}`, xVol + COL_VOL / 2, this.y, { align: "center" });
 
-            // Biaya — bold
+            // Harga Satuan — per unit
+            d.text(fmtIDR(item.harga), xHS + COL_HS / 2, this.y, { align: "center" });
+
+            // Total per bulan — bold
             d.setFont("helvetica", "bold");
-            d.text(`Rp ${item.harga.toLocaleString("id-ID")},-`, xEnd - 2, this.y, { align: "right" });
+            d.text(fmtIDR(total), xEnd - 2, this.y, { align: "right" });
 
             // Row border
             d.setDrawColor(...hex(BRAND.border));
             d.setLineWidth(0.25);
             d.line(ML, this.y + 5, xEnd, this.y + 5);
 
-            this.nl(rowH);
+            this.nl(ROW_H);
         });
 
-        // ── Total row ────────────────────────────────────────────────────────
+        // ── Total row ─────────────────────────────────────────────────────────
         this.checkPage(10);
-        const totalVal = data.items.reduce((s, it) => s + it.harga, 0);
+        // Total = sum of (qty × harga) per item
+        const totalVal  = data.items.reduce((s, it) => s + it.qty * it.harga, 0);
         const totalRowY = this.y - 5;
         d.setFillColor(...hex(BRAND.totalBg));
         d.rect(ML, totalRowY, USABLE_W, 9, "F");
@@ -571,10 +586,10 @@ class QuotationRenderer {
         d.setFont("helvetica", "bold");
         d.setTextColor(255, 255, 255);
         d.text("Total Biaya", xHama + 2, this.y);
-        d.text(`Rp ${totalVal.toLocaleString("id-ID")},-`, xEnd - 2, this.y, { align: "right" });
+        d.text(fmtIDR(totalVal), xEnd - 2, this.y, { align: "right" });
         this.nl(9);
 
-        // PPN note
+        // ── PPN note ─────────────────────────────────────────────────────────
         this.nl(3);
         this.checkPage(8);
         this.set(8, false, BRAND.gray);
