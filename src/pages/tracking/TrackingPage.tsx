@@ -409,6 +409,23 @@ function EditModal({
                 tanggalSelesai:  tanggalSelesai ? new Date(tanggalSelesai) : undefined,
             };
 
+            // ═══════════════ DEBUG ═══════════════
+            console.group("🔍 [TrackingPage] DEBUG handleSave");
+            console.log("quotation.id        :", quotation.id);
+            console.log("quotation.companyId :", quotation.companyId);
+            console.log("quotation.kategori  :", quotation.kategori);
+            console.log("data.companyId      :", data.companyId);
+            console.log("data.marketingUid   :", data.marketingUid);
+            console.log("data.statusPengerjaan:", data.statusPengerjaan);
+            console.log("companyId match?    :", quotation.companyId === data.companyId);
+            console.log("full data           :", JSON.parse(JSON.stringify({
+                ...data,
+                terminAR: data.terminAR,
+                cicilanBulanan: data.cicilanBulanan?.length + " items",
+            })));
+            console.groupEnd();
+            // ════════════ END DEBUG ═══════════════
+
             await upsertTracking(data);
 
             const updated: OrderTracking = {

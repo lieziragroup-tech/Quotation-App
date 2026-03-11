@@ -304,6 +304,17 @@ export async function upsertTracking(data: UpsertTrackingData): Promise<void> {
     const ref    = doc(db, COL, data.quotationId);
     const exists = (await getDoc(ref)).exists();
     const payload = toFirestore(data);
+
+    // ═══════════════ DEBUG ═══════════════
+    console.group("🔍 [trackingService] upsertTracking");
+    console.log("collection      :", COL);
+    console.log("docId (quotationId):", data.quotationId);
+    console.log("doc exists?     :", exists);
+    console.log("payload.companyId:", payload.companyId);
+    console.log("akan pakai      :", exists ? "updateDoc" : "setDoc");
+    console.groupEnd();
+    // ════════════ END DEBUG ═══════════════
+
     if (!exists) {
         payload.createdAt = Timestamp.fromDate(new Date());
         await setDoc(ref, payload);
