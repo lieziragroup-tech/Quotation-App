@@ -92,7 +92,10 @@ function ARTerminSection({
                     <div>
                         <label className="block text-xs text-slate-500 mb-1">Nominal DP (Rp)</label>
                         <input type="number" className={inputCls} value={termin.nominalDP}
-                            onChange={e => onChange({ ...termin, nominalDP: parseInt(e.target.value) || 0, nominalPelunasan: total - (parseInt(e.target.value) || 0) })} />
+                            onChange={e => {
+                                const val = parseInt(e.target.value) || 0;
+                                onChange({ ...termin, nominalDP: val, nominalPelunasan: Math.max(0, total - val) });
+                            }} />
                     </div>
                     <div>
                         <label className="block text-xs text-slate-500 mb-1">Tanggal Bayar DP</label>
@@ -363,7 +366,7 @@ function EditModal({
             const mulai = new Date(tanggalMulaiKontrak);
             setCicilan(generateCicilanBulanan(quotation.total, durasi, mulai)); // total = per-bulan
         }
-    }, [durasi, tanggalMulaiKontrak]); // eslint-disable-line
+    }, [durasi, tanggalMulaiKontrak, isAR, isNew]); // cicilan.length sengaja tidak di-dep agar tidak loop
 
     const handleSave = async () => {
         setSaving(true);
@@ -434,6 +437,11 @@ function EditModal({
             };
 
             onSaved(updated);
+        } catch (err: unknown) {
+            // ✅ Tampilkan error ke user agar tidak silent fail
+            const msg = err instanceof Error ? err.message : String(err);
+            setSaveError(msg || "Gagal menyimpan. Coba lagi.");
+            console.error("[handleSave] error:", err);
         } finally {
             setSaving(false);
         }
