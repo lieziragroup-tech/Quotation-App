@@ -360,21 +360,23 @@ function EditModal({
         }
     }, [open, tracking, quotation.total]);
 
-    // Generate cicilan PCO saat durasi / tanggal mulai berubah (only if new or not yet generated)
+    // Generate cicilan PCO hanya saat CREATE BARU
+    // Jika UPDATE (isNew=false), jangan generate ulang agar data cicilan yang sudah ada tidak tertimpa
     useEffect(() => {
-        if (!isAR && (isNew || cicilan.length === 0) && tanggalMulaiKontrak) {
+        if (!isAR && isNew && tanggalMulaiKontrak) {
             const mulai = new Date(tanggalMulaiKontrak);
-            setCicilan(generateCicilanBulanan(quotation.total, durasi, mulai)); // total = per-bulan
+            setCicilan(generateCicilanBulanan(quotation.total, durasi, mulai));
         }
-    }, [durasi, tanggalMulaiKontrak, isAR, isNew]); // cicilan.length sengaja tidak di-dep agar tidak loop
+    }, [durasi, tanggalMulaiKontrak, isAR, isNew]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleSave = async () => {
         setSaving(true);
         setSaveError(null);
         try {
-            // PCO: generate cicilan on-demand jika belum ada
+            // PCO: generate cicilan hanya jika benar-benar baru (isNew) dan belum ada cicilan
+            // Jika update existing tracking, gunakan cicilan yang sudah ada dari state
             let cicilanFinal = cicilan;
-            if (!isAR && cicilanFinal.length === 0) {
+            if (!isAR && isNew && cicilanFinal.length === 0) {
                 const mulaiDate = tanggalMulaiKontrak ? new Date(tanggalMulaiKontrak) : new Date();
                 cicilanFinal = generateCicilanBulanan(quotation.total, durasi, mulaiDate);
                 setCicilan(cicilanFinal);
