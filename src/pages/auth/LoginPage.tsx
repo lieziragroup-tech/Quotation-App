@@ -55,8 +55,7 @@ export function LoginPage() {
                 }
             }
 
-            // 5. FIX: inject uid dari firebaseUser, bukan dari userData
-            //    (userData.uid di Firestore mungkin stale atau tidak ter-set)
+            // 5. inject uid dari firebaseUser
             setUser({ ...userData, uid });
 
             if (userData.role === "super_admin") {
@@ -72,12 +71,12 @@ export function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-slate-100 flex items-center justify-center p-4">
             <div className="w-full max-w-sm">
                 {/* Logo / Brand */}
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 text-white mb-4">
-                        <ShieldCheck size={28} />
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 text-white mb-4 shadow-lg shadow-blue-200">
+                        <ShieldCheck size={32} />
                     </div>
                     <h1 className="text-2xl font-bold text-slate-900">ERP Pest Control</h1>
                     <p className="text-slate-500 text-sm mt-1">
@@ -85,11 +84,11 @@ export function LoginPage() {
                     </p>
                 </div>
 
-                {/* Form */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                {/* Form Card */}
+                <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-200/80 p-6">
                     <form onSubmit={handleLogin} className="space-y-5">
                         <div className="space-y-1.5">
-                            <Label htmlFor="email" className="text-sm font-medium text-slate-700">
+                            <Label htmlFor="email" className="text-sm font-semibold text-slate-700">
                                 Email
                             </Label>
                             <Input
@@ -99,13 +98,13 @@ export function LoginPage() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
-                                className="h-11 text-base"
+                                className="h-11 text-base rounded-xl border-slate-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
                                 autoComplete="email"
                             />
                         </div>
 
                         <div className="space-y-1.5">
-                            <Label htmlFor="password" className="text-sm font-medium text-slate-700">
+                            <Label htmlFor="password" className="text-sm font-semibold text-slate-700">
                                 Password
                             </Label>
                             <Input
@@ -115,21 +114,21 @@ export function LoginPage() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
-                                className="h-11 text-base"
+                                className="h-11 text-base rounded-xl border-slate-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
                                 autoComplete="current-password"
                             />
                         </div>
 
                         {error && (
-                            <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 text-sm">
-                                <AlertCircle size={16} className="flex-shrink-0" />
+                            <div className="flex items-start gap-2.5 text-red-600 bg-red-50 border border-red-100 rounded-xl p-3 text-sm">
+                                <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
                                 <span>{error}</span>
                             </div>
                         )}
 
                         <Button
                             type="submit"
-                            className="w-full h-11 text-base font-medium"
+                            className="w-full h-11 text-base font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 transition-all shadow-sm shadow-blue-200 active:scale-[0.98]"
                             disabled={loading}
                         >
                             {loading ? (

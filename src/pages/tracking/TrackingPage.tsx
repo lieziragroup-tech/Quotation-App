@@ -23,15 +23,15 @@ import { fmtIDR } from "../../lib/quotationConfig";
 
 const PEMBAYARAN_CFG: Record<StatusPembayaran, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
     belum_bayar: { label: "Belum Bayar", color: "#dc2626", bg: "#fee2e2", icon: <AlertCircle size={12} /> },
-    dp:          { label: "DP",          color: "#d97706", bg: "#fef3c7", icon: <Banknote size={12} /> },
-    lunas:       { label: "Lunas",       color: "#15803d", bg: "#dcfce7", icon: <CheckCircle2 size={12} /> },
-    nunggak:     { label: "Nunggak",     color: "#7c3aed", bg: "#f3e8ff", icon: <AlertCircle size={12} /> },
+    dp: { label: "DP", color: "#d97706", bg: "#fef3c7", icon: <Banknote size={12} /> },
+    lunas: { label: "Lunas", color: "#15803d", bg: "#dcfce7", icon: <CheckCircle2 size={12} /> },
+    nunggak: { label: "Nunggak", color: "#7c3aed", bg: "#f3e8ff", icon: <AlertCircle size={12} /> },
 };
 
 const PENGERJAAN_CFG: Record<StatusPengerjaan, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
-    pending:    { label: "Pending",    color: "#64748b", bg: "#f1f5f9", icon: <Clock size={12} /> },
-    berlanjut:  { label: "Berlanjut",  color: "#1d4ed8", bg: "#dbeafe", icon: <RefreshCw size={12} /> },
-    selesai:    { label: "Selesai",    color: "#15803d", bg: "#dcfce7", icon: <CheckCircle2 size={12} /> },
+    pending: { label: "Pending", color: "#64748b", bg: "#f1f5f9", icon: <Clock size={12} /> },
+    berlanjut: { label: "Berlanjut", color: "#1d4ed8", bg: "#dbeafe", icon: <RefreshCw size={12} /> },
+    selesai: { label: "Selesai", color: "#15803d", bg: "#dcfce7", icon: <CheckCircle2 size={12} /> },
     dibatalkan: { label: "Dibatalkan", color: "#6b7280", bg: "#f3f4f6", icon: <XCircle size={12} /> },
 };
 
@@ -100,7 +100,7 @@ function ARTerminSection({
                     <div>
                         <label className="block text-xs text-slate-500 mb-1">Tanggal Bayar DP</label>
                         <input type="date" className={inputCls}
-                            value={termin.tanggalBayarDP ? termin.tanggalBayarDP.toISOString().slice(0,10) : ""}
+                            value={termin.tanggalBayarDP ? termin.tanggalBayarDP.toISOString().slice(0, 10) : ""}
                             onChange={e => onChange({ ...termin, tanggalBayarDP: e.target.value ? new Date(e.target.value) : undefined })} />
                     </div>
                 </div>
@@ -126,8 +126,8 @@ function ARTerminSection({
                         onClick={() => onChange({ ...termin, dibayarPelunasan: !termin.dibayarPelunasan, tanggalBayarPelunasan: !termin.dibayarPelunasan ? new Date() : undefined })}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border
                             ${termin.dibayarPelunasan ? "bg-emerald-500 text-white border-emerald-500"
-                            : !termin.dibayarDP ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                            : "bg-white text-slate-600 border-slate-200 hover:border-emerald-300"}`}>
+                                : !termin.dibayarDP ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                                    : "bg-white text-slate-600 border-slate-200 hover:border-emerald-300"}`}>
                         <CheckCircle2 size={13} />
                         {termin.dibayarPelunasan ? "Sudah Dibayar ✓" : "Tandai Lunas"}
                     </button>
@@ -145,7 +145,7 @@ function ARTerminSection({
                     <div>
                         <label className="block text-xs text-slate-500 mb-1">Tanggal Bayar Pelunasan</label>
                         <input type="date" className={inputCls}
-                            value={termin.tanggalBayarPelunasan ? termin.tanggalBayarPelunasan.toISOString().slice(0,10) : ""}
+                            value={termin.tanggalBayarPelunasan ? termin.tanggalBayarPelunasan.toISOString().slice(0, 10) : ""}
                             onChange={e => onChange({ ...termin, tanggalBayarPelunasan: e.target.value ? new Date(e.target.value) : undefined })} />
                     </div>
                 </div>
@@ -314,7 +314,7 @@ function EditModal({
     tracking: OrderTracking | null;
     quotation: Quotation;
 }) {
-    const isAR  = quotation.kategori === "AR";
+    const isAR = quotation.kategori === "AR";
     const isNew = !tracking;
 
     // AR state
@@ -322,15 +322,15 @@ function EditModal({
 
     // PCO state
     const [cicilan, setCicilan] = useState<CicilanBulanan[]>([]);
-    const [durasi, setDurasi]   = useState(12);
+    const [durasi, setDurasi] = useState(12);
     const [tanggalMulaiKontrak, setTanggalMulaiKontrak] = useState(() =>
-        new Date().toISOString().slice(0,10)
+        new Date().toISOString().slice(0, 10)
     );
 
     // Pengerjaan state
     const [statusPengerjaan, setStatusPengerjaan] = useState<StatusPengerjaan>("pending");
     const [catatanPengerjaan, setCatatanPengerjaan] = useState("");
-    const [tanggalMulai,  setTanggalMulai]  = useState("");
+    const [tanggalMulai, setTanggalMulai] = useState("");
     const [tanggalSelesai, setTanggalSelesai] = useState("");
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -338,21 +338,21 @@ function EditModal({
     useEffect(() => {
         if (!open) return;
         if (tracking) {
-            if (tracking.terminAR)       setTerminAR(tracking.terminAR);
-            else                         setTerminAR(generateTerminAR(quotation.total));
+            if (tracking.terminAR) setTerminAR(tracking.terminAR);
+            else setTerminAR(generateTerminAR(quotation.total));
             if (tracking.cicilanBulanan) setCicilan(tracking.cicilanBulanan);
-            else                         setCicilan([]);
+            else setCicilan([]);
             setDurasi(tracking.durasiKontrak ?? 12);
-            setTanggalMulaiKontrak(tracking.tanggalMulaiKontrak ? tracking.tanggalMulaiKontrak.toISOString().slice(0,10) : new Date().toISOString().slice(0,10));
+            setTanggalMulaiKontrak(tracking.tanggalMulaiKontrak ? tracking.tanggalMulaiKontrak.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
             setStatusPengerjaan(tracking.statusPengerjaan);
             setCatatanPengerjaan(tracking.catatanPengerjaan ?? "");
-            setTanggalMulai(tracking.tanggalMulai  ? tracking.tanggalMulai.toISOString().slice(0,10)  : "");
-            setTanggalSelesai(tracking.tanggalSelesai ? tracking.tanggalSelesai.toISOString().slice(0,10) : "");
+            setTanggalMulai(tracking.tanggalMulai ? tracking.tanggalMulai.toISOString().slice(0, 10) : "");
+            setTanggalSelesai(tracking.tanggalSelesai ? tracking.tanggalSelesai.toISOString().slice(0, 10) : "");
         } else {
             setTerminAR(generateTerminAR(quotation.total));
             setCicilan([]);
             setDurasi(12);
-            setTanggalMulaiKontrak(new Date().toISOString().slice(0,10));
+            setTanggalMulaiKontrak(new Date().toISOString().slice(0, 10));
             setStatusPengerjaan("pending");
             setCatatanPengerjaan("");
             setTanggalMulai("");
@@ -391,24 +391,24 @@ function EditModal({
             });
 
             const data: UpsertTrackingData = {
-                quotationId:    quotation.id,
-                noSurat:        quotation.noSurat,
-                kepadaNama:     quotation.kepadaNama,
-                total:          quotation.total,
-                kategori:       quotation.kategori as "AR" | "PCO",
-                companyId:      quotation.companyId,
-                marketingUid:   quotation.marketingUid,
-                marketingNama:  quotation.marketingNama,
-                tanggalDeal:    (quotation as any).dealAt,
+                quotationId: quotation.id,
+                noSurat: quotation.noSurat,
+                kepadaNama: quotation.kepadaNama,
+                total: quotation.total,
+                kategori: quotation.kategori as "AR" | "PCO",
+                companyId: quotation.companyId,
+                marketingUid: quotation.marketingUid,
+                marketingNama: quotation.marketingNama,
+                tanggalDeal: (quotation as any).dealAt,
                 ...computed,
-                terminAR:       isAR ? terminAR : undefined,
+                terminAR: isAR ? terminAR : undefined,
                 cicilanBulanan: !isAR ? cicilanFinal : undefined,
-                durasiKontrak:  !isAR ? durasi : undefined,
+                durasiKontrak: !isAR ? durasi : undefined,
                 tanggalMulaiKontrak: !isAR && tanggalMulaiKontrak ? new Date(tanggalMulaiKontrak) : undefined,
                 statusPengerjaan,
                 catatanPengerjaan: catatanPengerjaan || undefined,
-                tanggalMulai:    tanggalMulai  ? new Date(tanggalMulai)  : undefined,
-                tanggalSelesai:  tanggalSelesai ? new Date(tanggalSelesai) : undefined,
+                tanggalMulai: tanggalMulai ? new Date(tanggalMulai) : undefined,
+                tanggalSelesai: tanggalSelesai ? new Date(tanggalSelesai) : undefined,
             };
 
             // ═══════════════ DEBUG ═══════════════
@@ -444,14 +444,14 @@ function EditModal({
                     createdAt: new Date(),
                 }),
                 ...computed,
-                terminAR:       isAR ? terminAR : undefined,
+                terminAR: isAR ? terminAR : undefined,
                 cicilanBulanan: !isAR ? cicilanFinal : undefined,
-                durasiKontrak:  !isAR ? durasi : undefined,
+                durasiKontrak: !isAR ? durasi : undefined,
                 tanggalMulaiKontrak: !isAR && tanggalMulaiKontrak ? new Date(tanggalMulaiKontrak) : undefined,
                 statusPengerjaan,
                 catatanPengerjaan: catatanPengerjaan || undefined,
-                tanggalMulai:    tanggalMulai  ? new Date(tanggalMulai)  : undefined,
-                tanggalSelesai:  tanggalSelesai ? new Date(tanggalSelesai) : undefined,
+                tanggalMulai: tanggalMulai ? new Date(tanggalMulai) : undefined,
+                tanggalSelesai: tanggalSelesai ? new Date(tanggalSelesai) : undefined,
                 updatedAt: new Date(),
             };
 
@@ -469,9 +469,9 @@ function EditModal({
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
             <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[92vh]">
+            <div className="relative bg-white w-full sm:rounded-2xl sm:max-w-lg shadow-2xl flex flex-col max-h-[100dvh] sm:max-h-[92vh] rounded-t-2xl">
 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-100 shrink-0">
@@ -569,10 +569,10 @@ function TrackingCard({ quotation, tracking, onEdit }: {
     const [open, setOpen] = useState(false);
     const isAR = quotation.kategori === "AR";
     const sisa = quotation.total - (tracking?.nominalDibayar ?? 0);
-    const pct  = quotation.total > 0 ? Math.min(100, Math.round((tracking?.nominalDibayar ?? 0) / quotation.total * 100)) : 0;
+    const pct = quotation.total > 0 ? Math.min(100, Math.round((tracking?.nominalDibayar ?? 0) / quotation.total * 100)) : 0;
 
     // AR progress summary
-    const arDP  = tracking?.terminAR?.dibayarDP;
+    const arDP = tracking?.terminAR?.dibayarDP;
     const arLunas = tracking?.terminAR?.dibayarPelunasan;
 
     // PCO progress summary
@@ -683,11 +683,11 @@ function TrackingCard({ quotation, tracking, onEdit }: {
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export function TrackingPage() {
-    const { user }  = useAuthStore();
+    const { user } = useAuthStore();
     const [quotations, setQuotations] = useState<Quotation[]>([]);
     const [trackingMap, setTrackingMap] = useState<Record<string, OrderTracking>>({});
-    const [loading, setLoading]  = useState(true);
-    const [search,  setSearch]   = useState("");
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState("");
     const [filterKategori, setFilterKategori] = useState<"all" | "AR" | "PCO">("all");
     const [filterPembayaran, setFilterPembayaran] = useState<StatusPembayaran | "all">("all");
     const [filterPengerjaan, setFilterPengerjaan] = useState<StatusPengerjaan | "all">("all");
@@ -704,9 +704,10 @@ export function TrackingPage() {
             ));
             const rows = snap.docs.map(d => {
                 const x = d.data() as Record<string, unknown>;
-                return { id: d.id, ...x,
+                return {
+                    id: d.id, ...x,
                     tanggal: x.tanggal ? (x.tanggal as Timestamp).toDate() : new Date(),
-                    dealAt:  x.dealAt  ? (x.dealAt  as Timestamp).toDate() : undefined,
+                    dealAt: x.dealAt ? (x.dealAt as Timestamp).toDate() : undefined,
                 } as Quotation;
             });
             rows.sort((a, b) => ((b as any).dealAt ?? b.tanggal).getTime() - ((a as any).dealAt ?? a.tanggal).getTime());
@@ -724,23 +725,23 @@ export function TrackingPage() {
     useEffect(() => { load(); }, [user]);
 
     const stats = useMemo(() => {
-        const tr  = Object.values(trackingMap);
+        const tr = Object.values(trackingMap);
         const arQ = quotations.filter(q => q.kategori === "AR");
         const pcoQ = quotations.filter(q => q.kategori === "PCO");
         return {
-            totalDeal:    quotations.length,
-            arCount:      arQ.length,
-            pcoCount:     pcoQ.length,
-            lunas:        tr.filter(t => t.statusPembayaran === "lunas").length,
-            nunggak:      tr.filter(t => t.statusPembayaran === "nunggak").length,
-            berlanjut:    tr.filter(t => t.statusPengerjaan === "berlanjut").length,
+            totalDeal: quotations.length,
+            arCount: arQ.length,
+            pcoCount: pcoQ.length,
+            lunas: tr.filter(t => t.statusPembayaran === "lunas").length,
+            nunggak: tr.filter(t => t.statusPembayaran === "nunggak").length,
+            berlanjut: tr.filter(t => t.statusPengerjaan === "berlanjut").length,
             totalDibayar: tr.reduce((s, t) => s + t.nominalDibayar, 0),
         };
     }, [quotations, trackingMap]);
 
     const displayed = useMemo(() => {
         let rows = [...quotations];
-        if (filterKategori !== "all")   rows = rows.filter(q => q.kategori === filterKategori);
+        if (filterKategori !== "all") rows = rows.filter(q => q.kategori === filterKategori);
         if (filterPembayaran !== "all") rows = rows.filter(q => trackingMap[q.id]?.statusPembayaran === filterPembayaran);
         if (filterPengerjaan !== "all") rows = rows.filter(q => trackingMap[q.id]?.statusPengerjaan === filterPengerjaan);
         if (search) {
@@ -776,10 +777,8 @@ export function TrackingPage() {
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="bg-white border border-slate-200 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                        <p className="text-2xl font-bold text-blue-700">{stats.totalDeal}</p>
-                    </div>
-                    <p className="text-xs text-slate-400">Total Deal</p>
+                    <p className="text-2xl font-bold text-blue-700">{stats.totalDeal}</p>
+                    <p className="text-xs text-slate-400 mt-1">Total Deal</p>
                     <p className="text-[10px] text-slate-300 mt-0.5">AR {stats.arCount} · PCO {stats.pcoCount}</p>
                 </div>
                 <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
@@ -791,11 +790,12 @@ export function TrackingPage() {
                     <p className="text-xs text-purple-500 mt-1">Nunggak</p>
                 </div>
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                    <p className="text-xl font-bold text-blue-700">{formatRupiah(stats.totalDibayar)}</p>
+                    <p className="text-sm font-bold text-blue-700 truncate">{formatRupiah(stats.totalDibayar)}</p>
                     <p className="text-xs text-blue-500 mt-1">Total Diterima</p>
                 </div>
             </div>
 
+            {/* Filters */}
             {/* Filters */}
             <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2.5">
                 <div className="relative">
@@ -804,25 +804,27 @@ export function TrackingPage() {
                         placeholder="Cari nomor surat, klien, marketing..."
                         className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300" />
                 </div>
-                <div className="flex flex-wrap gap-2 items-center">
-                    <Filter size={12} className="text-slate-400" />
-                    {(["all","AR","PCO"] as const).map(v => (
-                        <button key={v} onClick={() => setFilterKategori(v)}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors
-                                ${filterKategori === v
-                                    ? v === "AR" ? "bg-purple-600 text-white" : v === "PCO" ? "bg-cyan-600 text-white" : "bg-blue-600 text-white"
-                                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-                            {v === "all" ? "Semua" : v === "AR" ? "🛡 Anti Rayap" : "🦟 Pest Control"}
-                        </button>
-                    ))}
-                    <span className="text-slate-200">|</span>
-                    {(["all","belum_bayar","dp","lunas","nunggak"] as const).map(v => (
-                        <button key={v} onClick={() => setFilterPembayaran(v)}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors
-                                ${filterPembayaran === v ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-                            {v === "all" ? "Semua Bayar" : PEMBAYARAN_CFG[v].label}
-                        </button>
-                    ))}
+                <div className="overflow-x-auto no-scrollbar">
+                    <div className="flex gap-2 items-center min-w-max">
+                        <Filter size={12} className="text-slate-400 shrink-0" />
+                        {(["all", "AR", "PCO"] as const).map(v => (
+                            <button key={v} onClick={() => setFilterKategori(v)}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap active:scale-[0.97]
+                                    ${filterKategori === v
+                                        ? v === "AR" ? "bg-purple-600 text-white" : v === "PCO" ? "bg-cyan-600 text-white" : "bg-blue-600 text-white"
+                                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                                {v === "all" ? "Semua" : v === "AR" ? "🛡 Anti Rayap" : "🦟 Pest Control"}
+                            </button>
+                        ))}
+                        <span className="text-slate-200">|</span>
+                        {(["all", "belum_bayar", "dp", "lunas", "nunggak"] as const).map(v => (
+                            <button key={v} onClick={() => setFilterPembayaran(v)}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap active:scale-[0.97]
+                                    ${filterPembayaran === v ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                                {v === "all" ? "Semua Bayar" : PEMBAYARAN_CFG[v].label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 

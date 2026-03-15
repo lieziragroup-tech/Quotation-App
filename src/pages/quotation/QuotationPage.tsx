@@ -16,13 +16,13 @@ import type { Quotation, QuotationStatus, KategoriSurat, TipeKontrak } from "../
 // ─── STATUS CONFIG ────────────────────────────────────────────────────────────
 
 const STATUS_CFG: Record<QuotationStatus, { label: string; icon: React.ReactNode; bg: string; text: string; dot: string }> = {
-    draft:           { label: "Draft",             icon: <FileX2 size={12} />,      bg: "#f1f5f9", text: "#64748b", dot: "#94a3b8" },
-    pending:         { label: "Menunggu",           icon: <Clock size={12} />,       bg: "#fef3c7", text: "#92400e", dot: "#f59e0b" },
-    approved:        { label: "Disetujui Admin",   icon: <CheckCircle2 size={12} />, bg: "#dbeafe", text: "#1e40af", dot: "#3b82f6" },
-    rejected:        { label: "Ditolak",            icon: <XCircle size={12} />,     bg: "#fee2e2", text: "#991b1b", dot: "#ef4444" },
-    sent_to_client:  { label: "Dikirim ke Klien",  icon: <Send size={12} />,         bg: "#fef9c3", text: "#854d0e", dot: "#eab308" },
-    deal:            { label: "Deal ✓",             icon: <CheckCircle2 size={12} />, bg: "#dcfce7", text: "#14532d", dot: "#16a34a" },
-    cancelled:       { label: "Batal",              icon: <XCircle size={12} />,     bg: "#f3f4f6", text: "#6b7280", dot: "#9ca3af" },
+    draft: { label: "Draft", icon: <FileX2 size={12} />, bg: "#f1f5f9", text: "#64748b", dot: "#94a3b8" },
+    pending: { label: "Menunggu", icon: <Clock size={12} />, bg: "#fef3c7", text: "#92400e", dot: "#f59e0b" },
+    approved: { label: "Disetujui Admin", icon: <CheckCircle2 size={12} />, bg: "#dbeafe", text: "#1e40af", dot: "#3b82f6" },
+    rejected: { label: "Ditolak", icon: <XCircle size={12} />, bg: "#fee2e2", text: "#991b1b", dot: "#ef4444" },
+    sent_to_client: { label: "Dikirim ke Klien", icon: <Send size={12} />, bg: "#fef9c3", text: "#854d0e", dot: "#eab308" },
+    deal: { label: "Deal ✓", icon: <CheckCircle2 size={12} />, bg: "#dcfce7", text: "#14532d", dot: "#16a34a" },
+    cancelled: { label: "Batal", icon: <XCircle size={12} />, bg: "#f3f4f6", text: "#6b7280", dot: "#9ca3af" },
 };
 
 function StatusBadge({ status }: { status: QuotationStatus }) {
@@ -300,17 +300,17 @@ interface ActionButtonsProps {
 function ActionButtons({ q, isApproved, isPending, hasNotes, isActing, canApprove, canDelete, onSign, onNotes, onApprove, onReject, onDelete }: ActionButtonsProps) {
     const openPdf = (base64: string) => {
         const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-        const blob  = new Blob([bytes], { type: "application/pdf" });
-        const url   = URL.createObjectURL(blob);
+        const blob = new Blob([bytes], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
         window.open(url, "_blank");
         setTimeout(() => URL.revokeObjectURL(url), 5000);
     };
 
     const downloadPdf = (base64: string, filename: string) => {
         const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-        const blob  = new Blob([bytes], { type: "application/pdf" });
-        const url   = URL.createObjectURL(blob);
-        const a     = document.createElement("a");
+        const blob = new Blob([bytes], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
         a.href = url; a.download = filename;
         a.style.display = "none";
         document.body.appendChild(a);
@@ -345,9 +345,9 @@ function ActionButtons({ q, isApproved, isPending, hasNotes, isActing, canApprov
             {/* Download PDF (approved only) */}
             {(q.pdfBase64 || q.pdfUrl) && isApproved && (
                 <button onClick={() => q.pdfBase64
-                        ? downloadPdf(q.pdfBase64, `${safeName}.pdf`)
-                        : (() => { const a = document.createElement("a"); a.href = q.pdfUrl!; a.download = `${safeName}.pdf`; a.click(); })()
-                    }
+                    ? downloadPdf(q.pdfBase64, `${safeName}.pdf`)
+                    : (() => { const a = document.createElement("a"); a.href = q.pdfUrl!; a.download = `${safeName}.pdf`; a.click(); })()
+                }
                     className="p-1.5 rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors" title="Download PDF">
                     <Download size={14} />
                 </button>
@@ -544,14 +544,14 @@ export function QuotationPage() {
                 </div>
                 <div className="flex items-center gap-2">
                     <button onClick={load}
-                        className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
+                        className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
                         <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
                     </button>
                     {canCreate && (
                         <button onClick={() => navigate("/quotations/new")}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+                            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors active:scale-[0.97] shadow-sm shadow-blue-200">
                             <Plus size={16} />
-                            Buat Quotation
+                            <span className="hidden xs:inline sm:inline">Buat Quotation</span>
                         </button>
                     )}
                 </div>
@@ -593,9 +593,10 @@ export function QuotationPage() {
             )}
 
             {/* Filters */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4">
-                <div className="flex flex-wrap gap-2 items-center">
-                    <div className="relative flex-1 min-w-48">
+            <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4">
+                <div className="flex flex-col gap-2">
+                    {/* Row 1: search */}
+                    <div className="relative">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
                             value={search}
@@ -604,31 +605,34 @@ export function QuotationPage() {
                             className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
                         />
                     </div>
-                    <Filter size={14} className="text-slate-400" />
-                    {(["all", "AR", "PCO"] as const).map(v => (
-                        <button key={v} onClick={() => { setFilterKat(v); setPage(1); }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
-                                ${filterKat === v ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-                            {v === "all" ? "Semua" : v === "AR" ? "Anti Rayap" : "Pest Control"}
-                        </button>
-                    ))}
-                    {(["all", "U", "K", "PH"] as const).map(v => (
-                        <button key={v} onClick={() => { setFilterTipe(v); setPage(1); }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
-                                ${filterTipe === v ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-                            {v === "all" ? "Semua Tipe" : v === "U" ? "Umum" : v === "K" ? "Kontrak" : "PH"}
-                        </button>
-                    ))}
-                    <select
-                        value={filterStatus}
-                        onChange={e => { setFilterStatus(e.target.value as typeof filterStatus); setPage(1); }}
-                        className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-600 focus:outline-none">
-                        <option value="all">Semua Status</option>
-                        <option value="draft">Draft</option>
-                        <option value="pending">Menunggu</option>
-                        <option value="approved">Disetujui</option>
-                        <option value="rejected">Ditolak</option>
-                    </select>
+                    {/* Row 2: filter chips */}
+                    <div className="flex flex-wrap gap-2 items-center">
+                        <Filter size={13} className="text-slate-400 shrink-0" />
+                        {(["all", "AR", "PCO"] as const).map(v => (
+                            <button key={v} onClick={() => { setFilterKat(v); setPage(1); }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors active:scale-[0.97]
+                                    ${filterKat === v ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                                {v === "all" ? "Semua" : v === "AR" ? "Anti Rayap" : "Pest Control"}
+                            </button>
+                        ))}
+                        {(["all", "U", "K", "PH"] as const).map(v => (
+                            <button key={v} onClick={() => { setFilterTipe(v); setPage(1); }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors active:scale-[0.97]
+                                    ${filterTipe === v ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                                {v === "all" ? "Semua Tipe" : v === "U" ? "Umum" : v === "K" ? "Kontrak" : "PH"}
+                            </button>
+                        ))}
+                        <select
+                            value={filterStatus}
+                            onChange={e => { setFilterStatus(e.target.value as typeof filterStatus); setPage(1); }}
+                            className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-600 focus:outline-none">
+                            <option value="all">Semua Status</option>
+                            <option value="draft">Draft</option>
+                            <option value="pending">Menunggu</option>
+                            <option value="approved">Disetujui</option>
+                            <option value="rejected">Ditolak</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -667,10 +671,10 @@ export function QuotationPage() {
                                     {paged.map(q => {
                                         const isAR = q.kategori === "AR";
                                         const isApproved = q.status === "approved";
-                                        const isPending  = q.status === "pending";
+                                        const isPending = q.status === "pending";
                                         const isRejected = q.status === "rejected";
-                                        const hasNotes   = isRejected && (q.rejectionReason || q.notesMarketing);
-                                        const isActing   = actionLoading === q.id;
+                                        const hasNotes = isRejected && (q.rejectionReason || q.notesMarketing);
+                                        const isActing = actionLoading === q.id;
 
                                         return (
                                             <tr key={q.id} className={`hover:bg-slate-50 transition-colors ${isPending ? "bg-amber-50/30" : ""}`}>
@@ -732,12 +736,12 @@ export function QuotationPage() {
                         {/* ── MOBILE CARDS (shown only on mobile) ──────────────── */}
                         <div className="md:hidden divide-y divide-slate-100">
                             {paged.map(q => {
-                                const isAR       = q.kategori === "AR";
+                                const isAR = q.kategori === "AR";
                                 const isApproved = q.status === "approved";
-                                const isPending  = q.status === "pending";
+                                const isPending = q.status === "pending";
                                 const isRejected = q.status === "rejected";
-                                const hasNotes   = isRejected && (q.rejectionReason || q.notesMarketing);
-                                const isActing   = actionLoading === q.id;
+                                const hasNotes = isRejected && (q.rejectionReason || q.notesMarketing);
+                                const isActing = actionLoading === q.id;
 
                                 return (
                                     <div key={q.id} className={`p-4 ${isPending ? "bg-amber-50/40" : "bg-white"}`}>

@@ -15,16 +15,16 @@ import type { OrderTracking } from "../../services/trackingService";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-const MONTHS_ID = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
+const MONTHS_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"];
 
 const STATUS_CFG: Record<QuotationStatus, { label: string; color: string; bg: string }> = {
-    draft:          { label: "Draft",            color: "#64748b", bg: "#f1f5f9" },
-    pending:        { label: "Menunggu",          color: "#d97706", bg: "#fef3c7" },
-    approved:       { label: "Disetujui",         color: "#1d4ed8", bg: "#dbeafe" },
-    rejected:       { label: "Ditolak",           color: "#dc2626", bg: "#fee2e2" },
-    sent_to_client: { label: "Dikirim Klien",     color: "#b45309", bg: "#fef9c3" },
-    deal:           { label: "Deal",              color: "#15803d", bg: "#dcfce7" },
-    cancelled:      { label: "Batal",             color: "#6b7280", bg: "#f3f4f6" },
+    draft: { label: "Draft", color: "#64748b", bg: "#f1f5f9" },
+    pending: { label: "Menunggu", color: "#d97706", bg: "#fef3c7" },
+    approved: { label: "Disetujui", color: "#1d4ed8", bg: "#dbeafe" },
+    rejected: { label: "Ditolak", color: "#dc2626", bg: "#fee2e2" },
+    sent_to_client: { label: "Dikirim Klien", color: "#b45309", bg: "#fef9c3" },
+    deal: { label: "Deal", color: "#15803d", bg: "#dcfce7" },
+    cancelled: { label: "Batal", color: "#6b7280", bg: "#f3f4f6" },
 };
 
 function fmtDate(d: Date) {
@@ -58,8 +58,8 @@ function RevenueChart({ data }: { data: MonthlyRevenue[] }) {
     const maxVal = Math.max(...data.map(d => d.deal + d.approved), 1);
     const fmtShort = (v: number) => {
         if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}M`;
-        if (v >= 1_000_000)     return `${(v / 1_000_000).toFixed(0)}jt`;
-        if (v >= 1_000)         return `${(v / 1_000).toFixed(0)}rb`;
+        if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(0)}jt`;
+        if (v >= 1_000) return `${(v / 1_000).toFixed(0)}rb`;
         return `${v}`;
     };
 
@@ -77,9 +77,9 @@ function RevenueChart({ data }: { data: MonthlyRevenue[] }) {
             </div>
             <div className="flex items-end gap-2 h-36">
                 {data.map((d, i) => {
-                    const dealPct     = (d.deal     / maxVal) * 100;
+                    const dealPct = (d.deal / maxVal) * 100;
                     const approvedPct = (d.approved / maxVal) * 100;
-                    const totalPct    = dealPct + approvedPct;
+                    const totalPct = dealPct + approvedPct;
                     return (
                         <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
                             {/* Tooltip */}
@@ -120,7 +120,7 @@ function StatCard({ label, value, sub, icon, accent, spark, onClick }: {
 }) {
     return (
         <button onClick={onClick} disabled={!onClick}
-            className={`bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-3 shadow-sm text-left w-full transition-all
+            className={`bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-2.5 shadow-sm text-left w-full transition-all
                 ${onClick ? "hover:border-slate-300 hover:shadow-md active:scale-[0.98]" : "cursor-default"}`}>
             <div className="flex items-center justify-between">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: accent + "20" }}>
@@ -128,9 +128,9 @@ function StatCard({ label, value, sub, icon, accent, spark, onClick }: {
                 </div>
                 {spark && <Sparkline data={spark} color={accent} />}
             </div>
-            <div>
-                <p className="text-2xl font-bold text-slate-900 leading-none">{value}</p>
-                <p className="text-xs font-semibold text-slate-500 mt-1">{label}</p>
+            <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-slate-900 leading-none truncate">{value}</p>
+                <p className="text-xs font-semibold text-slate-500 mt-1 leading-snug">{label}</p>
                 {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
             </div>
         </button>
@@ -141,12 +141,12 @@ function StatCard({ label, value, sub, icon, accent, spark, onClick }: {
 
 function PipelineBar({ counts }: { counts: Record<string, number> }) {
     const stages = [
-        { key: "pending",        label: "Menunggu",    color: "#f59e0b" },
-        { key: "approved",       label: "Disetujui",   color: "#3b82f6" },
-        { key: "sent_to_client", label: "Dikirim",     color: "#eab308" },
-        { key: "deal",           label: "Deal",        color: "#22c55e" },
-        { key: "rejected",       label: "Ditolak",     color: "#ef4444" },
-        { key: "cancelled",      label: "Batal",       color: "#9ca3af" },
+        { key: "pending", label: "Menunggu", color: "#f59e0b" },
+        { key: "approved", label: "Disetujui", color: "#3b82f6" },
+        { key: "sent_to_client", label: "Dikirim", color: "#eab308" },
+        { key: "deal", label: "Deal", color: "#22c55e" },
+        { key: "rejected", label: "Ditolak", color: "#ef4444" },
+        { key: "cancelled", label: "Batal", color: "#9ca3af" },
     ];
     const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
     return (
@@ -203,7 +203,7 @@ function QuoRow({ q, onClick }: { q: Quotation; onClick?: () => void }) {
 // ─── TRACKING ALERT ───────────────────────────────────────────────────────────
 
 function TrackingAlert({ trackings }: { trackings: OrderTracking[] }) {
-    const nunggak    = trackings.filter(t => t.statusPembayaran === "nunggak");
+    const nunggak = trackings.filter(t => t.statusPembayaran === "nunggak");
     const belumBayar = trackings.filter(t => t.statusPembayaran === "belum_bayar");
     const alerts = [...nunggak, ...belumBayar].slice(0, 3);
     if (alerts.length === 0) return null;
@@ -274,12 +274,12 @@ export function DashboardPage() {
     const { user } = useAuthStore();
     const navigate = useNavigate();
     const [quotations, setQuotations] = useState<Quotation[]>([]);
-    const [trackings,  setTrackings]  = useState<OrderTracking[]>([]);
-    const [loading,    setLoading]    = useState(true);
+    const [trackings, setTrackings] = useState<OrderTracking[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const isAdmin    = user?.role === "administrator";
+    const isAdmin = user?.role === "administrator";
     const isAdminOps = user?.role === "admin_ops";
-    const canSeeAll  = isAdmin || isAdminOps;
+    const canSeeAll = isAdmin || isAdminOps;
 
     const load = async () => {
         if (!user) return;
@@ -293,7 +293,7 @@ export function DashboardPage() {
                 const x = d.data();
                 return {
                     id: d.id, ...x,
-                    tanggal:    x.tanggal    ? (x.tanggal    as Timestamp).toDate() : new Date(),
+                    tanggal: x.tanggal ? (x.tanggal as Timestamp).toDate() : new Date(),
                     approvedAt: x.approvedAt ? (x.approvedAt as Timestamp).toDate() : undefined,
                 } as Quotation;
             });
@@ -314,20 +314,20 @@ export function DashboardPage() {
         const now = new Date();
         const thisMonth = quotations.filter(q =>
             q.tanggal.getFullYear() === now.getFullYear() &&
-            q.tanggal.getMonth()   === now.getMonth()
+            q.tanggal.getMonth() === now.getMonth()
         );
         const pipeline: Record<string, number> = {};
         quotations.forEach(q => { pipeline[q.status] = (pipeline[q.status] ?? 0) + 1; });
 
-        const dealRevenue    = quotations.filter(q => q.status === "deal").reduce((s, q) => s + q.total, 0);
-        const approvedRevenue= quotations.filter(q => q.status === "approved" || q.status === "sent_to_client").reduce((s, q) => s + q.total, 0);
-        const totalRevenue   = dealRevenue + approvedRevenue;
+        const dealRevenue = quotations.filter(q => q.status === "deal").reduce((s, q) => s + q.total, 0);
+        const approvedRevenue = quotations.filter(q => q.status === "approved" || q.status === "sent_to_client").reduce((s, q) => s + q.total, 0);
+        const totalRevenue = dealRevenue + approvedRevenue;
 
-        const pendingList    = quotations.filter(q => q.status === "pending");
-        const approvedList   = quotations.filter(q => q.status === "approved");
-        const dealList       = quotations.filter(q => q.status === "deal");
-        const decided        = dealList.length + quotations.filter(q => q.status === "rejected" || q.status === "cancelled").length;
-        const convRate       = decided > 0 ? Math.round(dealList.length / decided * 100) : 0;
+        const pendingList = quotations.filter(q => q.status === "pending");
+        const approvedList = quotations.filter(q => q.status === "approved");
+        const dealList = quotations.filter(q => q.status === "deal");
+        const decided = dealList.length + quotations.filter(q => q.status === "rejected" || q.status === "cancelled").length;
+        const convRate = decided > 0 ? Math.round(dealList.length / decided * 100) : 0;
 
         // Monthly spark (last 6 months deal count)
         const spark: number[] = [];
@@ -336,7 +336,7 @@ export function DashboardPage() {
             spark.push(quotations.filter(q =>
                 q.status === "deal" &&
                 q.tanggal.getFullYear() === d.getFullYear() &&
-                q.tanggal.getMonth()   === d.getMonth()
+                q.tanggal.getMonth() === d.getMonth()
             ).length);
         }
 
@@ -345,7 +345,7 @@ export function DashboardPage() {
         for (let i = 5; i >= 0; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const label = MONTHS_ID[d.getMonth()];
-            const deal     = quotations
+            const deal = quotations
                 .filter(q => q.status === "deal" && q.tanggal.getFullYear() === d.getFullYear() && q.tanggal.getMonth() === d.getMonth())
                 .reduce((s, q) => s + q.total, 0);
             const approved = quotations
@@ -381,7 +381,7 @@ export function DashboardPage() {
     const greeting = now.getHours() < 12 ? "Selamat pagi" : now.getHours() < 17 ? "Selamat siang" : "Selamat sore";
 
     return (
-        <div className="p-4 md:p-6 max-w-screen-xl mx-auto space-y-5 pb-8">
+        <div className="p-4 md:p-6 max-w-screen-xl mx-auto space-y-5 pb-10">
 
             {/* ── Header ── */}
             <div className="flex items-start justify-between gap-3">
@@ -549,9 +549,9 @@ export function DashboardPage() {
                                 <p className="text-sm font-bold text-slate-800 mb-4">Statistik Saya</p>
                                 <div className="space-y-3">
                                     {[
-                                        { label: "Pending",  val: stats.pendingList.length,  color: "#f59e0b", bg: "#fef3c7" },
+                                        { label: "Pending", val: stats.pendingList.length, color: "#f59e0b", bg: "#fef3c7" },
                                         { label: "Approved", val: stats.approvedList.length, color: "#3b82f6", bg: "#dbeafe" },
-                                        { label: "Deal",     val: stats.dealList.length,     color: "#22c55e", bg: "#dcfce7" },
+                                        { label: "Deal", val: stats.dealList.length, color: "#22c55e", bg: "#dcfce7" },
                                     ].map(s => (
                                         <div key={s.label} className="flex items-center justify-between p-3 rounded-xl"
                                             style={{ background: s.bg }}>
@@ -589,22 +589,30 @@ export function DashboardPage() {
                         <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Akses Cepat</p>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {[
-                                { label: "Buat Quotation", to: "/quotations/new", icon: <FileText size={15} />, primary: true,
-                                    show: ["administrator","marketing","admin_ops"].includes(user?.role ?? "") },
-                                { label: "Status Penawaran", to: "/status-ph", icon: <Send size={15} />, primary: false,
-                                    show: ["administrator","admin_ops"].includes(user?.role ?? "") },
-                                { label: "Tracking Order", to: "/tracking", icon: <ClipboardList size={15} />, primary: false,
-                                    show: ["administrator","admin_ops","marketing"].includes(user?.role ?? "") },
-                                { label: "Cashflow", to: "/cashflow", icon: <TrendingUp size={15} />, primary: false,
-                                    show: user?.role === "administrator" },
+                                {
+                                    label: "Buat Quotation", to: "/quotations/new", icon: <FileText size={15} />, primary: true,
+                                    show: ["administrator", "marketing", "admin_ops"].includes(user?.role ?? "")
+                                },
+                                {
+                                    label: "Status Penawaran", to: "/status-ph", icon: <Send size={15} />, primary: false,
+                                    show: ["administrator", "admin_ops"].includes(user?.role ?? "")
+                                },
+                                {
+                                    label: "Tracking Order", to: "/tracking", icon: <ClipboardList size={15} />, primary: false,
+                                    show: ["administrator", "admin_ops", "marketing"].includes(user?.role ?? "")
+                                },
+                                {
+                                    label: "Cashflow", to: "/cashflow", icon: <TrendingUp size={15} />, primary: false,
+                                    show: user?.role === "administrator"
+                                },
                             ].filter(l => l.show).map(link => (
                                 <button key={link.to} onClick={() => navigate(link.to)}
-                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all
+                                    className={`flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all active:scale-[0.97]
                                         ${link.primary
                                             ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-200"
                                             : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"}`}>
                                     {link.icon}
-                                    {link.label}
+                                    <span className="truncate">{link.label}</span>
                                 </button>
                             ))}
                         </div>
