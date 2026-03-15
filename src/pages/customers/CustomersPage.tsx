@@ -159,7 +159,7 @@ export function CustomersPage() {
         }
         const c = customerMap.get(key)!;
         c.quotations.push(q);
-        if (q.status === "approved") { c.totalApproved++; c.totalRevenue += q.total; }
+        if (q.status === "deal" || q.status === "approved") { c.totalApproved++; c.totalRevenue += q.total; }
         if (q.tanggal > c.lastDate) c.lastDate = q.tanggal;
         if (!c.address && q.kepadaAlamatLines?.[0]) c.address = q.kepadaAlamatLines[0];
     });

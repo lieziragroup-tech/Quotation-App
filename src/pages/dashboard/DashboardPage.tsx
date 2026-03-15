@@ -45,6 +45,73 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
     );
 }
 
+
+// ─── REVENUE CHART ────────────────────────────────────────────────────────────
+
+interface MonthlyRevenue {
+    label: string;
+    deal: number;
+    approved: number;
+}
+
+function RevenueChart({ data }: { data: MonthlyRevenue[] }) {
+    const maxVal = Math.max(...data.map(d => d.deal + d.approved), 1);
+    const fmtShort = (v: number) => {
+        if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}M`;
+        if (v >= 1_000_000)     return `${(v / 1_000_000).toFixed(0)}jt`;
+        if (v >= 1_000)         return `${(v / 1_000).toFixed(0)}rb`;
+        return `${v}`;
+    };
+
+    return (
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+                <div>
+                    <p className="text-sm font-bold text-slate-800">Revenue per Bulan</p>
+                    <p className="text-xs text-slate-400 mt-0.5">6 bulan terakhir</p>
+                </div>
+                <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block bg-emerald-500" /> Deal</span>
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block bg-blue-300" /> Approved</span>
+                </div>
+            </div>
+            <div className="flex items-end gap-2 h-36">
+                {data.map((d, i) => {
+                    const dealPct     = (d.deal     / maxVal) * 100;
+                    const approvedPct = (d.approved / maxVal) * 100;
+                    const totalPct    = dealPct + approvedPct;
+                    return (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
+                            {/* Tooltip */}
+                            <div className="hidden group-hover:block absolute z-10 bg-slate-800 text-white text-[10px] rounded-lg px-2 py-1.5 -mt-16 whitespace-nowrap pointer-events-none shadow-lg">
+                                <p className="font-bold">{d.label}</p>
+                                {d.deal > 0 && <p>Deal: {fmtShort(d.deal)}</p>}
+                                {d.approved > 0 && <p>Approved: {fmtShort(d.approved)}</p>}
+                            </div>
+                            {/* Bar */}
+                            <div className="relative w-full flex flex-col justify-end" style={{ height: "120px" }}>
+                                <div className="w-full rounded-t-lg overflow-hidden flex flex-col justify-end"
+                                    style={{ height: `${Math.max(totalPct, totalPct > 0 ? 4 : 0)}%` }}>
+                                    <div className="w-full bg-blue-300 transition-all duration-700"
+                                        style={{ height: approvedPct > 0 ? `${(approvedPct / (dealPct + approvedPct)) * 100}%` : "0%" }} />
+                                    <div className="w-full bg-emerald-500 transition-all duration-700"
+                                        style={{ height: dealPct > 0 ? `${(dealPct / (dealPct + approvedPct)) * 100}%` : "0%" }} />
+                                </div>
+                                {totalPct > 0 && (
+                                    <p className="absolute -top-5 w-full text-center text-[9px] font-bold text-slate-600">
+                                        {fmtShort(d.deal + d.approved)}
+                                    </p>
+                                )}
+                            </div>
+                            <p className="text-[9px] text-slate-400 font-medium">{d.label}</p>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 // ─── STAT CARD ────────────────────────────────────────────────────────────────
 
 function StatCard({ label, value, sub, icon, accent, spark, onClick }: {
@@ -273,11 +340,25 @@ export function DashboardPage() {
             ).length);
         }
 
+        // Monthly revenue last 6 months
+        const monthlyRevenue: { label: string; deal: number; approved: number }[] = [];
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const label = MONTHS_ID[d.getMonth()];
+            const deal     = quotations
+                .filter(q => q.status === "deal" && q.tanggal.getFullYear() === d.getFullYear() && q.tanggal.getMonth() === d.getMonth())
+                .reduce((s, q) => s + q.total, 0);
+            const approved = quotations
+                .filter(q => (q.status === "approved" || q.status === "sent_to_client") && q.tanggal.getFullYear() === d.getFullYear() && q.tanggal.getMonth() === d.getMonth())
+                .reduce((s, q) => s + q.total, 0);
+            monthlyRevenue.push({ label, deal, approved });
+        }
+
         return {
             pipeline, pendingList, approvedList, dealList,
             dealRevenue, totalRevenue, convRate,
             thisMonthCount: thisMonth.length,
-            spark,
+            spark, monthlyRevenue,
         };
     }, [quotations]);
 
@@ -369,6 +450,11 @@ export function DashboardPage() {
                         </div>
                         <PipelineBar counts={stats.pipeline} />
                     </div>
+
+                    {/* ── Revenue Chart (admin only) ── */}
+                    {canSeeAll && (
+                        <RevenueChart data={stats.monthlyRevenue} />
+                    )}
 
                     {/* ── Main grid ── */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
