@@ -23,6 +23,7 @@ export interface QuotationPDFData {
     kepadaNama: string;
     kepadaAlamatLines: string[];
     kepadaUp?: string;
+    kepadaWa?: string;
     jenisLayanan: JenisLayanan;
     perihal?: string;
     paragrafPembuka?: string;
