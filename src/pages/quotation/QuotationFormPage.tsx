@@ -5,7 +5,7 @@ import {
     Plus, Trash2, Loader2, AlertCircle,
     Clock, ExternalLink, Hash,
     FileCheck2, Database, ShieldCheck,
-    Camera, X, FlaskConical, ChevronDown, ChevronUp,
+    Camera, X, FlaskConical, ChevronDown, ChevronUp, MessageCircle,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { commitNomorSurat, previewNomorSurat } from "../../services/nomorSuratService";
@@ -305,10 +305,10 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangun
 
 // ─── STEP 2 ───────────────────────────────────────────────────────────────────
 
-function Step2({ nama, alamatLines, up, onNama, onAlamat, onUp, errors }: {
-    nama: string; alamatLines: string[]; up: string;
+function Step2({ nama, alamatLines, up, wa, onNama, onAlamat, onUp, onWa, errors }: {
+    nama: string; alamatLines: string[]; up: string; wa: string;
     onNama: (v: string) => void; onAlamat: (lines: string[]) => void;
-    onUp: (v: string) => void; errors: Record<string, string>;
+    onUp: (v: string) => void; onWa: (v: string) => void; errors: Record<string, string>;
 }) {
     const updateLine = (i: number, v: string) => {
         const lines = [...alamatLines]; lines[i] = v; onAlamat(lines);
@@ -346,6 +346,26 @@ function Step2({ nama, alamatLines, up, onNama, onAlamat, onUp, errors }: {
             <Field label="U.p. / Contact Person" error={errors.up}>
                 <input className={inputCls} value={up} onChange={e => onUp(e.target.value)}
                     placeholder="Bpk. Ahmad Santoso (opsional)" />
+            </Field>
+
+            <Field label="Nomor WhatsApp Klien" hint="Format: 08xxx atau 628xxx — untuk kirim penawaran langsung">
+                <div className="relative">
+                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                        <MessageCircle size={14} className="text-green-500" />
+                    </div>
+                    <input className={`${inputCls} pl-9`} value={wa} onChange={e => onWa(e.target.value)}
+                        placeholder="081234567890 (opsional)"
+                        type="tel"
+                        inputMode="numeric" />
+                </div>
+                {wa && (
+                    <a
+                        href={`https://wa.me/${wa.replace(/^0/, "62").replace(/\D/g, "")}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 mt-1.5 text-xs text-green-600 font-semibold hover:text-green-700">
+                        <MessageCircle size={11} /> Preview link WA →
+                    </a>
+                )}
             </Field>
         </div>
     );
@@ -1118,6 +1138,7 @@ export function QuotationFormPage() {
     const [kepadaNama, setKepadaNama] = useState("");
     const [kepadaAlamat, setKepadaAlamat] = useState<string[]>([""]);
     const [kepadaUp, setKepadaUp] = useState("");
+    const [kepadaWa, setKepadaWa] = useState("");
 
     const [items, setItems] = useState<QuotationItem[]>([{ desc: "", qty: 1, unit: "m2", harga: 0 }]);
     const [biayaTambahan, setBiayaTambahan] = useState<BiayaTambahan[]>([]);
@@ -1230,6 +1251,7 @@ export function QuotationFormPage() {
                         kepadaNama: kepadaFinal,
                         kepadaAlamatLines: kepadaAlamat.filter(Boolean),
                         kepadaUp: kepadaUp || undefined,
+                        kepadaWa: kepadaWa || undefined,
                         jenisLayanan, items, biayaTambahan, diskonPct, ppn,
                         ppnDppFaktor: ppnDppFaktor || undefined,
                         garansiTahun: garansiTahun || undefined,
@@ -1256,6 +1278,7 @@ export function QuotationFormPage() {
                 kepadaNama: kepadaFinal,
                 kepadaAlamatLines: kepadaAlamat.filter(Boolean),
                 kepadaUp: kepadaUp || undefined,
+                kepadaWa: kepadaWa || undefined,
                 tanggal: now, items, biayaTambahan, diskonPct, ppn,
                 ppnDppFaktor: ppnDppFaktor || undefined,
                 garansiTahun: garansiTahun || undefined,
@@ -1328,8 +1351,8 @@ export function QuotationFormPage() {
                 {step === 0 && <Step1 jenisLayanan={jenisLayanan} tipe={tipe} kepada={kepada} noPreview={noPreview}
                     peralatan={peralatan} kondisiBangunan={kondisiBangunan}
                     onLayanan={handleLayanan} onTipe={setTipe} onKepada={setKepada} onPeralatan={setPeralatan} onKondisi={setKondisiBangunan} errors={errors} />}
-                {step === 1 && <Step2 nama={kepadaNama} alamatLines={kepadaAlamat} up={kepadaUp}
-                    onNama={setKepadaNama} onAlamat={setKepadaAlamat} onUp={setKepadaUp} errors={errors} />}
+                {step === 1 && <Step2 nama={kepadaNama} alamatLines={kepadaAlamat} up={kepadaUp} wa={kepadaWa}
+                    onNama={setKepadaNama} onAlamat={setKepadaAlamat} onUp={setKepadaUp} onWa={setKepadaWa} errors={errors} />}
                 {step === 2 && <Step3 items={items} biayaTambahan={biayaTambahan} diskonPct={diskonPct}
                     ppn={ppn} ppnDppFaktor={ppnDppFaktor} garansiTahun={garansiTahun} jenisGaransi={jenisGaransi}
                     pembulatanRp={pembulatanRp}

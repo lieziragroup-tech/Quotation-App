@@ -187,6 +187,7 @@ export interface Quotation {
     kepadaNama: string;
     kepadaAlamatLines: string[];
     kepadaUp?: string;
+    kepadaWa?: string;      // Nomor WhatsApp klien
     tanggal: Date;
     items: QuotationItem[];
     biayaTambahan: BiayaTambahan[];

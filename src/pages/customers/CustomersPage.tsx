@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
     Users, Search, X, RefreshCw, Loader2,
-    FileText, TrendingUp, ChevronDown, ChevronUp, CheckCircle2,
+    FileText, TrendingUp, ChevronDown, ChevronUp, CheckCircle2, MessageCircle,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { getQuotations } from "../../services/quotationService";
@@ -18,6 +18,7 @@ interface DerivedCustomer {
     totalRevenue: number;
     lastDate: Date;
     address: string;
+    wa: string;
 }
 
 function useDebounce<T>(value: T, delay = 350): T {
@@ -57,6 +58,14 @@ function CustomerCard({ customer, expanded, onToggle }: {
                     <p className="text-sm font-bold text-slate-900 truncate">{customer.name}</p>
                     {customer.address && (
                         <p className="text-xs text-slate-400 truncate mt-0.5">{customer.address}</p>
+                    )}
+                    {customer.wa && (
+                        <a href={`https://wa.me/${customer.wa.replace(/^0/, "62").replace(/\D/g, "")}`}
+                            target="_blank" rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 mt-0.5 text-[10px] text-green-600 hover:text-green-700 font-medium">
+                            <MessageCircle size={10} /> {customer.wa}
+                        </a>
                     )}
                     <div className="flex items-center gap-3 mt-2 flex-wrap">
                         <span className="text-xs text-slate-500 flex items-center gap-1">
@@ -155,6 +164,7 @@ export function CustomersPage() {
                 totalRevenue: 0,
                 lastDate: q.tanggal,
                 address: q.kepadaAlamatLines?.[0] ?? "",
+                wa: q.kepadaWa ?? "",
             });
         }
         const c = customerMap.get(key)!;
@@ -162,6 +172,7 @@ export function CustomersPage() {
         if (q.status === "deal" || q.status === "approved") { c.totalApproved++; c.totalRevenue += q.total; }
         if (q.tanggal > c.lastDate) c.lastDate = q.tanggal;
         if (!c.address && q.kepadaAlamatLines?.[0]) c.address = q.kepadaAlamatLines[0];
+        if (!c.wa && q.kepadaWa) c.wa = q.kepadaWa;
     });
 
     let customers = Array.from(customerMap.values());

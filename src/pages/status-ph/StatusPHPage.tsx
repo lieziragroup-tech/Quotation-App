@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import {
     Send, CheckCircle2, XCircle, Clock, RefreshCw,
     ChevronDown, Search, Building2, FileText,
-    CalendarDays, TrendingUp, AlertCircle, Filter,
+    CalendarDays, TrendingUp, AlertCircle, Filter, MessageCircle,
 } from "lucide-react";
 import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "../../lib/firebase";
@@ -151,6 +151,14 @@ function QuotationCard({
                         </div>
                         <p className="font-semibold text-slate-900 text-sm truncate">{q.kepadaNama}</p>
                         <p className="text-xs text-slate-400 truncate mt-0.5">{layananLabel} · {q.marketingNama}</p>
+                        {q.kepadaWa && (
+                            <a href={`https://wa.me/${q.kepadaWa.replace(/^0/, "62").replace(/\D/g, "")}?text=${encodeURIComponent(`Halo, kami ingin menindaklanjuti penawaran kami kepada ${q.kepadaNama}.\nNo. Surat: ${q.noSurat}\nTotal: Rp ${q.total.toLocaleString("id-ID")}\n\nApakah ada pertanyaan mengenai penawaran tersebut?`)}`}
+                                target="_blank" rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 mt-1 text-[11px] text-green-600 hover:text-green-700 font-semibold bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
+                                <MessageCircle size={10} /> {q.kepadaWa} — Kirim WA
+                            </a>
+                        )}
                     </div>
                     <div className="text-right shrink-0">
                         <p className="font-bold text-slate-800 font-mono text-sm">{formatRupiah(q.total)}</p>
@@ -184,6 +192,7 @@ function QuotationCard({
                 <div className="border-t border-slate-100 px-4 py-3 bg-slate-50 text-xs text-slate-500 space-y-1">
                     <p><span className="font-semibold text-slate-700">Layanan:</span> {layananLabel}</p>
                     {q.kepadaAlamatLines?.[0] && <p><span className="font-semibold text-slate-700">Alamat:</span> {q.kepadaAlamatLines[0]}</p>}
+                    {q.kepadaWa && <p><span className="font-semibold text-slate-700">WhatsApp:</span> <span className="text-green-600 font-mono">{q.kepadaWa}</span></p>}
                     {q.approvedAt && <p><span className="font-semibold text-slate-700">Disetujui:</span> {formatDate(q.approvedAt)}</p>}
                     {(q as any).sentToClientAt && <p><span className="font-semibold text-slate-700">Dikirim:</span> {formatDate((q as any).sentToClientAt)}</p>}
                     {(q as any).dealAt && <p><span className="font-semibold text-slate-700">Deal:</span> {formatDate((q as any).dealAt)}</p>}

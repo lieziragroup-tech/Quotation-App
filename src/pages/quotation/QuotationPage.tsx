@@ -5,7 +5,7 @@ import {
     FileText, Plus, Search, RefreshCw,
     CheckCircle2, XCircle, Clock, FileX2,
     Eye, Download, Filter, ChevronLeft, ChevronRight,
-    PenLine, MessageSquare, AlertCircle, Trash2, Send,
+    PenLine, MessageSquare, AlertCircle, Trash2, Send, MessageCircle,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { getQuotations, updateQuotationStatus, deleteQuotation } from "../../services/quotationService";
@@ -329,6 +329,17 @@ function ActionButtons({ q, isApproved, isPending, hasNotes, isActing, canApprov
                     className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-colors" title="Lihat PDF">
                     <Eye size={14} />
                 </button>
+            )}
+
+            {/* WA Button — kirim penawaran via WhatsApp */}
+            {q.kepadaWa && (
+                <a
+                    href={`https://wa.me/${q.kepadaWa.replace(/^0/, "62").replace(/\D/g, "")}?text=${encodeURIComponent(`Halo, berikut penawaran kami untuk ${q.kepadaNama}:\nNo. Surat: ${q.noSurat}\nTotal: Rp ${q.total.toLocaleString("id-ID")}\n\nSilakan konfirmasi ketersediaan Anda.`)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="p-1.5 rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors inline-flex items-center"
+                    title={`Kirim WA ke ${q.kepadaWa}`}>
+                    <MessageCircle size={14} />
+                </a>
             )}
 
             {/* Download PDF (approved only) */}
@@ -682,6 +693,12 @@ export function QuotationPage() {
                                                     {q.kepadaAlamatLines[0] && (
                                                         <div className="text-xs text-slate-400 truncate">{q.kepadaAlamatLines[0]}</div>
                                                     )}
+                                                    {q.kepadaWa && (
+                                                        <div className="flex items-center gap-1 mt-0.5">
+                                                            <MessageCircle size={10} className="text-green-500 shrink-0" />
+                                                            <span className="text-[10px] text-green-600 font-mono">{q.kepadaWa}</span>
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 {canSeeAll && (
                                                     <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{q.marketingNama}</td>
@@ -735,7 +752,13 @@ export function QuotationPage() {
                                         {/* Client name */}
                                         <p className="text-sm font-semibold text-slate-900 mb-0.5">{q.kepadaNama}</p>
                                         {q.kepadaAlamatLines[0] && (
-                                            <p className="text-xs text-slate-400 mb-2 truncate">{q.kepadaAlamatLines[0]}</p>
+                                            <p className="text-xs text-slate-400 truncate">{q.kepadaAlamatLines[0]}</p>
+                                        )}
+                                        {q.kepadaWa && (
+                                            <div className="flex items-center gap-1 mb-2 mt-0.5">
+                                                <MessageCircle size={10} className="text-green-500 shrink-0" />
+                                                <span className="text-[10px] text-green-600 font-mono">{q.kepadaWa}</span>
+                                            </div>
                                         )}
 
                                         {/* Meta row */}
