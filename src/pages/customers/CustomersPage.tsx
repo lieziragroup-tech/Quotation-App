@@ -406,11 +406,21 @@ export function CustomersPage() {
         if (!user) return;
         setLoading(true);
         try {
-            const [quotesData, checkSnap] = await Promise.all([
-                getQuotations({ companyId: user.companyId, byUid: canSeeAll ? undefined : user.uid }),
-                getDocs(query(collection(db, "customerChecklists"), where("companyId", "==", user.companyId))),
-            ]);
+            // Load quotations — this is the primary data source
+            const quotesData = await getQuotations({
+                companyId: user.companyId,
+                byUid: canSeeAll ? undefined : user.uid,
+            });
             setQuotations(quotesData);
+        } catch (err) {
+            console.error("[CustomersPage] load quotations error:", err);
+        }
+
+        // Load checklists separately — don't block quotations if this fails
+        try {
+            const checkSnap = await getDocs(
+                query(collection(db, "customerChecklists"), where("companyId", "==", user.companyId))
+            );
             setChecklists(checkSnap.docs.map(d => {
                 const x = d.data();
                 return {
@@ -421,11 +431,12 @@ export function CustomersPage() {
                     hasilKontrol: x.hasilKontrol as ControlChecklist["hasilKontrol"],
                 };
             }));
-        } catch (err) {
-            console.error("[CustomersPage] load error:", err);
-        } finally {
-            setLoading(false);
+        } catch {
+            // customerChecklists collection may not exist yet — silently ignore
+            setChecklists([]);
         }
+
+        setLoading(false);
     };
 
     useEffect(() => { load(); }, [user]);
