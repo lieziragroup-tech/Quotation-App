@@ -224,7 +224,6 @@ export interface Quotation {
     kondisiBangunan?: KondisiBangunan; // PCO: teknik pelaksanaan
     companyId: string;
     createdAt: Date;
-    customerId?: string;
     notesMarketing?: string;
 }
 

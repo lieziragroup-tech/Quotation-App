@@ -1,8 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
     Users, Search, X, RefreshCw, Loader2,
-    FileText, TrendingUp, ChevronDown, ChevronUp, CheckCircle2, MessageCircle,
+    FileText, TrendingUp, ChevronDown, ChevronUp, CheckCircle2,
+    MessageCircle, Shield, Clock, AlertTriangle, CalendarCheck,
+    MapPin, ClipboardCheck,
 } from "lucide-react";
+import { collection, query, where, getDocs, doc, setDoc, Timestamp } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 import { useAuthStore } from "../../store/authStore";
 import { getQuotations } from "../../services/quotationService";
 import { formatRupiah, formatDate } from "../../lib/utils";
@@ -11,14 +15,37 @@ import type { Quotation } from "../../types";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
+interface ControlChecklist {
+    id: string;
+    tanggal: Date;
+    teknisi: string;
+    catatan: string;
+    hasilKontrol: "baik" | "perlu_tindak_lanjut" | "darurat";
+}
+
+interface WarrantyInfo {
+    quotationId: string;
+    noSurat: string;
+    garansiTahun: number;
+    jenisGaransi?: string;
+    dealAt: Date;
+    expiredAt: Date;
+    isActive: boolean;
+    daysRemaining: number;
+}
+
 interface DerivedCustomer {
+    id: string; // primary key: normalized name
     name: string;
     quotations: Quotation[];
-    totalApproved: number;
+    totalDeal: number;
     totalRevenue: number;
     lastDate: Date;
     address: string;
     wa: string;
+    warranties: WarrantyInfo[];
+    activeWarranty: WarrantyInfo | null;
+    checklists: ControlChecklist[];
 }
 
 function useDebounce<T>(value: T, delay = 350): T {
@@ -30,23 +57,155 @@ function useDebounce<T>(value: T, delay = 350): T {
     return debounced;
 }
 
-// ─── CUSTOMER CARD ────────────────────────────────────────────────────────────
+// ─── STATUS CONFIG ────────────────────────────────────────────────────────────
 
 const STATUS_COLOR: Record<string, string> = {
-    draft:    "bg-slate-100 text-slate-500",
-    pending:  "bg-amber-100 text-amber-700",
-    approved: "bg-emerald-100 text-emerald-700",
-    rejected: "bg-red-100 text-red-600",
+    draft:          "bg-slate-100 text-slate-500",
+    pending:        "bg-amber-100 text-amber-700",
+    approved:       "bg-blue-100 text-blue-700",
+    rejected:       "bg-red-100 text-red-600",
+    sent_to_client: "bg-yellow-100 text-yellow-700",
+    deal:           "bg-emerald-100 text-emerald-700",
+    cancelled:      "bg-slate-100 text-slate-400",
 };
 const STATUS_LABEL: Record<string, string> = {
-    draft: "Draft", pending: "Pending", approved: "Disetujui", rejected: "Ditolak",
+    draft: "Draft", pending: "Menunggu", approved: "Disetujui",
+    rejected: "Ditolak", sent_to_client: "Dikirim", deal: "Deal", cancelled: "Batal",
 };
 
-function CustomerCard({ customer, expanded, onToggle }: {
+// ─── WARRANTY BADGE ───────────────────────────────────────────────────────────
+
+function WarrantyBadge({ warranty }: { warranty: WarrantyInfo | null }) {
+    if (!warranty) return null;
+    const color = warranty.daysRemaining > 90
+        ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+        : warranty.daysRemaining > 30
+        ? "bg-amber-50 border-amber-200 text-amber-700"
+        : "bg-red-50 border-red-200 text-red-700";
+    const icon = warranty.daysRemaining > 90
+        ? <Shield size={11} />
+        : warranty.daysRemaining > 30
+        ? <Clock size={11} />
+        : <AlertTriangle size={11} />;
+
+    return (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${color}`}>
+            {icon}
+            {warranty.isActive
+                ? `Garansi aktif · ${warranty.daysRemaining}h lagi`
+                : "Garansi habis"}
+        </span>
+    );
+}
+
+// ─── CHECKLIST MODAL ─────────────────────────────────────────────────────────
+
+function ChecklistModal({ customer, onClose, onSaved }: {
+    customer: DerivedCustomer;
+    onClose: () => void;
+    onSaved: (c: ControlChecklist) => void;
+}) {
+    const { user } = useAuthStore();
+    const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
+    const [catatan, setCatatan] = useState("");
+    const [hasil, setHasil] = useState<"baik" | "perlu_tindak_lanjut" | "darurat">("baik");
+    const [saving, setSaving] = useState(false);
+
+    const hasilOpts = [
+        { val: "baik" as const, label: "✓ Baik", color: "bg-emerald-50 border-emerald-300 text-emerald-700" },
+        { val: "perlu_tindak_lanjut" as const, label: "⚠ Perlu Tindak Lanjut", color: "bg-amber-50 border-amber-300 text-amber-700" },
+        { val: "darurat" as const, label: "🚨 Darurat", color: "bg-red-50 border-red-300 text-red-700" },
+    ];
+
+    const handleSave = async () => {
+        if (!user) return;
+        setSaving(true);
+        try {
+            const id = `${customer.id}_${Date.now()}`;
+            const entry: ControlChecklist = {
+                id,
+                tanggal: new Date(tanggal),
+                teknisi: user.name,
+                catatan,
+                hasilKontrol: hasil,
+            };
+            // Save to Firestore under customer doc
+            const ref = doc(db, "customerChecklists", id);
+            await setDoc(ref, {
+                customerId: customer.id,
+                customerName: customer.name,
+                companyId: user.companyId,
+                tanggal: Timestamp.fromDate(entry.tanggal),
+                teknisi: entry.teknisi,
+                catatan: entry.catatan,
+                hasilKontrol: entry.hasilKontrol,
+                createdAt: Timestamp.fromDate(new Date()),
+            });
+            onSaved(entry);
+            onClose();
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                    <ClipboardCheck size={18} className="text-blue-600" />
+                    <h3 className="font-bold text-slate-900">Tambah Kontrol Berkala</h3>
+                    <button onClick={onClose} className="ml-auto text-slate-400 hover:text-slate-600"><X size={16} /></button>
+                </div>
+                <p className="text-xs text-slate-500">Pelanggan: <strong>{customer.name}</strong></p>
+
+                <div className="space-y-3">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Tanggal Kontrol</label>
+                        <input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            value={tanggal} onChange={e => setTanggal(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Hasil Kontrol</label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {hasilOpts.map(o => (
+                                <button key={o.val} type="button" onClick={() => setHasil(o.val)}
+                                    className={`px-2 py-2 text-xs font-semibold border rounded-xl transition-all ${hasil === o.val ? o.color + " ring-2 ring-offset-1" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}>
+                                    {o.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Catatan</label>
+                        <textarea className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                            rows={3} value={catatan} onChange={e => setCatatan(e.target.value)}
+                            placeholder="Kondisi lapangan, temuan, tindakan yang dilakukan..." />
+                    </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                    <button onClick={onClose} className="flex-1 py-2.5 text-sm rounded-xl bg-slate-100 text-slate-600 font-medium hover:bg-slate-200">Batal</button>
+                    <button onClick={handleSave} disabled={saving}
+                        className="flex-1 py-2.5 text-sm rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                        {saving ? <Loader2 size={14} className="animate-spin" /> : <CalendarCheck size={14} />}
+                        Simpan
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── CUSTOMER CARD ────────────────────────────────────────────────────────────
+
+function CustomerCard({ customer, expanded, onToggle, onAddChecklist }: {
     customer: DerivedCustomer;
     expanded: boolean;
     onToggle: () => void;
+    onAddChecklist: () => void;
 }) {
+    const lastChecklist = customer.checklists.sort((a, b) => b.tanggal.getTime() - a.tanggal.getTime())[0];
+
     return (
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             <button onClick={onToggle}
@@ -55,9 +214,14 @@ function CustomerCard({ customer, expanded, onToggle }: {
                     {customer.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-900 truncate">{customer.name}</p>
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <p className="text-sm font-bold text-slate-900">{customer.name}</p>
+                        <WarrantyBadge warranty={customer.activeWarranty} />
+                    </div>
                     {customer.address && (
-                        <p className="text-xs text-slate-400 truncate mt-0.5">{customer.address}</p>
+                        <p className="text-xs text-slate-400 truncate flex items-center gap-1">
+                            <MapPin size={10} /> {customer.address}
+                        </p>
                     )}
                     {customer.wa && (
                         <a href={`https://wa.me/${customer.wa.replace(/^0/, "62").replace(/\D/g, "")}`}
@@ -71,14 +235,20 @@ function CustomerCard({ customer, expanded, onToggle }: {
                         <span className="text-xs text-slate-500 flex items-center gap-1">
                             <FileText size={11} /> {customer.quotations.length} quotation
                         </span>
-                        {customer.totalApproved > 0 && (
+                        {customer.totalDeal > 0 && (
                             <span className="text-xs text-emerald-600 flex items-center gap-1">
-                                <CheckCircle2 size={11} /> {customer.totalApproved} disetujui
+                                <CheckCircle2 size={11} /> {customer.totalDeal} deal
                             </span>
                         )}
                         {customer.totalRevenue > 0 && (
                             <span className="text-xs font-semibold text-blue-600 flex items-center gap-1">
                                 <TrendingUp size={11} /> {formatRupiah(customer.totalRevenue)}
+                            </span>
+                        )}
+                        {lastChecklist && (
+                            <span className={`text-xs flex items-center gap-1 ${lastChecklist.hasilKontrol === "baik" ? "text-emerald-600" : lastChecklist.hasilKontrol === "darurat" ? "text-red-600" : "text-amber-600"}`}>
+                                <ClipboardCheck size={11} />
+                                Kontrol: {formatDate(lastChecklist.tanggal)}
                             </span>
                         )}
                     </div>
@@ -90,6 +260,68 @@ function CustomerCard({ customer, expanded, onToggle }: {
 
             {expanded && (
                 <div className="border-t border-slate-100">
+
+                    {/* Warranty Section */}
+                    {customer.warranties.length > 0 && (
+                        <div className="px-5 py-3 bg-purple-50 border-b border-purple-100">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-purple-500 mb-2 flex items-center gap-1">
+                                <Shield size={10} /> Status Garansi
+                            </p>
+                            <div className="space-y-2">
+                                {customer.warranties.map(w => (
+                                    <div key={w.quotationId} className={`flex items-center justify-between p-2.5 rounded-xl text-xs ${w.isActive ? "bg-white border border-purple-200" : "bg-slate-50 border border-slate-200 opacity-60"}`}>
+                                        <div>
+                                            <code className="font-mono font-bold text-purple-700">{w.noSurat}</code>
+                                            <p className="text-slate-500 mt-0.5">{w.jenisGaransi ?? "Anti Rayap"} · {w.garansiTahun} tahun</p>
+                                            <p className="text-slate-400">Berlaku: {formatDate(w.dealAt)} — {formatDate(w.expiredAt)}</p>
+                                        </div>
+                                        <div className="text-right shrink-0 ml-3">
+                                            {w.isActive
+                                                ? <span className="text-emerald-600 font-bold">{w.daysRemaining}h lagi</span>
+                                                : <span className="text-slate-400">Kadaluarsa</span>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Control Checklist */}
+                    <div className="px-5 py-3 border-b border-slate-100">
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                                <ClipboardCheck size={10} /> Riwayat Kontrol Berkala
+                            </p>
+                            <button onClick={e => { e.stopPropagation(); onAddChecklist(); }}
+                                className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200">
+                                + Tambah Kontrol
+                            </button>
+                        </div>
+                        {customer.checklists.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic py-1">Belum ada riwayat kontrol.</p>
+                        ) : (
+                            <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                                {customer.checklists
+                                    .sort((a, b) => b.tanggal.getTime() - a.tanggal.getTime())
+                                    .map(c => (
+                                        <div key={c.id} className={`flex items-start gap-2.5 p-2 rounded-xl text-xs border ${c.hasilKontrol === "baik" ? "bg-emerald-50 border-emerald-100" : c.hasilKontrol === "darurat" ? "bg-red-50 border-red-100" : "bg-amber-50 border-amber-100"}`}>
+                                            <div className="shrink-0 mt-0.5">
+                                                {c.hasilKontrol === "baik" ? <CheckCircle2 size={13} className="text-emerald-600" /> : c.hasilKontrol === "darurat" ? <AlertTriangle size={13} className="text-red-600" /> : <Clock size={13} className="text-amber-600" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="font-semibold text-slate-700">{formatDate(c.tanggal)}</span>
+                                                    <span className="text-slate-400 text-[10px]">{c.teknisi}</span>
+                                                </div>
+                                                {c.catatan && <p className="text-slate-500 mt-0.5 truncate">{c.catatan}</p>}
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Quotation History */}
                     <p className="px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50">
                         Riwayat Quotation
                     </p>
@@ -101,7 +333,9 @@ function CustomerCard({ customer, expanded, onToggle }: {
                                         {q.noSurat}
                                     </code>
                                     <p className="text-xs text-slate-400 mt-0.5">
-                                        {LAYANAN_CONFIG[q.jenisLayanan]?.label.split("—")[1]?.trim() ?? q.jenisLayanan} · {formatDate(q.tanggal)}
+                                        {LAYANAN_CONFIG[q.jenisLayanan]?.label.split("—")[1]?.trim() ?? q.jenisLayanan}
+                                        {" · "}{formatDate(q.tanggal)}
+                                        {q.garansiTahun ? ` · Garansi ${q.garansiTahun}thn` : ""}
                                     </p>
                                     {q.marketingNama && (
                                         <p className="text-xs text-slate-400">by {q.marketingNama}</p>
@@ -109,8 +343,8 @@ function CustomerCard({ customer, expanded, onToggle }: {
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
                                     <span className="text-xs font-mono text-slate-600 hidden sm:block">{formatRupiah(q.total)}</span>
-                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLOR[q.status]}`}>
-                                        {STATUS_LABEL[q.status]}
+                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLOR[q.status] ?? "bg-slate-100 text-slate-500"}`}>
+                                        {STATUS_LABEL[q.status] ?? q.status}
                                     </span>
                                 </div>
                             </div>
@@ -128,10 +362,12 @@ export function CustomersPage() {
     const { user } = useAuthStore();
 
     const [quotations, setQuotations] = useState<Quotation[]>([]);
+    const [checklists, setChecklists] = useState<(ControlChecklist & { customerId: string })[]>([]);
     const [loading, setLoading]       = useState(true);
     const [searchQ, setSearchQ]       = useState("");
-    const [expandedName, setExpandedName] = useState<string | null>(null);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
     const [sortBy, setSortBy] = useState<"date" | "revenue" | "name">("date");
+    const [checklistTarget, setChecklistTarget] = useState<DerivedCustomer | null>(null);
 
     const debouncedSearch = useDebounce(searchQ, 350);
     const canSeeAll = user?.role !== "marketing";
@@ -140,11 +376,22 @@ export function CustomersPage() {
         if (!user) return;
         setLoading(true);
         try {
-            const data = await getQuotations({
-                companyId: user.companyId,
-                byUid: canSeeAll ? undefined : user.uid,
-            });
-            setQuotations(data);
+            const [quotesData, checklistSnap] = await Promise.all([
+                getQuotations({ companyId: user.companyId, byUid: canSeeAll ? undefined : user.uid }),
+                getDocs(query(collection(db, "customerChecklists"), where("companyId", "==", user.companyId))),
+            ]);
+            setQuotations(quotesData);
+            setChecklists(checklistSnap.docs.map(d => {
+                const x = d.data();
+                return {
+                    id: d.id,
+                    customerId: x.customerId as string,
+                    tanggal: (x.tanggal as Timestamp).toDate(),
+                    teknisi: x.teknisi as string,
+                    catatan: x.catatan as string,
+                    hasilKontrol: x.hasilKontrol as ControlChecklist["hasilKontrol"],
+                };
+            }));
         } finally {
             setLoading(false);
         }
@@ -152,28 +399,71 @@ export function CustomersPage() {
 
     useEffect(() => { load(); }, [user]);
 
-    // Derive customers from quotations
-    const customerMap = new Map<string, DerivedCustomer>();
-    quotations.forEach(q => {
-        const key = q.kepadaNama.trim().toLowerCase();
-        if (!customerMap.has(key)) {
-            customerMap.set(key, {
-                name: q.kepadaNama,
-                quotations: [],
-                totalApproved: 0,
-                totalRevenue: 0,
-                lastDate: q.tanggal,
-                address: q.kepadaAlamatLines?.[0] ?? "",
-                wa: q.kepadaWa ?? "",
-            });
-        }
-        const c = customerMap.get(key)!;
-        c.quotations.push(q);
-        if (q.status === "deal" || q.status === "approved") { c.totalApproved++; c.totalRevenue += q.total; }
-        if (q.tanggal > c.lastDate) c.lastDate = q.tanggal;
-        if (!c.address && q.kepadaAlamatLines?.[0]) c.address = q.kepadaAlamatLines[0];
-        if (!c.wa && q.kepadaWa) c.wa = q.kepadaWa;
-    });
+    // Build derived customers
+    const customerMap = useMemo(() => {
+        const map = new Map<string, DerivedCustomer>();
+        const now = new Date();
+
+        quotations.forEach(q => {
+            const key = q.kepadaNama.trim().toLowerCase().replace(/\s+/g, "_");
+            if (!map.has(key)) {
+                map.set(key, {
+                    id: key,
+                    name: q.kepadaNama,
+                    quotations: [],
+                    totalDeal: 0,
+                    totalRevenue: 0,
+                    lastDate: q.tanggal,
+                    address: q.kepadaAlamatLines?.[0] ?? "",
+                    wa: q.kepadaWa ?? "",
+                    warranties: [],
+                    activeWarranty: null,
+                    checklists: [],
+                });
+            }
+            const c = map.get(key)!;
+            c.quotations.push(q);
+
+            // Revenue only from deal
+            if (q.status === "deal") {
+                c.totalDeal++;
+                c.totalRevenue += q.total;
+
+                // Warranty tracking for AR deals
+                if (q.garansiTahun && q.garansiTahun > 0 && q.dealAt) {
+                    const expiredAt = new Date(q.dealAt);
+                    expiredAt.setFullYear(expiredAt.getFullYear() + q.garansiTahun);
+                    const daysRemaining = Math.ceil((expiredAt.getTime() - now.getTime()) / 86400000);
+                    const warranty: WarrantyInfo = {
+                        quotationId: q.id,
+                        noSurat: q.noSurat,
+                        garansiTahun: q.garansiTahun,
+                        jenisGaransi: q.jenisGaransi,
+                        dealAt: q.dealAt,
+                        expiredAt,
+                        isActive: daysRemaining > 0,
+                        daysRemaining: Math.max(0, daysRemaining),
+                    };
+                    c.warranties.push(warranty);
+                    if (warranty.isActive && (!c.activeWarranty || warranty.expiredAt > c.activeWarranty.expiredAt)) {
+                        c.activeWarranty = warranty;
+                    }
+                }
+            }
+
+            if (q.tanggal > c.lastDate) c.lastDate = q.tanggal;
+            if (!c.address && q.kepadaAlamatLines?.[0]) c.address = q.kepadaAlamatLines[0];
+            if (!c.wa && q.kepadaWa) c.wa = q.kepadaWa;
+        });
+
+        // Attach checklists
+        checklists.forEach(cl => {
+            const c = map.get(cl.customerId);
+            if (c) c.checklists.push(cl);
+        });
+
+        return map;
+    }, [quotations, checklists]);
 
     let customers = Array.from(customerMap.values());
 
@@ -190,9 +480,11 @@ export function CustomersPage() {
         return b.lastDate.getTime() - a.lastDate.getTime();
     });
 
-    const totalCustomers = customerMap.size;
-    const withApproved   = Array.from(customerMap.values()).filter(c => c.totalApproved > 0).length;
-    const totalRevenue   = Array.from(customerMap.values()).reduce((s, c) => s + c.totalRevenue, 0);
+    const totalCustomers  = customerMap.size;
+    const withDeal        = Array.from(customerMap.values()).filter(c => c.totalDeal > 0).length;
+    const totalRevenue    = Array.from(customerMap.values()).reduce((s, c) => s + c.totalRevenue, 0);
+    const activeWarranties = Array.from(customerMap.values()).filter(c => c.activeWarranty?.isActive).length;
+    const expiringWarranties = Array.from(customerMap.values()).filter(c => c.activeWarranty && c.activeWarranty.isActive && c.activeWarranty.daysRemaining <= 90).length;
 
     return (
         <div className="p-4 md:p-6 max-w-screen-lg mx-auto space-y-5">
@@ -208,20 +500,37 @@ export function CustomersPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="bg-white border border-slate-200 rounded-xl p-3">
                     <p className="text-2xl font-bold text-slate-800">{totalCustomers}</p>
                     <p className="text-xs text-slate-500 mt-0.5">Total Klien</p>
                 </div>
                 <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
-                    <p className="text-2xl font-bold text-emerald-700">{withApproved}</p>
+                    <p className="text-2xl font-bold text-emerald-700">{withDeal}</p>
                     <p className="text-xs text-slate-500 mt-0.5">Ada Deal</p>
                 </div>
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
                     <p className="text-sm font-bold text-blue-700 truncate">{formatRupiah(totalRevenue)}</p>
                     <p className="text-xs text-slate-500 mt-0.5">Total Revenue</p>
                 </div>
+                <div className={`border rounded-xl p-3 ${expiringWarranties > 0 ? "bg-amber-50 border-amber-100" : "bg-purple-50 border-purple-100"}`}>
+                    <p className={`text-2xl font-bold ${expiringWarranties > 0 ? "text-amber-700" : "text-purple-700"}`}>{activeWarranties}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Garansi Aktif{expiringWarranties > 0 ? ` (${expiringWarranties} segera habis)` : ""}</p>
+                </div>
             </div>
+
+            {/* Expiring warranty alert */}
+            {expiringWarranties > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+                    <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                        <p className="text-sm font-bold text-amber-800">Garansi akan segera habis</p>
+                        <p className="text-xs text-amber-700 mt-0.5">
+                            {expiringWarranties} pelanggan memiliki garansi yang akan habis dalam 90 hari. Hubungi mereka untuk renewal.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Search + Sort */}
             <div className="flex gap-2 flex-wrap">
@@ -270,16 +579,29 @@ export function CustomersPage() {
                 <div className="space-y-3">
                     {customers.map(c => (
                         <CustomerCard
-                            key={c.name}
+                            key={c.id}
                             customer={c}
-                            expanded={expandedName === c.name}
-                            onToggle={() => setExpandedName(prev => prev === c.name ? null : c.name)}
+                            expanded={expandedId === c.id}
+                            onToggle={() => setExpandedId(prev => prev === c.id ? null : c.id)}
+                            onAddChecklist={() => setChecklistTarget(c)}
                         />
                     ))}
                     <p className="text-xs text-slate-400 text-center pt-1">
                         {customers.length} dari {totalCustomers} klien
                     </p>
                 </div>
+            )}
+
+            {/* Checklist Modal */}
+            {checklistTarget && (
+                <ChecklistModal
+                    customer={checklistTarget}
+                    onClose={() => setChecklistTarget(null)}
+                    onSaved={(entry) => {
+                        setChecklists(prev => [...prev, { ...entry, customerId: checklistTarget.id }]);
+                        setChecklistTarget(null);
+                    }}
+                />
             )}
         </div>
     );

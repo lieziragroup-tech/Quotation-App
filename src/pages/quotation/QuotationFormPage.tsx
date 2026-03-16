@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { commitNomorSurat, previewNomorSurat } from "../../services/nomorSuratService";
-import { saveQuotationBatch } from "../../services/quotationService";
+import { saveQuotationBatch, getQuotations } from "../../services/quotationService";
 import { generateQuotationPDF } from "../../lib/pdfGenerator";
 import { LAYANAN_CONFIG, calcTotals, fmtIDR, TIPE_LABELS, KONDISI_BANGUNAN_LABELS } from "../../lib/quotationConfig";
 import type { JenisLayanan, TipeKontrak, KategoriSurat, QuotationItem, BiayaTambahan, SurveyPhoto, ChemicalItem, KondisiBangunan } from "../../types";
@@ -68,70 +68,14 @@ function Field({ label, required, error, hint, children }: {
 
 const inputCls = "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white text-slate-800";
 
-// ─── MANUAL PERALATAN INPUT ──────────────────────────────────────────────────
-
-function ManualPeralatanInput({ peralatan, onPeralatan, isAR }: {
-    peralatan: string[];
-    onPeralatan: (v: string[]) => void;
-    isAR: boolean;
-}) {
-    const [draft, setDraft] = useState("");
-
-    const addItem = () => {
-        const val = draft.trim();
-        if (!val || peralatan.includes(val)) { setDraft(""); return; }
-        onPeralatan([...peralatan, val]);
-        setDraft("");
-    };
-
-    return (
-        <div>
-            <div className="flex gap-2 mt-1.5">
-                <input
-                    className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
-                    value={draft}
-                    onChange={e => setDraft(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }}
-                    placeholder="Tambah peralatan manual... (Enter)"
-                />
-                <button type="button" onClick={addItem}
-                    className="px-3 py-1.5 text-xs bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 font-medium">
-                    + Tambah
-                </button>
-            </div>
-            {/* Custom items (non-preset) */}
-            {peralatan.filter(p => !PERALATAN_AR.includes(p) && !PERALATAN_PCO.includes(p)).map(item => (
-                <div key={item} className="inline-flex items-center gap-1 mt-1.5 mr-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border bg-blue-50 text-blue-700 border-blue-200">
-                    ✓ {item}
-                    <button type="button" onClick={() => onPeralatan(peralatan.filter(p => p !== item))}
-                        className="ml-1 text-blue-400 hover:text-red-500">✕</button>
-                </div>
-            ))}
-        </div>
-    );
-}
-
 // ─── STEP 1 ───────────────────────────────────────────────────────────────────
 
-const PERALATAN_AR = [
-    "Mesin Bor Listrik", "Mata Bor Beton Ø10mm", "Mata Bor Beton Ø12mm",
-    "Soil Injector / Pompa Injeksi", "Sprayer Punggung", "Selang Injeksi",
-    "APD (Masker, Sarung Tangan, Kacamata)", "Ember / Wadah Larutan",
-    "Semen / Epoxy Penutup Lubang", "Kamera Dokumentasi",
-];
-const PERALATAN_PCO = [
-    "Cold Fogger / ULV Fogger", "Sprayer Pompa (B&G)", "Swing Fog",
-    "Bait Station (Tikus)", "Glue Trap", "Respirator / Masker Gas",
-    "APD (Sarung Tangan, Kacamata)", "Ember / Wadah Larutan",
-    "Tangga / Alat Akses", "Kamera Dokumentasi",
-];
-
-function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangunan,
-    onLayanan, onTipe, onKepada, onPeralatan, onKondisi, errors }: {
+function Step1({ jenisLayanan, tipe, kepada, noPreview, kondisiBangunan,
+    onLayanan, onTipe, onKepada, onKondisi, errors }: {
     jenisLayanan: JenisLayanan; tipe: TipeKontrak; kepada: string; noPreview: string;
-    peralatan: string[]; kondisiBangunan: KondisiBangunan;
+    kondisiBangunan: KondisiBangunan;
     onLayanan: (v: JenisLayanan) => void; onTipe: (v: TipeKontrak) => void;
-    onKepada: (v: string) => void; onPeralatan: (v: string[]) => void;
+    onKepada: (v: string) => void;
     onKondisi: (v: KondisiBangunan) => void;
     errors: Record<string, string>;
 }) {
@@ -142,12 +86,6 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangun
     const arItems  = Object.entries(LAYANAN_CONFIG).filter(([k, c]) => c.isAR && !k.startsWith("ph_"));
     const pcoItems = Object.entries(LAYANAN_CONFIG).filter(([k, c]) => !c.isAR && !k.startsWith("ph_"));
 
-    const presetPeralatan = isPCO ? PERALATAN_PCO : PERALATAN_AR;
-
-    const togglePeralatan = (item: string) =>
-        onPeralatan(peralatan.includes(item)
-            ? peralatan.filter(p => p !== item)
-            : [...peralatan, item]);
 
     const KONDISI_OPTIONS: { val: KondisiBangunan; label: string; desc: string }[] = [
         { val: "pasca_konstruksi", label: "Pasca-Konstruksi", desc: "Bangunan sudah jadi / selesai dibangun" },
@@ -253,30 +191,8 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangun
                     placeholder="Nama klien / perusahaan tujuan" />
             </Field>
 
-            {/* Peralatan */}
-            <Field label="Peralatan yang Dibutuhkan" hint="Klik preset atau ketik manual lalu tekan Enter">
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                    {presetPeralatan.map(item => {
-                        const active = peralatan.includes(item);
-                        return (
-                            <button key={item} type="button" onClick={() => togglePeralatan(item)}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all
-                                    ${active
-                                        ? isAR ? "bg-purple-100 text-purple-700 border-purple-300" : "bg-cyan-100 text-cyan-700 border-cyan-300"
-                                        : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"}`}>
-                                {active ? "✓ " : ""}{item}
-                            </button>
-                        );
-                    })}
-                </div>
-                {/* Manual input */}
-                <ManualPeralatanInput peralatan={peralatan} onPeralatan={onPeralatan} isAR={isAR} />
-                {peralatan.length > 0 && (
-                    <p className="text-[11px] text-slate-400 mt-1">{peralatan.length} item dipilih</p>
-                )}
-            </Field>
 
-            {/* Preview nomor surat */}
+                        {/* Preview nomor surat */}
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Preview Nomor Surat</p>
                 <div className="flex items-center gap-3 flex-wrap">
@@ -305,19 +221,212 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, peralatan, kondisiBangun
 
 // ─── STEP 2 ───────────────────────────────────────────────────────────────────
 
-function Step2({ nama, alamatLines, up, wa, onNama, onAlamat, onUp, onWa, errors }: {
+interface KnownCustomer {
+    name: string;
+    alamatLines: string[];
+    up: string;
+    wa: string;
+    // retreatment history
+    lastNoSurat: string;
+    lastLayanan: string;
+    lastDealAt: Date | null;
+    totalDeal: number;
+}
+
+type HistoryCheckState =
+    | { status: "idle" }
+    | { status: "checking" }
+    | { status: "found"; match: KnownCustomer }
+    | { status: "not_found" }
+    | { status: "name_only"; candidates: KnownCustomer[] };  // nama cocok, alamat beda
+
+function normalizeStr(s: string) {
+    return s.toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function addressMatch(a: string[], b: string[]): boolean {
+    const normA = normalizeStr(a.join(" "));
+    const normB = normalizeStr(b.join(" "));
+    if (!normA || !normB) return false;
+    // at least 60% word overlap
+    const wordsA = new Set(normA.split(" ").filter(w => w.length > 2));
+    const wordsB = new Set(normB.split(" ").filter(w => w.length > 2));
+    if (wordsA.size === 0 || wordsB.size === 0) return false;
+    let overlap = 0;
+    wordsA.forEach(w => { if (wordsB.has(w)) overlap++; });
+    return overlap / Math.max(wordsA.size, wordsB.size) >= 0.5;
+}
+
+function Step2({ nama, alamatLines, up, wa, knownCustomers, onNama, onAlamat, onUp, onWa, errors }: {
     nama: string; alamatLines: string[]; up: string; wa: string;
+    knownCustomers: KnownCustomer[];
     onNama: (v: string) => void; onAlamat: (lines: string[]) => void;
     onUp: (v: string) => void; onWa: (v: string) => void; errors: Record<string, string>;
 }) {
-    const updateLine = (i: number, v: string) => {
-        const lines = [...alamatLines]; lines[i] = v; onAlamat(lines);
+    const [historyState, setHistoryState] = useState<HistoryCheckState>({ status: "idle" });
+    const [filledFrom, setFilledFrom] = useState<string | null>(null);
+
+    // Reset check state when user edits name or address
+    const handleNamaChange = (v: string) => {
+        onNama(v);
+        setFilledFrom(null);
+        setHistoryState({ status: "idle" });
     };
+
+    const handleAlamatChange = (lines: string[]) => {
+        onAlamat(lines);
+        setFilledFrom(null);
+        setHistoryState({ status: "idle" });
+    };
+
+    const checkHistory = () => {
+        if (!nama.trim()) return;
+        setHistoryState({ status: "checking" });
+
+        const normNama = normalizeStr(nama);
+        const byName = knownCustomers.filter(c =>
+            normalizeStr(c.name).includes(normNama) ||
+            normNama.includes(normalizeStr(c.name))
+        );
+
+        if (byName.length === 0) {
+            setHistoryState({ status: "not_found" });
+            return;
+        }
+
+        // Try exact name + address match first
+        const inputAlamat = alamatLines.filter(Boolean);
+        const exactMatch = byName.find(c =>
+            normalizeStr(c.name) === normNama && addressMatch(c.alamatLines, inputAlamat)
+        );
+
+        if (exactMatch) {
+            setHistoryState({ status: "found", match: exactMatch });
+            return;
+        }
+
+        // Name matches but address differs or empty
+        setHistoryState({ status: "name_only", candidates: byName.slice(0, 5) });
+    };
+
+    const fillFromCustomer = (c: KnownCustomer) => {
+        onNama(c.name);
+        if (c.alamatLines.length > 0 && c.alamatLines[0]) onAlamat(c.alamatLines);
+        if (c.up) onUp(c.up);
+        if (c.wa) onWa(c.wa);
+        setFilledFrom(c.name);
+        setHistoryState({ status: "idle" });
+    };
+
+    const updateLine = (i: number, v: string) => {
+        const lines = [...alamatLines]; lines[i] = v; handleAlamatChange(lines);
+    };
+
+    const fmtDate = (d: Date | null) => d
+        ? d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
+        : "—";
+
     return (
         <div className="space-y-5">
             <Field label="Nama Klien / Perusahaan" required error={errors.nama}>
-                <input className={inputCls} value={nama} onChange={e => onNama(e.target.value)}
-                    placeholder="PT Contoh Indonesia / Bapak Ahmad..." />
+                <div className="flex gap-2">
+                    <input className={inputCls} value={nama}
+                        onChange={e => handleNamaChange(e.target.value)}
+                        placeholder="PT Contoh Indonesia / Bapak Ahmad..." />
+                    <button
+                        type="button"
+                        onClick={checkHistory}
+                        disabled={!nama.trim() || historyState.status === "checking"}
+                        title="Cek apakah pelanggan ini pernah ditangani sebelumnya"
+                        className="shrink-0 px-3 py-2 text-xs font-semibold rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                        <Database size={13} />
+                        {historyState.status === "checking" ? "Memeriksa..." : "Cek Riwayat"}
+                    </button>
+                </div>
+
+                {/* History check result */}
+                {historyState.status === "found" && (
+                    <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-3 space-y-2">
+                        <p className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                            <ShieldCheck size={13} /> Retreatment — Pelanggan ditemukan
+                        </p>
+                        <div className="bg-white rounded-lg p-2.5 border border-emerald-100 space-y-1 text-xs">
+                            <div className="flex justify-between">
+                                <span className="text-slate-500">Nama</span>
+                                <span className="font-semibold text-slate-800">{historyState.match.name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-500">Alamat</span>
+                                <span className="font-semibold text-slate-800 text-right max-w-[60%]">{historyState.match.alamatLines[0] || "—"}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-500">Terakhir dikerjakan</span>
+                                <span className="font-semibold text-slate-800">{fmtDate(historyState.match.lastDealAt)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-500">No. surat terakhir</span>
+                                <code className="font-mono text-blue-700 font-bold">{historyState.match.lastNoSurat}</code>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-500">Layanan terakhir</span>
+                                <span className="font-semibold text-slate-700">{historyState.match.lastLayanan}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-500">Total deal</span>
+                                <span className="font-bold text-emerald-700">{historyState.match.totalDeal}x</span>
+                            </div>
+                        </div>
+                        <button type="button" onClick={() => fillFromCustomer(historyState.match)}
+                            className="w-full py-2 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1.5">
+                            <Check size={12} /> Isi Otomatis Data Pelanggan Ini
+                        </button>
+                    </div>
+                )}
+
+                {historyState.status === "not_found" && (
+                    <div className="mt-2 bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center gap-2.5">
+                        <FileCheck2 size={14} className="text-slate-400 shrink-0" />
+                        <div>
+                            <p className="text-xs font-semibold text-slate-600">Pelanggan baru</p>
+                            <p className="text-[11px] text-slate-400">Tidak ditemukan riwayat pekerjaan atas nama ini.</p>
+                        </div>
+                    </div>
+                )}
+
+                {historyState.status === "name_only" && (
+                    <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+                        <p className="text-xs font-bold text-amber-700 flex items-center gap-1.5">
+                            <AlertCircle size={13} /> Nama mirip tapi alamat belum cocok
+                        </p>
+                        <p className="text-[11px] text-amber-600">
+                            Isi alamat terlebih dahulu lalu tekan "Cek Riwayat" lagi, atau pilih salah satu kandidat di bawah:
+                        </p>
+                        <div className="space-y-1.5">
+                            {historyState.candidates.map((c, i) => (
+                                <div key={i} className="bg-white border border-amber-100 rounded-lg p-2.5 space-y-1.5">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-semibold text-slate-800">{c.name}</p>
+                                            <p className="text-[11px] text-slate-500 truncate">{c.alamatLines[0] || "Alamat tidak tersedia"}</p>
+                                            <p className="text-[11px] text-slate-400">{fmtDate(c.lastDealAt)} · <code className="text-blue-600">{c.lastNoSurat}</code> · {c.totalDeal}x deal</p>
+                                        </div>
+                                    </div>
+                                    <button type="button" onClick={() => fillFromCustomer(c)}
+                                        className="w-full py-1.5 text-[11px] font-semibold bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors">
+                                        Pilih & Isi Otomatis
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {filledFrom && historyState.status === "idle" && (
+                    <p className="text-xs text-blue-600 font-medium mt-1 flex items-center gap-1">
+                        ✓ Data diisi dari riwayat: <strong>{filledFrom}</strong>
+                        <button type="button" onClick={() => setFilledFrom(null)} className="text-slate-400 hover:text-red-400 ml-1">✕</button>
+                    </p>
+                )}
             </Field>
 
             <div className="space-y-1.5">
@@ -390,6 +499,17 @@ function Step3({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor, garansiTahu
     const calc = calcTotals({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor: ppnDppFaktor || undefined });
     const totalSetelahPembulatan = calc.total + pembulatanRp;
     const UNITS = ["m2", "m1", "m3", "Kali", "Titik", "Lot", "ls", "Unit"];
+
+    // ── Minimum price guard based on warranty years ──────────────────────────
+    // AR: base margin 30%, each warranty year adds 8% minimum
+    // PCO: base margin 25%, no warranty multiplier
+    const minPriceMultiplier = isAR
+        ? 1.30 + (garansiTahun * 0.08)
+        : 1.25;
+    const estimatedCost = calc.subtotal; // treat subtotal as cost base
+    const minRecommendedPrice = Math.round(estimatedCost * minPriceMultiplier);
+    const isBelowMinPrice = totalSetelahPembulatan > 0 && totalSetelahPembulatan < minRecommendedPrice;
+    const marginPct = estimatedCost > 0 ? Math.round(((totalSetelahPembulatan - estimatedCost) / totalSetelahPembulatan) * 100) : 0;
 
     const updateItem  = (i: number, key: keyof QuotationItem, val: string | number) =>
         onItems(items.map((it, idx) => idx === i ? { ...it, [key]: val } : it));
@@ -594,6 +714,30 @@ function Step3({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor, garansiTahu
                     <span className="text-slate-800">TOTAL</span>
                     <span className="text-green-700 text-base font-mono">{fmtIDR(totalSetelahPembulatan)}</span>
                 </div>
+
+                {/* Margin & minimum price indicator */}
+                {totalSetelahPembulatan > 0 && (
+                    <div className={`mt-3 rounded-xl p-3 border ${isBelowMinPrice ? "bg-red-50 border-red-200" : marginPct >= 35 ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
+                        <div className="flex items-center justify-between mb-1">
+                            <span className={`text-xs font-bold ${isBelowMinPrice ? "text-red-700" : marginPct >= 35 ? "text-emerald-700" : "text-amber-700"}`}>
+                                {isBelowMinPrice ? "⚠ Di bawah harga minimum" : marginPct >= 35 ? "✓ Margin sehat" : "↗ Margin tipis"}
+                            </span>
+                            <span className={`text-xs font-mono font-bold ${isBelowMinPrice ? "text-red-700" : marginPct >= 35 ? "text-emerald-700" : "text-amber-700"}`}>
+                                Margin {marginPct}%
+                            </span>
+                        </div>
+                        {isBelowMinPrice && (
+                            <p className="text-xs text-red-600 mt-0.5">
+                                Min. direkomendasikan: <strong>{fmtIDR(minRecommendedPrice)}</strong>
+                                {isAR && garansiTahun > 0 && ` (termasuk garansi ${garansiTahun} thn)`}
+                            </p>
+                        )}
+                        <div className="w-full bg-white/60 rounded-full h-1.5 mt-2 overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${isBelowMinPrice ? "bg-red-500" : marginPct >= 35 ? "bg-emerald-500" : "bg-amber-400"}`}
+                                style={{ width: `${Math.min(marginPct * 2, 100)}%` }} />
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -1130,6 +1274,36 @@ export function QuotationFormPage() {
 
     const [step, setStep] = useState(0);
 
+    // Load known customers for autocomplete
+    useEffect(() => {
+        if (!user) return;
+        getQuotations({ companyId: user.companyId }).then(quotes => {
+            const map = new Map<string, KnownCustomer>();
+            // Only deals count as "pernah dikerjakan"
+            const deals = quotes
+                .filter(q => q.status === "deal")
+                .sort((a, b) => (b.dealAt?.getTime() ?? 0) - (a.dealAt?.getTime() ?? 0));
+            deals.forEach(q => {
+                const key = q.kepadaNama.trim().toLowerCase();
+                if (!map.has(key)) {
+                    map.set(key, {
+                        name: q.kepadaNama,
+                        alamatLines: q.kepadaAlamatLines ?? [],
+                        up: q.kepadaUp ?? "",
+                        wa: q.kepadaWa ?? "",
+                        lastNoSurat: q.noSurat,
+                        lastLayanan: (LAYANAN_CONFIG[q.jenisLayanan]?.label?.split("—")[1]?.trim()) ?? q.jenisLayanan,
+                        lastDealAt: q.dealAt ?? null,
+                        totalDeal: 0,
+                    });
+                }
+                const c = map.get(key)!;
+                c.totalDeal++;
+            });
+            setKnownCustomers(Array.from(map.values()));
+        }).catch(() => {});
+    }, [user?.uid]);
+
     const [jenisLayanan, setJenisLayanan] = useState<JenisLayanan>("anti_rayap_injeksi");
     const [tipe, setTipe] = useState<TipeKontrak>("U");
     const [kepada, setKepada] = useState("");
@@ -1139,6 +1313,7 @@ export function QuotationFormPage() {
     const [kepadaAlamat, setKepadaAlamat] = useState<string[]>([""]);
     const [kepadaUp, setKepadaUp] = useState("");
     const [kepadaWa, setKepadaWa] = useState("");
+    const [knownCustomers, setKnownCustomers] = useState<KnownCustomer[]>([]);
 
     const [items, setItems] = useState<QuotationItem[]>([{ desc: "", qty: 1, unit: "m2", harga: 0 }]);
     const [biayaTambahan, setBiayaTambahan] = useState<BiayaTambahan[]>([]);
@@ -1292,7 +1467,6 @@ export function QuotationFormPage() {
                 metode: isAR && metode.length > 0 ? metode : undefined,
                 hamaDikendalikan: !isAR ? hamaDikendalikan : undefined,
                 teknikPelaksanaan: !isAR && teknikPelaksanaan.length > 0 ? teknikPelaksanaan : undefined,
-                peralatan: peralatan.length > 0 ? peralatan : undefined,
                 kondisiBangunan: kondisiBangunan || undefined,
             }, nomorEntry.id, pdfBlob);
 
@@ -1349,9 +1523,10 @@ export function QuotationFormPage() {
 
             <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
                 {step === 0 && <Step1 jenisLayanan={jenisLayanan} tipe={tipe} kepada={kepada} noPreview={noPreview}
-                    peralatan={peralatan} kondisiBangunan={kondisiBangunan}
-                    onLayanan={handleLayanan} onTipe={setTipe} onKepada={setKepada} onPeralatan={setPeralatan} onKondisi={setKondisiBangunan} errors={errors} />}
+                    kondisiBangunan={kondisiBangunan}
+                    onLayanan={handleLayanan} onTipe={setTipe} onKepada={setKepada} onKondisi={setKondisiBangunan} errors={errors} />}
                 {step === 1 && <Step2 nama={kepadaNama} alamatLines={kepadaAlamat} up={kepadaUp} wa={kepadaWa}
+                    knownCustomers={knownCustomers}
                     onNama={setKepadaNama} onAlamat={setKepadaAlamat} onUp={setKepadaUp} onWa={setKepadaWa} errors={errors} />}
                 {step === 2 && <Step3 items={items} biayaTambahan={biayaTambahan} diskonPct={diskonPct}
                     ppn={ppn} ppnDppFaktor={ppnDppFaktor} garansiTahun={garansiTahun} jenisGaransi={jenisGaransi}
