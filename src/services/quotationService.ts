@@ -55,6 +55,8 @@ function toQuotation(id: string, data: Record<string, unknown>): Quotation {
         kepadaAlamatLines:  (data.kepadaAlamatLines as string[]) ?? [],
         kepadaUp:           data.kepadaUp as string | undefined,
         kepadaWa:           data.kepadaWa as string | undefined,
+        kepadaLat:          data.kepadaLat as number | undefined,
+        kepadaLng:          data.kepadaLng as number | undefined,
         tanggal:            data.tanggal ? (data.tanggal as Timestamp).toDate() : new Date(),
         items:              (data.items as Quotation["items"]) ?? [],
         biayaTambahan:      (data.biayaTambahan as Quotation["biayaTambahan"]) ?? [],

@@ -24,6 +24,8 @@ export interface QuotationPDFData {
     kepadaAlamatLines: string[];
     kepadaUp?: string;
     kepadaWa?: string;
+    kepadaLat?: number;
+    kepadaLng?: number;
     jenisLayanan: JenisLayanan;
     perihal?: string;
     paragrafPembuka?: string;

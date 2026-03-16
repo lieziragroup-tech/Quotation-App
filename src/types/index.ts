@@ -188,6 +188,8 @@ export interface Quotation {
     kepadaAlamatLines: string[];
     kepadaUp?: string;
     kepadaWa?: string;      // Nomor WhatsApp klien
+    kepadaLat?: number;     // Koordinat GPS - Latitude
+    kepadaLng?: number;     // Koordinat GPS - Longitude
     tanggal: Date;
     items: QuotationItem[];
     biayaTambahan: BiayaTambahan[];

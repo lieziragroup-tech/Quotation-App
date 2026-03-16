@@ -226,6 +226,8 @@ interface KnownCustomer {
     alamatLines: string[];
     up: string;
     wa: string;
+    lat: string;
+    lng: string;
     // retreatment history
     lastNoSurat: string;
     lastLayanan: string;
@@ -257,11 +259,13 @@ function addressMatch(a: string[], b: string[]): boolean {
     return overlap / Math.max(wordsA.size, wordsB.size) >= 0.5;
 }
 
-function Step2({ nama, alamatLines, up, wa, knownCustomers, onNama, onAlamat, onUp, onWa, errors }: {
-    nama: string; alamatLines: string[]; up: string; wa: string;
+function Step2({ nama, alamatLines, up, wa, lat, lng, knownCustomers, onNama, onAlamat, onUp, onWa, onLat, onLng, errors }: {
+    nama: string; alamatLines: string[]; up: string; wa: string; lat: string; lng: string;
     knownCustomers: KnownCustomer[];
     onNama: (v: string) => void; onAlamat: (lines: string[]) => void;
-    onUp: (v: string) => void; onWa: (v: string) => void; errors: Record<string, string>;
+    onUp: (v: string) => void; onWa: (v: string) => void;
+    onLat: (v: string) => void; onLng: (v: string) => void;
+    errors: Record<string, string>;
 }) {
     const [historyState, setHistoryState] = useState<HistoryCheckState>({ status: "idle" });
     const [filledFrom, setFilledFrom] = useState<string | null>(null);
@@ -314,6 +318,8 @@ function Step2({ nama, alamatLines, up, wa, knownCustomers, onNama, onAlamat, on
         if (c.alamatLines.length > 0 && c.alamatLines[0]) onAlamat(c.alamatLines);
         if (c.up) onUp(c.up);
         if (c.wa) onWa(c.wa);
+        if (c.lat) onLat(c.lat);
+        if (c.lng) onLng(c.lng);
         setFilledFrom(c.name);
         setHistoryState({ status: "idle" });
     };
@@ -473,6 +479,28 @@ function Step2({ nama, alamatLines, up, wa, knownCustomers, onNama, onAlamat, on
                         target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 mt-1.5 text-xs text-green-600 font-semibold hover:text-green-700">
                         <MessageCircle size={11} /> Preview link WA →
+                    </a>
+                )}
+            </Field>
+
+            <Field label="Koordinat GPS (opsional)" hint="Untuk klasifikasi wilayah & peta. Bisa dari Google Maps → klik kanan → Salin koordinat">
+                <div className="grid grid-cols-2 gap-2">
+                    <div>
+                        <label className="block text-[10px] text-slate-400 mb-1">Latitude</label>
+                        <input className={inputCls} value={lat} onChange={e => onLat(e.target.value)}
+                            placeholder="-6.2088" type="text" inputMode="decimal" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] text-slate-400 mb-1">Longitude</label>
+                        <input className={inputCls} value={lng} onChange={e => onLng(e.target.value)}
+                            placeholder="106.8456" type="text" inputMode="decimal" />
+                    </div>
+                </div>
+                {lat && lng && (
+                    <a href={`https://www.google.com/maps?q=${lat},${lng}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 mt-1.5 text-xs text-blue-600 font-semibold hover:text-blue-700">
+                        <ExternalLink size={11} /> Verifikasi di Google Maps →
                     </a>
                 )}
             </Field>
@@ -1291,6 +1319,8 @@ export function QuotationFormPage() {
                         alamatLines: q.kepadaAlamatLines ?? [],
                         up: q.kepadaUp ?? "",
                         wa: q.kepadaWa ?? "",
+                        lat: q.kepadaLat ? String(q.kepadaLat) : "",
+                        lng: q.kepadaLng ? String(q.kepadaLng) : "",
                         lastNoSurat: q.noSurat,
                         lastLayanan: (LAYANAN_CONFIG[q.jenisLayanan]?.label?.split("—")[1]?.trim()) ?? q.jenisLayanan,
                         lastDealAt: q.dealAt ?? null,
@@ -1313,6 +1343,8 @@ export function QuotationFormPage() {
     const [kepadaAlamat, setKepadaAlamat] = useState<string[]>([""]);
     const [kepadaUp, setKepadaUp] = useState("");
     const [kepadaWa, setKepadaWa] = useState("");
+    const [kepadaLat, setKepadaLat] = useState("");
+    const [kepadaLng, setKepadaLng] = useState("");
     const [knownCustomers, setKnownCustomers] = useState<KnownCustomer[]>([]);
 
     const [items, setItems] = useState<QuotationItem[]>([{ desc: "", qty: 1, unit: "m2", harga: 0 }]);
@@ -1427,6 +1459,8 @@ export function QuotationFormPage() {
                         kepadaAlamatLines: kepadaAlamat.filter(Boolean),
                         kepadaUp: kepadaUp || undefined,
                         kepadaWa: kepadaWa || undefined,
+                        kepadaLat: kepadaLat ? parseFloat(kepadaLat) : undefined,
+                        kepadaLng: kepadaLng ? parseFloat(kepadaLng) : undefined,
                         jenisLayanan, items, biayaTambahan, diskonPct, ppn,
                         ppnDppFaktor: ppnDppFaktor || undefined,
                         garansiTahun: garansiTahun || undefined,
@@ -1454,6 +1488,8 @@ export function QuotationFormPage() {
                 kepadaAlamatLines: kepadaAlamat.filter(Boolean),
                 kepadaUp: kepadaUp || undefined,
                 kepadaWa: kepadaWa || undefined,
+                kepadaLat: kepadaLat ? parseFloat(kepadaLat) : undefined,
+                kepadaLng: kepadaLng ? parseFloat(kepadaLng) : undefined,
                 tanggal: now, items, biayaTambahan, diskonPct, ppn,
                 ppnDppFaktor: ppnDppFaktor || undefined,
                 garansiTahun: garansiTahun || undefined,
@@ -1526,8 +1562,10 @@ export function QuotationFormPage() {
                     kondisiBangunan={kondisiBangunan}
                     onLayanan={handleLayanan} onTipe={setTipe} onKepada={setKepada} onKondisi={setKondisiBangunan} errors={errors} />}
                 {step === 1 && <Step2 nama={kepadaNama} alamatLines={kepadaAlamat} up={kepadaUp} wa={kepadaWa}
+                    lat={kepadaLat} lng={kepadaLng}
                     knownCustomers={knownCustomers}
-                    onNama={setKepadaNama} onAlamat={setKepadaAlamat} onUp={setKepadaUp} onWa={setKepadaWa} errors={errors} />}
+                    onNama={setKepadaNama} onAlamat={setKepadaAlamat} onUp={setKepadaUp} onWa={setKepadaWa}
+                    onLat={setKepadaLat} onLng={setKepadaLng} errors={errors} />}
                 {step === 2 && <Step3 items={items} biayaTambahan={biayaTambahan} diskonPct={diskonPct}
                     ppn={ppn} ppnDppFaktor={ppnDppFaktor} garansiTahun={garansiTahun} jenisGaransi={jenisGaransi}
                     pembulatanRp={pembulatanRp}

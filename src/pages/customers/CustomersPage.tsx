@@ -4,6 +4,7 @@ import {
     ChevronDown, ChevronUp, CheckCircle2, MessageCircle,
     Shield, Clock, AlertTriangle, CalendarCheck,
     MapPin, ClipboardCheck, Phone, Building2, Wrench,
+    Navigation, ExternalLink,
 } from "lucide-react";
 import { collection, query, where, getDocs, doc, setDoc, Timestamp } from "firebase/firestore";
 import { db } from "../../lib/firebase";
@@ -26,9 +27,39 @@ interface ServiceRecord {
     tanggal: Date; status: string; marketingNama: string;
     garansiTahun?: number; jenisGaransi?: string;
 }
+// ─── WILAYAH CLASSIFIER ──────────────────────────────────────────────────────
+
+function extractWilayah(alamat: string): string {
+    if (!alamat) return "Tidak Diketahui";
+    const l = alamat.toLowerCase();
+    if (l.includes("jakarta utara")  || l.includes("jakut"))           return "Jakarta Utara";
+    if (l.includes("jakarta selatan")|| l.includes("jaksel"))          return "Jakarta Selatan";
+    if (l.includes("jakarta barat")  || l.includes("jakbar"))          return "Jakarta Barat";
+    if (l.includes("jakarta timur")  || l.includes("jaktim"))          return "Jakarta Timur";
+    if (l.includes("jakarta pusat")  || l.includes("jakpus"))          return "Jakarta Pusat";
+    if (l.includes("jakarta"))                                           return "Jakarta";
+    if (l.includes("tangerang selatan") || l.includes("tangsel"))      return "Tangerang Selatan";
+    if (l.includes("tangerang"))                                         return "Tangerang";
+    if (l.includes("pamulang"))                                          return "Tangerang Selatan";
+    if (l.includes("bogor"))                                             return "Bogor";
+    if (l.includes("depok"))                                             return "Depok";
+    if (l.includes("bekasi"))                                            return "Bekasi";
+    if (l.includes("bandung"))                                           return "Bandung";
+    if (l.includes("surabaya"))                                          return "Surabaya";
+    if (l.includes("semarang"))                                          return "Semarang";
+    if (l.includes("medan"))                                             return "Medan";
+    if (l.includes("yogyakarta") || l.includes("jogja"))               return "Yogyakarta";
+    if (l.includes("bali"))                                              return "Bali";
+    const words = alamat.split(/[\s,./]+/).filter(w => w.length > 3);
+    return words[0] ? words[0].charAt(0).toUpperCase() + words[0].slice(1).toLowerCase() : "Lainnya";
+}
+
 interface DerivedCustomer {
     id: string; name: string; address: string; addressFull: string[];
     up?: string; wa: string;
+    wilayah: string;
+    lat?: number;
+    lng?: number;
     services: ServiceRecord[]; totalQuotations: number; totalDeal: number;
     lastServiceDate: Date | null; jasaDigunakan: string[];
     warranties: WarrantyInfo[]; activeWarranty: WarrantyInfo | null;
@@ -158,6 +189,11 @@ function CustomerCard({ customer, expanded, onToggle, onAddChecklist }: {
                     {customer.address && (
                         <p className="text-xs text-slate-400 truncate flex items-center gap-1 mb-0.5">
                             <MapPin size={10} className="shrink-0" /> {customer.address}
+                            {customer.wilayah && customer.wilayah !== "Tidak Diketahui" && (
+                                <span className="ml-1 text-[10px] font-semibold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full shrink-0">
+                                    {customer.wilayah}
+                                </span>
+                            )}
                         </p>
                     )}
                     {customer.wa && (
@@ -198,6 +234,35 @@ function CustomerCard({ customer, expanded, onToggle, onAddChecklist }: {
                         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1">
                             <Building2 size={10} /> Informasi Klien
                         </p>
+                        {customer.wilayah && customer.wilayah !== "Tidak Diketahui" && (
+                            <div className="flex items-center gap-2 text-xs mb-1">
+                                <MapPin size={12} className="text-blue-400 shrink-0" />
+                                <span className="text-slate-600">Wilayah: <strong className="text-blue-600">{customer.wilayah}</strong></span>
+                            </div>
+                        )}
+                        {customer.lat && customer.lng ? (
+                            <div className="flex items-center gap-2 text-xs">
+                                <Navigation size={12} className="text-emerald-500 shrink-0" />
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-slate-500 font-mono">{customer.lat.toFixed(6)}, {customer.lng.toFixed(6)}</span>
+                                    <a href={`https://www.google.com/maps?q=${customer.lat},${customer.lng}`}
+                                        target="_blank" rel="noopener noreferrer"
+                                        className="text-blue-600 hover:underline font-semibold text-[10px] flex items-center gap-0.5">
+                                        <ExternalLink size={10}/> Lihat di Maps
+                                    </a>
+                                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${customer.lat},${customer.lng}`}
+                                        target="_blank" rel="noopener noreferrer"
+                                        className="text-emerald-600 hover:underline font-semibold text-[10px] flex items-center gap-0.5">
+                                        <Navigation size={10}/> Navigasi
+                                    </a>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 text-xs">
+                                <Navigation size={12} className="text-slate-300 shrink-0" />
+                                <span className="text-slate-300 italic">Koordinat belum diisi</span>
+                            </div>
+                        )}
                         {customer.addressFull.filter(Boolean).length > 0 && (
                             <div className="flex items-start gap-2 text-xs">
                                 <MapPin size={12} className="text-slate-400 shrink-0 mt-0.5" />
@@ -330,7 +395,7 @@ export function CustomersPage() {
     const [loading, setLoading] = useState(true);
     const [searchQ, setSearchQ] = useState("");
     const [expandedId, setExpandedId] = useState<string | null>(null);
-    const [sortBy, setSortBy] = useState<"date" | "name" | "deal">("date");
+    const [sortBy, setSortBy] = useState<"date" | "name" | "deal" | "area">("date");
     const [filterWarranty, setFilterWarranty] = useState(false);
     const [checklistTarget, setChecklistTarget] = useState<DerivedCustomer | null>(null);
 
@@ -372,11 +437,15 @@ export function CustomersPage() {
         quotations.forEach(q => {
             const key = q.kepadaNama.trim().toLowerCase().replace(/\s+/g, "_");
             if (!map.has(key)) {
+                const addr0 = q.kepadaAlamatLines?.[0] ?? "";
                 map.set(key, {
                     id: key, name: q.kepadaNama,
-                    address: q.kepadaAlamatLines?.[0] ?? "",
+                    address: addr0,
                     addressFull: q.kepadaAlamatLines ?? [],
                     up: q.kepadaUp, wa: q.kepadaWa ?? "",
+                    wilayah: extractWilayah(addr0),
+                    lat: q.kepadaLat,
+                    lng: q.kepadaLng,
                     services: [], totalQuotations: 0, totalDeal: 0,
                     lastServiceDate: null, jasaDigunakan: [],
                     warranties: [], activeWarranty: null, checklists: [],
@@ -423,6 +492,10 @@ export function CustomersPage() {
             }
             if (!c.up && q.kepadaUp) c.up = q.kepadaUp;
             if (!c.wa && q.kepadaWa) c.wa = q.kepadaWa;
+            if (!c.lat && q.kepadaLat) c.lat = q.kepadaLat;
+            if (!c.lng && q.kepadaLng) c.lng = q.kepadaLng;
+            // Re-compute wilayah if we now have better address
+            if (c.wilayah === "Tidak Diketahui" && c.address) c.wilayah = extractWilayah(c.address);
         });
 
         checklists.forEach(cl => {
@@ -440,12 +513,14 @@ export function CustomersPage() {
         customers = customers.filter(c =>
             c.name.toLowerCase().includes(s) ||
             c.address.toLowerCase().includes(s) ||
+            c.wilayah.toLowerCase().includes(s) ||
             c.jasaDigunakan.some(j => j.toLowerCase().includes(s))
         );
     }
     customers.sort((a, b) =>
-        sortBy === "name" ? a.name.localeCompare(b.name)
-        : sortBy === "deal" ? b.totalDeal - a.totalDeal
+        sortBy === "name"    ? a.name.localeCompare(b.name)
+        : sortBy === "deal"  ? b.totalDeal - a.totalDeal
+        : sortBy === "area"  ? a.wilayah.localeCompare(b.wilayah)
         : b.services[0]?.tanggal?.getTime() - a.services[0]?.tanggal?.getTime()
     );
 
@@ -500,7 +575,7 @@ export function CustomersPage() {
                 <div className="flex items-center gap-2 flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-blue-100">
                     <Search size={14} className="text-slate-400 shrink-0" />
                     <input className="flex-1 text-sm bg-transparent outline-none text-slate-800 placeholder:text-slate-400 min-w-0"
-                        placeholder="Cari nama, alamat, atau jenis jasa..."
+                        placeholder="Cari nama, alamat, wilayah, atau jenis jasa..."
                         value={searchQ} onChange={e => setSearchQ(e.target.value)} />
                     {searchQ && <button onClick={() => setSearchQ("")} className="text-slate-400 hover:text-slate-600 shrink-0"><X size={13} /></button>}
                 </div>
@@ -513,6 +588,7 @@ export function CustomersPage() {
                     <option value="date">Terbaru</option>
                     <option value="deal">Terbanyak Deal</option>
                     <option value="name">Nama A-Z</option>
+                    <option value="area">Per Wilayah</option>
                 </select>
                 <button onClick={load} disabled={loading}
                     className="p-2 border border-slate-200 bg-white text-slate-500 rounded-xl hover:bg-slate-50 shrink-0">

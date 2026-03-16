@@ -8,7 +8,7 @@ import { ROLE_LABELS, cn } from "../../lib/utils";
 import {
     Send, ClipboardList, LayoutDashboard, FileText, Users,
     DollarSign, Settings, LogOut, ShieldCheck,
-    TrendingUp, User, Hash, Menu, X, MapPin,
+    TrendingUp, User, Hash, Menu, X,
 } from "lucide-react";
 
 // Separator sebagai penanda grup
@@ -29,7 +29,6 @@ const NAV_ITEMS: NavEntry[] = [
     // ── Klien ─────────────────────────────────────────────────────────────────
     { type: "group", label: "Klien" },
     { to: "/customers",       icon: <Users size={18} />,           label: "Pelanggan",        roles: ["administrator", "admin_ops", "marketing"] },
-    { to: "/area",            icon: <MapPin size={18} />,          label: "Area Lokasi",      roles: ["administrator", "admin_ops"] },
 
     // ── Laporan ───────────────────────────────────────────────────────────────
     { type: "group", label: "Laporan" },
