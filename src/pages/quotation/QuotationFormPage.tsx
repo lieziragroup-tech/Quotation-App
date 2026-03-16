@@ -5,7 +5,7 @@ import {
     Plus, Trash2, Loader2, AlertCircle,
     Clock, ExternalLink, Hash,
     FileCheck2, Database, ShieldCheck,
-    Camera, X, FlaskConical, ChevronDown, ChevronUp, MessageCircle,
+    Camera, X, FlaskConical, ChevronDown, ChevronUp, MessageCircle, MapPin,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { commitNomorSurat, previewNomorSurat } from "../../services/nomorSuratService";
@@ -214,6 +214,113 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, kondisiBangunan,
                 </div>
                 <p className="text-xs text-slate-400 mt-2">Perihal: <em>{LAYANAN_CONFIG[jenisLayanan]?.perihal}</em></p>
             </div>
+        </div>
+    );
+}
+
+// ─── ADDRESS SEARCH (Nominatim / OpenStreetMap) ──────────────────────────────
+
+interface NominatimResult {
+    place_id: number;
+    display_name: string;
+    address: {
+        road?: string; suburb?: string; city_district?: string;
+        city?: string; town?: string; village?: string;
+        state?: string; postcode?: string; country?: string;
+    };
+}
+
+function AddressSearch({ onSelect }: {
+    onSelect: (displayName: string, lines: string[]) => void;
+}) {
+    const [query, setQuery] = useState("");
+    const [results, setResults] = useState<NominatimResult[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const search = async (q: string) => {
+        if (q.length < 3) { setResults([]); return; }
+        setLoading(true);
+        try {
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=6&countrycodes=id&accept-language=id`;
+            const res = await fetch(url, { headers: { "User-Agent": "ERP-PestControl/1.0" } });
+            const data: NominatimResult[] = await res.json();
+            setResults(data);
+            setShowDropdown(true);
+        } catch {
+            setResults([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleChange = (v: string) => {
+        setQuery(v);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => search(v), 400);
+    };
+
+    const handleSelect = (r: NominatimResult) => {
+        const a = r.address;
+        const lines: string[] = [];
+        const street = [a.road, a.suburb, a.city_district].filter(Boolean).join(", ");
+        if (street) lines.push(street);
+        const city = a.city || a.town || a.village || "";
+        const state = a.state || "";
+        const postal = a.postcode || "";
+        const cityLine = [city, state, postal].filter(Boolean).join(", ");
+        if (cityLine) lines.push(cityLine);
+        if (!lines.length) lines.push(r.display_name.split(",").slice(0,3).join(",").trim());
+        onSelect(r.display_name, lines);
+        setQuery("");
+        setResults([]);
+        setShowDropdown(false);
+    };
+
+    return (
+        <div className="relative">
+            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">
+                Cari Alamat Otomatis
+            </label>
+            <div className="relative">
+                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <MapPin size={14} className="text-blue-400" />
+                </div>
+                <input
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white text-slate-800 placeholder:text-slate-400"
+                    value={query}
+                    onChange={e => handleChange(e.target.value)}
+                    onFocus={() => results.length > 0 && setShowDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                    placeholder="Ketik nama jalan, gedung, atau lokasi..."
+                />
+                {loading && (
+                    <div className="absolute inset-y-0 right-3 flex items-center">
+                        <Loader2 size={13} className="animate-spin text-blue-400" />
+                    </div>
+                )}
+            </div>
+            {showDropdown && results.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-blue-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+                    <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 bg-blue-50 border-b border-blue-100 flex items-center gap-1">
+                        <MapPin size={9} /> {results.length} lokasi ditemukan — klik untuk isi otomatis
+                    </p>
+                    {results.map(r => (
+                        <button key={r.place_id} type="button"
+                            onMouseDown={() => handleSelect(r)}
+                            className="w-full px-3 py-2.5 text-left hover:bg-blue-50 transition-colors border-b border-slate-50 last:border-0">
+                            <p className="text-xs font-semibold text-slate-800 leading-snug line-clamp-2">{r.display_name}</p>
+                        </button>
+                    ))}
+                    <p className="px-3 py-1.5 text-[10px] text-slate-400 bg-slate-50 flex items-center gap-1">
+                        © OpenStreetMap contributors
+                    </p>
+                </div>
+            )}
+            {query.length >= 1 && query.length < 3 && (
+                <p className="text-[11px] text-slate-400 mt-1">Ketik minimal 3 karakter untuk mencari...</p>
+            )}
         </div>
     );
 }
@@ -452,25 +559,7 @@ function Step2({ nama, alamatLines, up, wa, knownCustomers, onNama, onAlamat, on
                 </button>
             </div>
 
-            {/* Google Maps link untuk cari alamat */}
-            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-start gap-3">
-                <div className="shrink-0 mt-0.5 text-blue-500">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                    </svg>
-                </div>
-                <div className="flex-1">
-                    <p className="text-xs font-bold text-blue-700 mb-0.5">Cari Lokasi via Google Maps</p>
-                    <p className="text-[11px] text-blue-600 mb-2">Cari alamat klien, lalu salin ke kolom alamat di atas.</p>
-                    <a
-                        href="https://maps.google.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-colors">
-                        <ExternalLink size={11} /> Buka Google Maps
-                    </a>
-                </div>
-            </div>
+            <AddressSearch onSelect={(_display, lines) => onAlamat(lines)} />
 
             <Field label="U.p. / Contact Person" error={errors.up}>
                 <input className={inputCls} value={up} onChange={e => onUp(e.target.value)}
@@ -1054,7 +1143,7 @@ function Step5({ noSurat, jenisLayanan, tipe, kepadaNama, kepadaAlamatLines, tot
 // ─── GENERATING OVERLAY ──────────────────────────────────────────────────────
 // Full-screen lock overlay yang muncul saat PDF sedang di-generate & disimpan.
 
-type GenStep = "idle" | "nomor" | "pdf" | "db" | "done" | "error";
+type GenStep = "idle" | "nomor" | "db" | "done" | "error";
 
 interface GenState {
     step: GenStep;
@@ -1069,12 +1158,6 @@ const GEN_STEPS: { key: GenStep; label: string; sublabel: string; icon: React.Re
         icon: <Hash size={18} />,
     },
     {
-        key: "pdf",
-        label: "Membuat PDF",
-        sublabel: "Menyusun dan merender dokumen PDF...",
-        icon: <FileCheck2 size={18} />,
-    },
-    {
         key: "db",
         label: "Menyimpan ke database",
         sublabel: "Mencatat quotation ke Firestore...",
@@ -1083,7 +1166,7 @@ const GEN_STEPS: { key: GenStep; label: string; sublabel: string; icon: React.Re
     {
         key: "done",
         label: "Selesai!",
-        sublabel: "Quotation berhasil dibuat dan menunggu approval.",
+        sublabel: "Data tersimpan. Menunggu persetujuan admin untuk generate PDF.",
         icon: <ShieldCheck size={18} />,
     },
 ];
@@ -1091,7 +1174,7 @@ const GEN_STEPS: { key: GenStep; label: string; sublabel: string; icon: React.Re
 function GeneratingOverlay({ genState }: { genState: GenState }) {
     if (genState.step === "idle") return null;
 
-    const stepOrder: GenStep[] = ["nomor", "pdf", "db", "done"];
+    const stepOrder: GenStep[] = ["nomor", "db", "done"];
     const currentIdx = stepOrder.indexOf(genState.step);
 
     return (

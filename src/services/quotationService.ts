@@ -266,6 +266,24 @@ export async function saveQuotationDraft(
     return { ...data, id: quoRef.id, pdfBase64: undefined, createdAt: now };
 }
 
+// ─── UPDATE QUOTATION DATA (edit sebelum approved) ───────────────────────────
+export async function updateQuotationData(
+    id: string,
+    data: Partial<Pick<Quotation,
+        "kepadaNama" | "kepadaAlamatLines" | "kepadaUp" | "kepadaWa" |
+        "items" | "biayaTambahan" | "diskonPct" | "ppn" | "ppnDppFaktor" |
+        "garansiTahun" | "jenisGaransi" | "subtotal" | "diskonRp" | "ppnRp" | "total" |
+        "surveyPhotos" | "chemicals" | "metode" | "hamaDikendalikan" | "teknikPelaksanaan" |
+        "kondisiBangunan" | "pembulatanRp" | "notesMarketing"
+    >>
+): Promise<void> {
+    const { updateDoc } = await import("firebase/firestore");
+    const clean = Object.fromEntries(
+        Object.entries(data).map(([k, v]) => [k, v === undefined ? null : v])
+    );
+    await updateDoc(doc(db, COL, id), clean);
+}
+
 // ─── GENERATE & ATTACH PDF after approval ────────────────────────────────────
 export async function attachPdfToQuotation(id: string, pdfBase64: string): Promise<void> {
     const { updateDoc } = await import("firebase/firestore");
