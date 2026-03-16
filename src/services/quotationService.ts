@@ -274,7 +274,7 @@ export async function updateQuotationData(
         "items" | "biayaTambahan" | "diskonPct" | "ppn" | "ppnDppFaktor" |
         "garansiTahun" | "jenisGaransi" | "subtotal" | "diskonRp" | "ppnRp" | "total" |
         "surveyPhotos" | "chemicals" | "metode" | "hamaDikendalikan" | "teknikPelaksanaan" |
-        "kondisiBangunan" | "pembulatanRp" | "notesMarketing"
+        "kondisiBangunan" | "notesMarketing"
     >>
 ): Promise<void> {
     const { updateDoc } = await import("firebase/firestore");
