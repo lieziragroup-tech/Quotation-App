@@ -82,6 +82,8 @@ function toQuotation(id: string, data: Record<string, unknown>): Quotation {
         signedBy:           data.signedBy as string | undefined,
         companyId:          data.companyId as string,
         createdAt:          data.createdAt ? (data.createdAt as Timestamp).toDate() : new Date(),
+        dealAt:             data.dealAt ? (data.dealAt as Timestamp).toDate() : undefined,
+        sentToClientAt:     data.sentToClientAt ? (data.sentToClientAt as Timestamp).toDate() : undefined,
     };
 }
 
@@ -154,7 +156,7 @@ export async function getQuotations(filters: GetQuotationsFilters): Promise<Quot
         try {
             results.push(toQuotation(d.id, d.data() as Record<string, unknown>));
         } catch (e) {
-            console.warn('[getQuotations] skip doc', d.id, e);
+            console.error('[getQuotations] ERROR parsing doc', d.id, e, d.data());
         }
     }
 

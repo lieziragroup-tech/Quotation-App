@@ -291,6 +291,7 @@ export function CustomersPage() {
                 getQuotations({ companyId: user.companyId, byUid: canSeeAll ? undefined : user.uid }),
                 getDocs(query(collection(db, "customerChecklists"), where("companyId","==",user.companyId))),
             ]);
+            console.log('[CustomersPage] quotations loaded:', quotesData.length, quotesData.map(q=>q.kepadaNama));
             setQuotations(quotesData);
             setChecklists(checkSnap.docs.map(d => {
                 const x = d.data();
