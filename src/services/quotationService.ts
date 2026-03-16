@@ -55,8 +55,6 @@ function toQuotation(id: string, data: Record<string, unknown>): Quotation {
         kepadaAlamatLines:  (data.kepadaAlamatLines as string[]) ?? [],
         kepadaUp:           data.kepadaUp as string | undefined,
         kepadaWa:           data.kepadaWa as string | undefined,
-        kepadaLat:          data.kepadaLat as number | undefined,
-        kepadaLng:          data.kepadaLng as number | undefined,
         tanggal:            data.tanggal ? (data.tanggal as Timestamp).toDate() : new Date(),
         items:              (data.items as Quotation["items"]) ?? [],
         biayaTambahan:      (data.biayaTambahan as Quotation["biayaTambahan"]) ?? [],
@@ -235,6 +233,45 @@ export async function updateQuotationStatus(
 // ─── LEGACY COMPAT (kalau ada code lain yang masih pakai createQuotation) ─────
 
 export { saveQuotationBatch as addQuotationDoc };
+
+// ─── SAVE DRAFT (no PDF — used in new flow) ───────────────────────────────────
+// Marketing/Admin fills form → saved as pending with NO pdf yet.
+// PDF is generated only after admin approves.
+export async function saveQuotationDraft(
+    data: Omit<Quotation, "id" | "createdAt" | "pdfBase64" | "pdfUrl">,
+    nomorSuratLogId: string,
+): Promise<Quotation> {
+    const now = new Date();
+    const batch = writeBatch(db);
+
+    const raw: Record<string, unknown> = {
+        ...data,
+        pdfBase64:  null,
+        pdfUrl:     null,
+        tanggal:    Timestamp.fromDate(data.tanggal),
+        createdAt:  Timestamp.fromDate(now),
+        approvedAt: data.approvedAt ? Timestamp.fromDate(data.approvedAt) : null,
+    };
+    const clean = Object.fromEntries(
+        Object.entries(raw).map(([k, v]) => [k, v === undefined ? null : v])
+    );
+    const quoRef = doc(collection(db, COL));
+    batch.set(quoRef, clean);
+
+    const logRef = doc(db, "nomorSuratLog", nomorSuratLogId);
+    batch.update(logRef, { status: "pending", quoId: quoRef.id });
+
+    await batch.commit();
+
+    return { ...data, id: quoRef.id, pdfBase64: undefined, createdAt: now };
+}
+
+// ─── GENERATE & ATTACH PDF after approval ────────────────────────────────────
+export async function attachPdfToQuotation(id: string, pdfBase64: string): Promise<void> {
+    const { updateDoc } = await import("firebase/firestore");
+    await updateDoc(doc(db, COL, id), { pdfBase64 });
+}
+
 // ─── DELETE ───────────────────────────────────────────────────────────────────
 
 export async function deleteQuotation(id: string): Promise<void> {

@@ -8,7 +8,9 @@ import {
     PenLine, MessageSquare, AlertCircle, Trash2, Send, MessageCircle,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
-import { getQuotations, updateQuotationStatus, deleteQuotation } from "../../services/quotationService";
+import { getQuotations, updateQuotationStatus, deleteQuotation, attachPdfToQuotation } from "../../services/quotationService";
+import { generateQuotationPDF } from "../../lib/pdfGenerator";
+import { blobToBase64 } from "../../services/quotationService";
 import { LAYANAN_CONFIG } from "../../lib/quotationConfig";
 import { formatDate, formatRupiah } from "../../lib/utils";
 import type { Quotation, QuotationStatus, KategoriSurat, TipeKontrak } from "../../types";
@@ -476,7 +478,44 @@ export function QuotationPage() {
         if (!approveTarget) return;
         setActionLoading(approveTarget.id);
         try {
-            await updateQuotationStatus(approveTarget.id, "approved", user?.name);
+            const q = approveTarget;
+
+            // Step 1: Update status to approved
+            await updateQuotationStatus(q.id, "approved", user?.name);
+
+            // Step 2: Generate PDF now that it's approved
+            try {
+                const pdfBlob = generateQuotationPDF({
+                    noSurat:           q.noSurat,
+                    tanggal:           q.tanggal,
+                    kepadaNama:        q.kepadaNama,
+                    kepadaAlamatLines: q.kepadaAlamatLines,
+                    kepadaUp:          q.kepadaUp,
+                    kepadaWa:          q.kepadaWa,
+                    jenisLayanan:      q.jenisLayanan,
+                    perihal:           q.perihal,
+                    items:             q.items,
+                    biayaTambahan:     q.biayaTambahan,
+                    diskonPct:         q.diskonPct,
+                    ppn:               q.ppn,
+                    ppnDppFaktor:      q.ppnDppFaktor,
+                    garansiTahun:      q.garansiTahun,
+                    jenisGaransi:      q.jenisGaransi,
+                    marketingNama:     q.marketingNama,
+                    marketingWa:       q.marketingWa,
+                    surveyPhotos:      q.surveyPhotos,
+                    chemicals:         q.chemicals,
+                    metode:            q.metode,
+                    hamaDikendalikan:  q.hamaDikendalikan,
+                    teknikPelaksanaan: q.teknikPelaksanaan,
+                });
+                const pdfBase64 = await blobToBase64(pdfBlob);
+                await attachPdfToQuotation(q.id, pdfBase64);
+            } catch (pdfErr) {
+                console.error("[handleApprove] PDF generation failed:", pdfErr);
+                // Approval already done — PDF can be regenerated later
+            }
+
             setApproveTarget(null);
             await load();
         } finally {

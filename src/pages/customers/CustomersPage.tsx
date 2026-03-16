@@ -58,8 +58,6 @@ interface DerivedCustomer {
     id: string; name: string; address: string; addressFull: string[];
     up?: string; wa: string;
     wilayah: string;
-    lat?: number;
-    lng?: number;
     services: ServiceRecord[]; totalQuotations: number; totalDeal: number;
     lastServiceDate: Date | null; jasaDigunakan: string[];
     warranties: WarrantyInfo[]; activeWarranty: WarrantyInfo | null;
@@ -240,27 +238,21 @@ function CustomerCard({ customer, expanded, onToggle, onAddChecklist }: {
                                 <span className="text-slate-600">Wilayah: <strong className="text-blue-600">{customer.wilayah}</strong></span>
                             </div>
                         )}
-                        {customer.lat && customer.lng ? (
+                        {customer.address && (
                             <div className="flex items-center gap-2 text-xs">
-                                <Navigation size={12} className="text-emerald-500 shrink-0" />
+                                <Navigation size={12} className="text-blue-500 shrink-0" />
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-slate-500 font-mono">{customer.lat.toFixed(6)}, {customer.lng.toFixed(6)}</span>
-                                    <a href={`https://www.google.com/maps?q=${customer.lat},${customer.lng}`}
+                                    <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.addressFull.filter(Boolean).join(", "))}`}
                                         target="_blank" rel="noopener noreferrer"
                                         className="text-blue-600 hover:underline font-semibold text-[10px] flex items-center gap-0.5">
                                         <ExternalLink size={10}/> Lihat di Maps
                                     </a>
-                                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${customer.lat},${customer.lng}`}
+                                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.addressFull.filter(Boolean).join(", "))}`}
                                         target="_blank" rel="noopener noreferrer"
                                         className="text-emerald-600 hover:underline font-semibold text-[10px] flex items-center gap-0.5">
                                         <Navigation size={10}/> Navigasi
                                     </a>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-2 text-xs">
-                                <Navigation size={12} className="text-slate-300 shrink-0" />
-                                <span className="text-slate-300 italic">Koordinat belum diisi</span>
                             </div>
                         )}
                         {customer.addressFull.filter(Boolean).length > 0 && (
@@ -455,8 +447,6 @@ export function CustomersPage() {
                     addressFull: q.kepadaAlamatLines ?? [],
                     up: q.kepadaUp, wa: q.kepadaWa ?? "",
                     wilayah: extractWilayah(addr0),
-                    lat: q.kepadaLat,
-                    lng: q.kepadaLng,
                     services: [], totalQuotations: 0, totalDeal: 0,
                     lastServiceDate: null, jasaDigunakan: [],
                     warranties: [], activeWarranty: null, checklists: [],
@@ -503,8 +493,6 @@ export function CustomersPage() {
             }
             if (!c.up && q.kepadaUp) c.up = q.kepadaUp;
             if (!c.wa && q.kepadaWa) c.wa = q.kepadaWa;
-            if (!c.lat && q.kepadaLat) c.lat = q.kepadaLat;
-            if (!c.lng && q.kepadaLng) c.lng = q.kepadaLng;
             // Re-compute wilayah if we now have better address
             if (c.wilayah === "Tidak Diketahui" && c.address) c.wilayah = extractWilayah(c.address);
         });

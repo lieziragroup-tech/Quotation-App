@@ -9,8 +9,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { commitNomorSurat, previewNomorSurat } from "../../services/nomorSuratService";
-import { saveQuotationBatch, getQuotations } from "../../services/quotationService";
-import { generateQuotationPDF } from "../../lib/pdfGenerator";
+import { saveQuotationDraft, getQuotations } from "../../services/quotationService";
 import { LAYANAN_CONFIG, calcTotals, fmtIDR, TIPE_LABELS, KONDISI_BANGUNAN_LABELS } from "../../lib/quotationConfig";
 import type { JenisLayanan, TipeKontrak, KategoriSurat, QuotationItem, BiayaTambahan, SurveyPhoto, ChemicalItem, KondisiBangunan } from "../../types";
 import {
@@ -226,8 +225,6 @@ interface KnownCustomer {
     alamatLines: string[];
     up: string;
     wa: string;
-    lat: string;
-    lng: string;
     // retreatment history
     lastNoSurat: string;
     lastLayanan: string;
@@ -259,12 +256,11 @@ function addressMatch(a: string[], b: string[]): boolean {
     return overlap / Math.max(wordsA.size, wordsB.size) >= 0.5;
 }
 
-function Step2({ nama, alamatLines, up, wa, lat, lng, knownCustomers, onNama, onAlamat, onUp, onWa, onLat, onLng, errors }: {
-    nama: string; alamatLines: string[]; up: string; wa: string; lat: string; lng: string;
+function Step2({ nama, alamatLines, up, wa, knownCustomers, onNama, onAlamat, onUp, onWa, errors }: {
+    nama: string; alamatLines: string[]; up: string; wa: string;
     knownCustomers: KnownCustomer[];
     onNama: (v: string) => void; onAlamat: (lines: string[]) => void;
     onUp: (v: string) => void; onWa: (v: string) => void;
-    onLat: (v: string) => void; onLng: (v: string) => void;
     errors: Record<string, string>;
 }) {
     const [historyState, setHistoryState] = useState<HistoryCheckState>({ status: "idle" });
@@ -318,8 +314,6 @@ function Step2({ nama, alamatLines, up, wa, lat, lng, knownCustomers, onNama, on
         if (c.alamatLines.length > 0 && c.alamatLines[0]) onAlamat(c.alamatLines);
         if (c.up) onUp(c.up);
         if (c.wa) onWa(c.wa);
-        if (c.lat) onLat(c.lat);
-        if (c.lng) onLng(c.lng);
         setFilledFrom(c.name);
         setHistoryState({ status: "idle" });
     };
@@ -458,6 +452,26 @@ function Step2({ nama, alamatLines, up, wa, lat, lng, knownCustomers, onNama, on
                 </button>
             </div>
 
+            {/* Google Maps link untuk cari alamat */}
+            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-start gap-3">
+                <div className="shrink-0 mt-0.5 text-blue-500">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                </div>
+                <div className="flex-1">
+                    <p className="text-xs font-bold text-blue-700 mb-0.5">Cari Lokasi via Google Maps</p>
+                    <p className="text-[11px] text-blue-600 mb-2">Cari alamat klien, lalu salin ke kolom alamat di atas.</p>
+                    <a
+                        href="https://maps.google.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-colors">
+                        <ExternalLink size={11} /> Buka Google Maps
+                    </a>
+                </div>
+            </div>
+
             <Field label="U.p. / Contact Person" error={errors.up}>
                 <input className={inputCls} value={up} onChange={e => onUp(e.target.value)}
                     placeholder="Bpk. Ahmad Santoso (opsional)" />
@@ -483,27 +497,6 @@ function Step2({ nama, alamatLines, up, wa, lat, lng, knownCustomers, onNama, on
                 )}
             </Field>
 
-            <Field label="Koordinat GPS (opsional)" hint="Untuk klasifikasi wilayah & peta. Bisa dari Google Maps → klik kanan → Salin koordinat">
-                <div className="grid grid-cols-2 gap-2">
-                    <div>
-                        <label className="block text-[10px] text-slate-400 mb-1">Latitude</label>
-                        <input className={inputCls} value={lat} onChange={e => onLat(e.target.value)}
-                            placeholder="-6.2088" type="text" inputMode="decimal" />
-                    </div>
-                    <div>
-                        <label className="block text-[10px] text-slate-400 mb-1">Longitude</label>
-                        <input className={inputCls} value={lng} onChange={e => onLng(e.target.value)}
-                            placeholder="106.8456" type="text" inputMode="decimal" />
-                    </div>
-                </div>
-                {lat && lng && (
-                    <a href={`https://www.google.com/maps?q=${lat},${lng}`}
-                        target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 mt-1.5 text-xs text-blue-600 font-semibold hover:text-blue-700">
-                        <ExternalLink size={11} /> Verifikasi di Google Maps →
-                    </a>
-                )}
-            </Field>
         </div>
     );
 }
@@ -1245,11 +1238,6 @@ interface SuccessData {
 }
 
 function SuccessScreen({ data, onGoToList }: { data: SuccessData; onGoToList: () => void }) {
-    const handlePreviewLocal = () => {
-        const url = URL.createObjectURL(data.pdfBlob);
-        window.open(url, "_blank");
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-    };
 
     return (
         <div className="py-6 flex flex-col items-center text-center">
@@ -1268,22 +1256,18 @@ function SuccessScreen({ data, onGoToList }: { data: SuccessData; onGoToList: ()
 
             <div className="w-full max-w-xs space-y-3 mb-6">
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left">
-                    <p className="text-xs font-bold text-amber-700 mb-1 uppercase tracking-wide">⏳ Status: Menunggu Approval</p>
+                    <p className="text-xs font-bold text-amber-700 mb-1 uppercase tracking-wide">⏳ Menunggu Persetujuan Admin</p>
                     <p className="text-sm text-amber-700">
-                        Quotation sudah masuk ke daftar pengajuan dan menunggu persetujuan dari administrator.
+                        Data quotation sudah tersimpan. Admin akan memeriksa dan menyetujui atau menolak pengajuan ini.
                     </p>
                 </div>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left">
-                    <p className="text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">🔒 Download PDF</p>
-                    <p className="text-sm text-slate-500">
-                        Download PDF baru tersedia setelah quotation <strong>disetujui</strong> oleh administrator.
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
+                    <p className="text-xs font-bold text-blue-600 mb-1 uppercase tracking-wide">📄 PDF otomatis dibuat saat disetujui</p>
+                    <p className="text-sm text-blue-600">
+                        Setelah admin menyetujui, PDF penawaran akan digenerate secara otomatis dan bisa langsung didownload.
                     </p>
                 </div>
-                <button onClick={handlePreviewLocal}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors">
-                    <ExternalLink size={15} />
-                    Preview PDF (sementara)
-                </button>
+
             </div>
 
             <button onClick={onGoToList}
@@ -1319,8 +1303,6 @@ export function QuotationFormPage() {
                         alamatLines: q.kepadaAlamatLines ?? [],
                         up: q.kepadaUp ?? "",
                         wa: q.kepadaWa ?? "",
-                        lat: q.kepadaLat ? String(q.kepadaLat) : "",
-                        lng: q.kepadaLng ? String(q.kepadaLng) : "",
                         lastNoSurat: q.noSurat,
                         lastLayanan: (LAYANAN_CONFIG[q.jenisLayanan]?.label?.split("—")[1]?.trim()) ?? q.jenisLayanan,
                         lastDealAt: q.dealAt ?? null,
@@ -1343,8 +1325,6 @@ export function QuotationFormPage() {
     const [kepadaAlamat, setKepadaAlamat] = useState<string[]>([""]);
     const [kepadaUp, setKepadaUp] = useState("");
     const [kepadaWa, setKepadaWa] = useState("");
-    const [kepadaLat, setKepadaLat] = useState("");
-    const [kepadaLng, setKepadaLng] = useState("");
     const [knownCustomers, setKnownCustomers] = useState<KnownCustomer[]>([]);
 
     const [items, setItems] = useState<QuotationItem[]>([{ desc: "", qty: 1, unit: "m2", harga: 0 }]);
@@ -1441,55 +1421,24 @@ export function QuotationFormPage() {
             const kepadaFinal = kepadaNama || kepada;
             const now = new Date();
 
-            // ── Step 1 & 2 PARALEL ────────────────────────────────────────────
-            // Commit nomor surat ke Firestore + generate PDF blob bersamaan.
-            const [nomorEntry, pdfBlob] = await Promise.all([
-                commitNomorSurat({
-                    kategori, tipe, jenisLayanan,
-                    kepada: kepadaFinal,
-                    byUid: user.uid, byName: user.name, companyId: user.companyId,
-                    noSurat: noPreview,
-                }),
-                Promise.resolve().then(() => {
-                    setGenState({ step: "pdf" });
-                    return generateQuotationPDF({
-                        noSurat: noPreview,
-                        tanggal: now,
-                        kepadaNama: kepadaFinal,
-                        kepadaAlamatLines: kepadaAlamat.filter(Boolean),
-                        kepadaUp: kepadaUp || undefined,
-                        kepadaWa: kepadaWa || undefined,
-                        kepadaLat: kepadaLat ? parseFloat(kepadaLat) : undefined,
-                        kepadaLng: kepadaLng ? parseFloat(kepadaLng) : undefined,
-                        jenisLayanan, items, biayaTambahan, diskonPct, ppn,
-                        ppnDppFaktor: ppnDppFaktor || undefined,
-                        garansiTahun: garansiTahun || undefined,
-                        jenisGaransi: jenisGaransi || undefined,
-                        marketingNama: user.name,
-                        marketingWa: user.wa,
-                        // Technical & Survey
-                        surveyPhotos: surveyPhotos.length > 0 ? surveyPhotos : undefined,
-                        chemicals: chemicals.length > 0 ? chemicals : undefined,
-                        metode: isAR && metode.length > 0 ? metode : undefined,
-                        hamaDikendalikan: !isAR ? hamaDikendalikan : undefined,
-                        teknikPelaksanaan: !isAR && teknikPelaksanaan.length > 0 ? teknikPelaksanaan : undefined,
-                    });
-                }),
-            ]);
+            // ── Step 1: Commit nomor surat ────────────────────────────────────
+            const nomorEntry = await commitNomorSurat({
+                kategori, tipe, jenisLayanan,
+                kepada: kepadaFinal,
+                byUid: user.uid, byName: user.name, companyId: user.companyId,
+                noSurat: noPreview,
+            });
 
-            // ── Step 3 — Batch: base64 PDF + quotation doc + update log ──────
-            // PDF di-encode base64 lalu disimpan langsung ke Firestore.
-            // Tidak ada upload ke Storage → tidak ada round-trip tambahan.
+            // ── Step 2: Simpan data quotation TANPA PDF ───────────────────────
+            // PDF akan digenerate otomatis setelah admin approve.
             setGenState({ step: "db" });
-            const saved = await saveQuotationBatch({
+            const saved = await saveQuotationDraft({
                 noSurat: nomorEntry.noSurat, kategori, tipeKontrak: tipe, jenisLayanan,
                 perihal: LAYANAN_CONFIG[jenisLayanan]?.perihal ?? "",
                 kepadaNama: kepadaFinal,
                 kepadaAlamatLines: kepadaAlamat.filter(Boolean),
                 kepadaUp: kepadaUp || undefined,
                 kepadaWa: kepadaWa || undefined,
-                kepadaLat: kepadaLat ? parseFloat(kepadaLat) : undefined,
-                kepadaLng: kepadaLng ? parseFloat(kepadaLng) : undefined,
                 tanggal: now, items, biayaTambahan, diskonPct, ppn,
                 ppnDppFaktor: ppnDppFaktor || undefined,
                 garansiTahun: garansiTahun || undefined,
@@ -1497,19 +1446,18 @@ export function QuotationFormPage() {
                 subtotal: calc.subtotal, diskonRp: calc.diskonRp, ppnRp: calc.ppnRp, total: totalFinal,
                 marketingUid: user.uid, marketingNama: user.name, marketingWa: user.wa,
                 status: "pending", companyId: user.companyId,
-                // Technical & Survey data
                 surveyPhotos: surveyPhotos.length > 0 ? surveyPhotos : undefined,
                 chemicals: chemicals.length > 0 ? chemicals : undefined,
                 metode: isAR && metode.length > 0 ? metode : undefined,
                 hamaDikendalikan: !isAR ? hamaDikendalikan : undefined,
                 teknikPelaksanaan: !isAR && teknikPelaksanaan.length > 0 ? teknikPelaksanaan : undefined,
                 kondisiBangunan: kondisiBangunan || undefined,
-            }, nomorEntry.id, pdfBlob);
+            }, nomorEntry.id);
 
             // ── Done ──────────────────────────────────────────────────────────
             setGenState({ step: "done" });
-            await new Promise(r => setTimeout(r, 700));
-            setSuccessData({ noSurat: saved.noSurat, pdfBlob });
+            await new Promise(r => setTimeout(r, 400));
+            setSuccessData({ noSurat: saved.noSurat, pdfBlob: null as any });
             setGenState({ step: "idle" });
 
         } catch (err) {
@@ -1562,10 +1510,8 @@ export function QuotationFormPage() {
                     kondisiBangunan={kondisiBangunan}
                     onLayanan={handleLayanan} onTipe={setTipe} onKepada={setKepada} onKondisi={setKondisiBangunan} errors={errors} />}
                 {step === 1 && <Step2 nama={kepadaNama} alamatLines={kepadaAlamat} up={kepadaUp} wa={kepadaWa}
-                    lat={kepadaLat} lng={kepadaLng}
                     knownCustomers={knownCustomers}
-                    onNama={setKepadaNama} onAlamat={setKepadaAlamat} onUp={setKepadaUp} onWa={setKepadaWa}
-                    onLat={setKepadaLat} onLng={setKepadaLng} errors={errors} />}
+                    onNama={setKepadaNama} onAlamat={setKepadaAlamat} onUp={setKepadaUp} onWa={setKepadaWa} errors={errors} />}
                 {step === 2 && <Step3 items={items} biayaTambahan={biayaTambahan} diskonPct={diskonPct}
                     ppn={ppn} ppnDppFaktor={ppnDppFaktor} garansiTahun={garansiTahun} jenisGaransi={jenisGaransi}
                     pembulatanRp={pembulatanRp}
