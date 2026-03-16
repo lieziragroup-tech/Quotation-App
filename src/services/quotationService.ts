@@ -156,7 +156,7 @@ export async function getQuotations(filters: GetQuotationsFilters): Promise<Quot
         try {
             results.push(toQuotation(d.id, d.data() as Record<string, unknown>));
         } catch (e) {
-            console.error('[getQuotations] ERROR parsing doc', d.id, e, d.data());
+            console.warn('[getQuotations] skip doc', d.id, e);
         }
     }
 
