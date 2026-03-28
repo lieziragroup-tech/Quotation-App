@@ -424,168 +424,6 @@ function ActionButtons({ q, isApproved, isPending, hasNotes, isActing, canApprov
 
 // ─── EDIT MODAL ───────────────────────────────────────────────────────────────
 
-function EditModal({ q, onClose, onSaved }: {
-    q: Quotation;
-    onClose: () => void;
-    onSaved: () => void;
-}) {
-    const [nama,    setNama]    = useState(q.kepadaNama);
-    const [alamat,  setAlamat]  = useState(q.kepadaAlamatLines.join("\n"));
-    const [up,      setUp]      = useState(q.kepadaUp ?? "");
-    const [wa,      setWa]      = useState(q.kepadaWa ?? "");
-    const [notes,   setNotes]   = useState(q.notesMarketing ?? "");
-    const [saving,  setSaving]  = useState(false);
-    const [error,   setError]   = useState("");
-
-    // address search state
-    const [addrQuery,    setAddrQuery]    = useState("");
-    const [addrResults,  setAddrResults]  = useState<{place_id:number; display_name:string; address:any}[]>([]);
-    const [addrLoading,  setAddrLoading]  = useState(false);
-    const [showAddrDrop, setShowAddrDrop] = useState(false);
-    const debRef = useRef<ReturnType<typeof setTimeout>|null>(null);
-
-    const searchAddr = async (q2: string) => {
-        if (q2.length < 3) { setAddrResults([]); return; }
-        setAddrLoading(true);
-        try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q2)}&format=json&addressdetails=1&limit=5&countrycodes=id&accept-language=id`, { headers:{"User-Agent":"ERP-PestControl/1.0"} });
-            setAddrResults(await res.json());
-            setShowAddrDrop(true);
-        } catch { setAddrResults([]); } finally { setAddrLoading(false); }
-    };
-
-    const handleAddrChange = (v: string) => {
-        setAddrQuery(v);
-        if (debRef.current) clearTimeout(debRef.current);
-        debRef.current = setTimeout(() => searchAddr(v), 400);
-    };
-
-    const pickAddr = (r: {display_name:string; address:any}) => {
-        const a = r.address;
-        const lines: string[] = [];
-        const street = [a.road, a.suburb, a.city_district].filter(Boolean).join(", ");
-        if (street) lines.push(street);
-        const cityLine = [a.city||a.town||a.village, a.state, a.postcode].filter(Boolean).join(", ");
-        if (cityLine) lines.push(cityLine);
-        if (!lines.length) lines.push(r.display_name.split(",").slice(0,3).join(",").trim());
-        setAlamat(lines.join("\n"));
-        setAddrQuery(""); setAddrResults([]); setShowAddrDrop(false);
-    };
-
-    const handleSave = async () => {
-        if (!nama.trim()) { setError("Nama klien wajib diisi."); return; }
-        setSaving(true); setError("");
-        try {
-            await updateQuotationData(q.id, {
-                kepadaNama:        nama.trim(),
-                kepadaAlamatLines: alamat.split("\n").map(l=>l.trim()).filter(Boolean),
-                kepadaUp:          up || undefined,
-                kepadaWa:          wa || undefined,
-                notesMarketing:    notes || undefined,
-            });
-            onSaved();
-            onClose();
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Gagal menyimpan.");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
-                {/* Header */}
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-                    <Pencil size={16} className="text-blue-600" />
-                    <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-slate-900">Edit Quotation</h3>
-                        <code className="text-xs text-blue-600 font-mono">{q.noSurat}</code>
-                    </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 shrink-0">
-                        <XCircle size={18} />
-                    </button>
-                </div>
-
-                {/* Body */}
-                <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
-                    {/* Address search */}
-                    <div className="relative">
-                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
-                            Cari Alamat Otomatis
-                        </label>
-                        <div className="relative">
-                            <input
-                                className="w-full pl-3 pr-8 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-                                value={addrQuery} onChange={e => handleAddrChange(e.target.value)}
-                                onFocus={() => addrResults.length > 0 && setShowAddrDrop(true)}
-                                onBlur={() => setTimeout(() => setShowAddrDrop(false), 200)}
-                                placeholder="Ketik nama jalan atau lokasi..." />
-                            {addrLoading && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-blue-400" />}
-                        </div>
-                        {showAddrDrop && addrResults.length > 0 && (
-                            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-blue-200 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
-                                {addrResults.map(r => (
-                                    <button key={r.place_id} type="button" onMouseDown={() => pickAddr(r)}
-                                        className="w-full px-3 py-2.5 text-left hover:bg-blue-50 text-xs font-semibold text-slate-800 border-b border-slate-50 last:border-0 line-clamp-2">
-                                        {r.display_name}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Fields */}
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Nama Klien *</label>
-                        <input className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-                            value={nama} onChange={e => setNama(e.target.value)} placeholder="PT Contoh Indonesia..." />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Alamat (1 baris per baris)</label>
-                        <textarea rows={3} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
-                            value={alamat} onChange={e => setAlamat(e.target.value)} placeholder="Jl. Contoh No.1&#10;Jakarta Selatan 12345" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">U.p. / Contact Person</label>
-                            <input className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-                                value={up} onChange={e => setUp(e.target.value)} placeholder="Bpk. Ahmad (opsional)" />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Nomor WhatsApp</label>
-                            <input className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-                                value={wa} onChange={e => setWa(e.target.value)} placeholder="081234567890" />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Catatan Marketing</label>
-                        <textarea rows={2} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
-                            value={notes} onChange={e => setNotes(e.target.value)} placeholder="Catatan tambahan untuk admin..." />
-                    </div>
-
-                    {error && (
-                        <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                            <AlertCircle size={13} /> {error}
-                        </div>
-                    )}
-                </div>
-
-                {/* Footer */}
-                <div className="px-6 py-4 border-t border-slate-100 flex gap-2">
-                    <button onClick={onClose} className="flex-1 py-2.5 text-sm rounded-xl bg-slate-100 text-slate-600 font-medium hover:bg-slate-200">Batal</button>
-                    <button onClick={handleSave} disabled={saving}
-                        className="flex-1 py-2.5 text-sm rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                        {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                        {saving ? "Menyimpan..." : "Simpan Perubahan"}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 export function QuotationPage() {
     const navigate = useNavigate();
     const { user } = useAuthStore();
@@ -604,7 +442,6 @@ export function QuotationPage() {
     const [approveTarget, setApproveTarget] = useState<Quotation | null>(null);
     const [notesTarget, setNotesTarget] = useState<Quotation | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<Quotation | null>(null);
-    const [editTarget,   setEditTarget]   = useState<Quotation | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -938,7 +775,7 @@ export function QuotationPage() {
                                                     <ActionButtons q={q} isApproved={isApproved} isPending={isPending}
                                                         hasNotes={!!hasNotes} isActing={isActing} canApprove={canApprove}
                                                         canDelete={canDelete}
-                                                        onEdit={() => setEditTarget(q)}
+                                                        onEdit={() => navigate(`/quotations/edit/${q.id}`)}
                                                         onSign={() => setSignatureTarget(q)}
                                                         onNotes={() => setNotesTarget(q)}
                                                         onApprove={() => setApproveTarget(q)}
@@ -1002,7 +839,7 @@ export function QuotationPage() {
                                             <ActionButtons q={q} isApproved={isApproved} isPending={isPending}
                                                 hasNotes={!!hasNotes} isActing={isActing} canApprove={canApprove}
                                                 canDelete={canDelete}
-                                                onEdit={() => setEditTarget(q)}
+                                                onEdit={() => navigate(`/quotations/edit/${q.id}`)}
                                                 onSign={() => setSignatureTarget(q)}
                                                 onNotes={() => setNotesTarget(q)}
                                                 onApprove={() => setApproveTarget(q)}
@@ -1065,12 +902,6 @@ export function QuotationPage() {
             />
 
             {/* Edit Modal */}
-            {editTarget && (
-                <EditModal
-                    q={editTarget}
-                    onClose={() => setEditTarget(null)}
-                    onSaved={async () => { setEditTarget(null); await load(); }}
-                />
             )}
 
                 </div>

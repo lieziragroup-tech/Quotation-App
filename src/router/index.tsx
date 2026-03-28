@@ -102,6 +102,15 @@ export const router = createBrowserRouter([
                     </RoleGuard>
                 ),
             },
+            // ── ROUTE EDIT QUOTATION (baru) ────────────────────────────────────
+            {
+                path: "quotations/edit/:id",
+                element: (
+                    <RoleGuard allowedRoles={["administrator", "marketing"]}>
+                        <QuotationFormPage />
+                    </RoleGuard>
+                ),
+            },
             {
                 path: "nomor-surat-log",
                 element: (

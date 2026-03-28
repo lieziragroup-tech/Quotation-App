@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
     ArrowLeft, ArrowRight, Check, FileText,
     Plus, Trash2, Loader2, AlertCircle,
@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { commitNomorSurat, previewNomorSurat } from "../../services/nomorSuratService";
-import { saveQuotationDraft, getQuotations } from "../../services/quotationService";
+import { saveQuotationDraft, getQuotations, getQuotationById, updateQuotationData } from "../../services/quotationService";
 import { LAYANAN_CONFIG, calcTotals, fmtIDR, TIPE_LABELS, KONDISI_BANGUNAN_LABELS } from "../../lib/quotationConfig";
 import type { JenisLayanan, TipeKontrak, KategoriSurat, QuotationItem, BiayaTambahan, SurveyPhoto, ChemicalItem, KondisiBangunan } from "../../types";
 import {
@@ -1320,16 +1320,23 @@ interface SuccessData {
     pdfBlob: Blob;
 }
 
-function SuccessScreen({ data, onGoToList }: { data: SuccessData; onGoToList: () => void }) {
+function SuccessScreen({ data, isEditMode, onGoToList }: { data: SuccessData; isEditMode?: boolean; onGoToList: () => void }) {
 
     return (
         <div className="py-6 flex flex-col items-center text-center">
-            <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mb-5">
-                <Clock size={32} className="text-amber-600" />
+            <div className={`w-16 h-16 rounded-2xl ${isEditMode ? "bg-blue-100" : "bg-amber-100"} flex items-center justify-center mb-5`}>
+                {isEditMode
+                    ? <Check size={32} className="text-blue-600" />
+                    : <Clock size={32} className="text-amber-600" />
+                }
             </div>
 
-            <h2 className="text-xl font-bold text-slate-900 mb-1">Quotation Terkirim!</h2>
-            <p className="text-sm text-slate-500 mb-3">Menunggu persetujuan administrator</p>
+            <h2 className="text-xl font-bold text-slate-900 mb-1">
+                {isEditMode ? "Perubahan Tersimpan!" : "Quotation Terkirim!"}
+            </h2>
+            <p className="text-sm text-slate-500 mb-3">
+                {isEditMode ? "Data quotation berhasil diperbarui" : "Menunggu persetujuan administrator"}
+            </p>
             <div className="flex items-center gap-2 mb-6">
                 <Hash size={13} className="text-slate-400" />
                 <code className="text-sm font-bold font-mono bg-slate-100 text-slate-800 px-3 py-1 rounded-lg">
@@ -1338,19 +1345,29 @@ function SuccessScreen({ data, onGoToList }: { data: SuccessData; onGoToList: ()
             </div>
 
             <div className="w-full max-w-xs space-y-3 mb-6">
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left">
-                    <p className="text-xs font-bold text-amber-700 mb-1 uppercase tracking-wide">⏳ Menunggu Persetujuan Admin</p>
-                    <p className="text-sm text-amber-700">
-                        Data quotation sudah tersimpan. Admin akan memeriksa dan menyetujui atau menolak pengajuan ini.
-                    </p>
-                </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
-                    <p className="text-xs font-bold text-blue-600 mb-1 uppercase tracking-wide">📄 PDF otomatis dibuat saat disetujui</p>
-                    <p className="text-sm text-blue-600">
-                        Setelah admin menyetujui, PDF penawaran akan digenerate secara otomatis dan bisa langsung didownload.
-                    </p>
-                </div>
-
+                {isEditMode ? (
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
+                        <p className="text-xs font-bold text-blue-700 mb-1 uppercase tracking-wide">✓ Data Diperbarui</p>
+                        <p className="text-sm text-blue-700">
+                            Semua perubahan sudah disimpan. Jika quotation sudah pernah disetujui, admin perlu menyetujui ulang untuk generate PDF baru.
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left">
+                            <p className="text-xs font-bold text-amber-700 mb-1 uppercase tracking-wide">⏳ Menunggu Persetujuan Admin</p>
+                            <p className="text-sm text-amber-700">
+                                Data quotation sudah tersimpan. Admin akan memeriksa dan menyetujui atau menolak pengajuan ini.
+                            </p>
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
+                            <p className="text-xs font-bold text-blue-600 mb-1 uppercase tracking-wide">📄 PDF otomatis dibuat saat disetujui</p>
+                            <p className="text-sm text-blue-600">
+                                Setelah admin menyetujui, PDF penawaran akan digenerate secara otomatis dan bisa langsung didownload.
+                            </p>
+                        </div>
+                    </>
+                )}
             </div>
 
             <button onClick={onGoToList}
@@ -1366,15 +1383,18 @@ function SuccessScreen({ data, onGoToList }: { data: SuccessData; onGoToList: ()
 export function QuotationFormPage() {
     const navigate = useNavigate();
     const { user } = useAuthStore();
+    const { id: editId } = useParams<{ id?: string }>();
+    const isEditMode = !!editId;
 
     const [step, setStep] = useState(0);
+    const [editLoading, setEditLoading] = useState(isEditMode);
+    const [editNoSurat, setEditNoSurat] = useState<string>("");
 
     // Load known customers for autocomplete
     useEffect(() => {
         if (!user) return;
         getQuotations({ companyId: user.companyId }).then(quotes => {
             const map = new Map<string, KnownCustomer>();
-            // Only deals count as "pernah dikerjakan"
             const deals = quotes
                 .filter(q => q.status === "deal")
                 .sort((a, b) => (b.dealAt?.getTime() ?? 0) - (a.dealAt?.getTime() ?? 0));
@@ -1428,17 +1448,6 @@ export function QuotationFormPage() {
     // ── Technical & Survey state ───────────────────────────────────────────────
     const isAR = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
 
-    // Reset items & peralatan saat ganti antara AR <-> PCO
-    const handleLayanan = (v: JenisLayanan) => {
-        const wasAR = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
-        const willAR = LAYANAN_CONFIG[v]?.isAR ?? false;
-        if (wasAR !== willAR) {
-            setItems([{ desc: "", qty: 1, unit: "m2", harga: 0 }]);
-            setPeralatan([]);
-        }
-        setKondisiBangunan(null);
-        setJenisLayanan(v);
-    };
     const [surveyPhotos, setSurveyPhotos] = useState<SurveyPhoto[]>([]);
     const [chemicals, setChemicals] = useState<ChemicalItem[]>(() =>
         isAR ? DEFAULT_CHEMICALS_AR.map(c => ({ ...c })) : DEFAULT_CHEMICALS_PCO.map(c => ({ ...c }))
@@ -1449,8 +1458,55 @@ export function QuotationFormPage() {
     const [hamaDikendalikan, setHamaDikendalikan] = useState(DEFAULT_HAMA_PCO);
     const [teknikPelaksanaan, setTeknikPelaksanaan] = useState<string[]>(DEFAULT_TEKNIK_PCO.map(t => t));
 
-    // Reset technical data when jenisLayanan changes
+    // ── Load existing quotation data in edit mode ─────────────────────────────
     useEffect(() => {
+        if (!isEditMode || !editId) return;
+        setEditLoading(true);
+        getQuotationById(editId).then(q => {
+            if (!q) { navigate("/quotations"); return; }
+            setEditNoSurat(q.noSurat);
+            setJenisLayanan(q.jenisLayanan);
+            setTipe(q.tipeKontrak);
+            setKepada(q.kepadaNama);
+            setKepadaNama(q.kepadaNama);
+            setKepadaAlamat(q.kepadaAlamatLines.length > 0 ? q.kepadaAlamatLines : [""]);
+            setKepadaUp(q.kepadaUp ?? "");
+            setKepadaWa(q.kepadaWa ?? "");
+            setItems(q.items.length > 0 ? q.items : [{ desc: "", qty: 1, unit: "m2", harga: 0 }]);
+            setBiayaTambahan(q.biayaTambahan ?? []);
+            setDiskonPct(q.diskonPct ?? 0);
+            setPpn(q.ppn ?? false);
+            setPpnDppFaktor(q.ppnDppFaktor ?? 0);
+            setGaransiTahun(q.garansiTahun ?? 0);
+            setJenisGaransi(q.jenisGaransi ?? "Anti Rayap");
+            setKondisiBangunan(q.kondisiBangunan ?? null);
+            if (q.surveyPhotos) setSurveyPhotos(q.surveyPhotos);
+            if (q.chemicals && q.chemicals.length > 0) setChemicals(q.chemicals);
+            if (q.metode && q.metode.length > 0) setMetode(q.metode);
+            if (q.hamaDikendalikan) setHamaDikendalikan(q.hamaDikendalikan);
+            if (q.teknikPelaksanaan && q.teknikPelaksanaan.length > 0) setTeknikPelaksanaan(q.teknikPelaksanaan);
+            // Skip step 0 (Jenis & Tipe) in edit mode — go straight to step 1
+            setStep(1);
+        }).catch(() => navigate("/quotations"))
+          .finally(() => setEditLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editId]);
+
+    // Reset items & peralatan saat ganti antara AR <-> PCO (only in new mode)
+    const handleLayanan = (v: JenisLayanan) => {
+        const wasAR = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
+        const willAR = LAYANAN_CONFIG[v]?.isAR ?? false;
+        if (wasAR !== willAR) {
+            setItems([{ desc: "", qty: 1, unit: "m2", harga: 0 }]);
+            setPeralatan([]);
+        }
+        setKondisiBangunan(null);
+        setJenisLayanan(v);
+    };
+
+    // Reset technical data when jenisLayanan changes (only in new mode)
+    useEffect(() => {
+        if (isEditMode) return; // don't override loaded data
         const ar = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
         setChemicals(ar ? DEFAULT_CHEMICALS_AR.map(c => ({ ...c })) : DEFAULT_CHEMICALS_PCO.map(c => ({ ...c })));
         setMetode((METODE_BY_LAYANAN[jenisLayanan] ?? METODE_BY_LAYANAN["anti_rayap_injeksi"]).map(m => m));
@@ -1503,8 +1559,43 @@ export function QuotationFormPage() {
         try {
             const kepadaFinal = kepadaNama || kepada;
             const now = new Date();
+            const calc = calcTotals({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor: ppnDppFaktor || undefined });
+            const totalFinal = calc.total + pembulatanRp;
 
-            // ── Step 1: Commit nomor surat ────────────────────────────────────
+            // ── EDIT MODE: hanya update data yang berubah ──────────────────────
+            if (isEditMode && editId) {
+                setGenState({ step: "db" });
+                await updateQuotationData(editId, {
+                    kepadaNama:        kepadaFinal,
+                    kepadaAlamatLines: kepadaAlamat.filter(Boolean),
+                    kepadaUp:          kepadaUp || undefined,
+                    kepadaWa:          kepadaWa || undefined,
+                    items,
+                    biayaTambahan,
+                    diskonPct,
+                    ppn,
+                    ppnDppFaktor:      ppnDppFaktor || undefined,
+                    garansiTahun:      garansiTahun || undefined,
+                    jenisGaransi:      jenisGaransi || undefined,
+                    subtotal:          calc.subtotal,
+                    diskonRp:          calc.diskonRp,
+                    ppnRp:             calc.ppnRp,
+                    total:             totalFinal,
+                    surveyPhotos:      surveyPhotos.length > 0 ? surveyPhotos : undefined,
+                    chemicals:         chemicals.length > 0 ? chemicals : undefined,
+                    metode:            isAR && metode.length > 0 ? metode : undefined,
+                    hamaDikendalikan:  !isAR ? hamaDikendalikan : undefined,
+                    teknikPelaksanaan: !isAR && teknikPelaksanaan.length > 0 ? teknikPelaksanaan : undefined,
+                    kondisiBangunan:   kondisiBangunan || undefined,
+                });
+                setGenState({ step: "done" });
+                await new Promise(r => setTimeout(r, 400));
+                setSuccessData({ noSurat: editNoSurat, pdfBlob: null as any });
+                setGenState({ step: "idle" });
+                return;
+            }
+
+            // ── NEW MODE: commit nomor + simpan draft ─────────────────────────
             const nomorEntry = await commitNomorSurat({
                 kategori, tipe, jenisLayanan,
                 kepada: kepadaFinal,
@@ -1512,8 +1603,6 @@ export function QuotationFormPage() {
                 noSurat: noPreview,
             });
 
-            // ── Step 2: Simpan data quotation TANPA PDF ───────────────────────
-            // PDF akan digenerate otomatis setelah admin approve.
             setGenState({ step: "db" });
             const saved = await saveQuotationDraft({
                 noSurat: nomorEntry.noSurat, kategori, tipeKontrak: tipe, jenisLayanan,
@@ -1537,7 +1626,6 @@ export function QuotationFormPage() {
                 kondisiBangunan: kondisiBangunan || undefined,
             }, nomorEntry.id);
 
-            // ── Done ──────────────────────────────────────────────────────────
             setGenState({ step: "done" });
             await new Promise(r => setTimeout(r, 400));
             setSuccessData({ noSurat: saved.noSurat, pdfBlob: null as any });
@@ -1555,12 +1643,24 @@ export function QuotationFormPage() {
 
     const isGenerating = genState.step !== "idle" && genState.step !== "error";
 
+    // ── Render loading (edit mode fetching data) ───────────────────────────────
+    if (isEditMode && editLoading) {
+        return (
+            <div className="p-4 md:p-6 max-w-2xl mx-auto flex items-center justify-center min-h-[40vh]">
+                <div className="text-center">
+                    <Loader2 size={32} className="animate-spin text-blue-600 mx-auto mb-3" />
+                    <p className="text-slate-500 text-sm">Memuat data quotation...</p>
+                </div>
+            </div>
+        );
+    }
+
     // ── Render success ─────────────────────────────────────────────────────────
     if (successData) {
         return (
             <div className="p-4 md:p-6 max-w-2xl mx-auto">
                 <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
-                    <SuccessScreen data={successData} onGoToList={() => navigate("/quotations")} />
+                    <SuccessScreen data={successData} isEditMode={isEditMode} onGoToList={() => navigate("/quotations")} />
                 </div>
             </div>
         );
@@ -1580,13 +1680,26 @@ export function QuotationFormPage() {
                 <div>
                     <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                         <FileText size={18} className="text-blue-600" />
-                        Buat Quotation Baru
+                        {isEditMode ? "Edit Quotation" : "Buat Quotation Baru"}
                     </h1>
-                    <p className="text-xs text-slate-400">PT Guci Emas Pratama — nomor surat otomatis</p>
+                    <p className="text-xs text-slate-400">
+                        {isEditMode
+                            ? <><code className="font-mono text-blue-600">{editNoSurat}</code> — edit semua data</>
+                            : "PT Guci Emas Pratama — nomor surat otomatis"
+                        }
+                    </p>
                 </div>
             </div>
 
             <StepIndicator current={step} />
+
+            {/* Edit mode: banner */}
+            {isEditMode && (
+                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center gap-2 text-sm text-blue-700">
+                    <FileText size={14} className="shrink-0" />
+                    <span>Mode Edit — Jenis layanan & nomor surat tidak berubah. Kamu bisa mengubah semua data lainnya.</span>
+                </div>
+            )}
 
             <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
                 {step === 0 && <Step1 jenisLayanan={jenisLayanan} tipe={tipe} kepada={kepada} noPreview={noPreview}
@@ -1645,7 +1758,7 @@ export function QuotationFormPage() {
                         <button type="button" onClick={handleSubmit} disabled={isGenerating}
                             className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 transition-colors">
                             {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                            {isGenerating ? "Memproses..." : "Generate PDF & Simpan"}
+                            {isGenerating ? "Menyimpan..." : isEditMode ? "Simpan Perubahan" : "Generate PDF & Simpan"}
                         </button>
                     )}
                 </div>
