@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { SignatureModal } from "../../components/SignatureModal";
 import { useNavigate } from "react-router-dom";
+import { useCompanyTemplate } from "../../hooks/useCompanyTemplate";
 import {
     FileText, Plus, Search, RefreshCw,
     CheckCircle2, XCircle, Clock, FileX2,
@@ -588,6 +589,7 @@ function EditModal({ q, onClose, onSaved }: {
 export function QuotationPage() {
     const navigate = useNavigate();
     const { user } = useAuthStore();
+    const templateConfig = useCompanyTemplate();
 
     const [quotations, setQuotations] = useState<Quotation[]>([]);
     const [signatureTarget, setSignatureTarget] = useState<Quotation | null>(null);
@@ -683,6 +685,7 @@ export function QuotationPage() {
                     metode:            q.metode,
                     hamaDikendalikan:  q.hamaDikendalikan,
                     teknikPelaksanaan: q.teknikPelaksanaan,
+                    templateConfig,
                 });
                 const pdfBase64 = await blobToBase64(pdfBlob);
                 await attachPdfToQuotation(q.id, pdfBase64);
@@ -732,6 +735,7 @@ export function QuotationPage() {
                 <SignatureModal
                     quotation={signatureTarget}
                     signerName={user?.name ?? "Marketing"}
+                    templateConfig={templateConfig}
                     onClose={() => setSignatureTarget(null)}
                     onSigned={(signedPdfBase64) => {
                         // Update local state so button reflects signed status immediately

@@ -14,6 +14,8 @@ import {
     COMPANY, BRAND, LAYANAN_CONFIG,
     fmtIDR, fmtDateID, calcTotals, buildParagrafPembuka, angkaKeKata, isAntiRayap,
 } from "./quotationConfig";
+import type { TemplateConfig } from "../services/settingsService";
+import { TEMPLATE_DEFAULTS } from "../services/settingsService";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +46,8 @@ export interface QuotationPDFData {
     teknikPelaksanaan?: string[];
     // Signature embed (base64 PNG from canvas)
     signatureBase64?: string;
+    // Optional template override from company settings
+    templateConfig?: TemplateConfig;
 }
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -78,6 +82,8 @@ class QuotationRenderer {
     private pageNum = 1;
     private data: QuotationPDFData;
     private calc: ReturnType<typeof calcTotals>;
+    // Resolved template config (merged with defaults)
+    private readonly tpl: TemplateConfig;
 
     // Column widths for price table (computed once, reused)
     private readonly colNo  = 9;
@@ -88,6 +94,7 @@ class QuotationRenderer {
 
     constructor(data: QuotationPDFData) {
         this.data = data;
+        this.tpl  = { ...TEMPLATE_DEFAULTS, ...(data.templateConfig ?? {}) };
         this.doc  = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
         this.y    = MT + KOP_H + 6;
 
@@ -126,55 +133,88 @@ class QuotationRenderer {
     // ─── Kop Surat ───────────────────────────────────────────────────────────
 
     private drawKop() {
-        const d = this.doc;
-        const ty = MT;
+        const d    = this.doc;
+        const tpl  = this.tpl;
+        const ty   = MT;
+        const pCol = tpl.primaryColor || BRAND.green;
 
-        // Top green bar
-        d.setFillColor(...hex(BRAND.green));
+        // ── Top primary bar ──
+        d.setFillColor(...hex(pCol));
         d.rect(ML, ty, USABLE_W, 2.5, "F");
 
-        // Company name
+        // ── Determine logo area width (if logo on right, reserve space) ──
+        const hasLogo    = Boolean(tpl.logoBase64);
+        const logoW      = hasLogo ? tpl.logoWidthMm  : 0;
+        const logoH      = hasLogo ? tpl.logoHeightMm : 0;
+        const logoGap    = hasLogo ? 4 : 0;
+        const textAreaW  = USABLE_W - (hasLogo ? logoW + logoGap : 0);
+        const textStartX = tpl.logoPosition === "left" && hasLogo ? ML + logoW + logoGap : ML;
+
+        // ── Logo ──
+        if (hasLogo) {
+            const logoX = tpl.logoPosition === "right"
+                ? ML + USABLE_W - logoW
+                : ML;
+            const logoY = ty + 4;
+            // jsPDF addImage: (data, format, x, y, w, h)
+            try {
+                const fmt = tpl.logoBase64.includes("data:image/png") ? "PNG" : "JPEG";
+                d.addImage(tpl.logoBase64, fmt, logoX, logoY, logoW, logoH);
+            } catch {
+                // silently skip if logo can't be rendered
+            }
+        }
+
+        // ── Company name ──
         d.setFontSize(15);
         d.setFont("helvetica", "bold");
-        d.setTextColor(...hex(BRAND.green));
-        d.text(COMPANY.name, ML, ty + 9);
+        d.setTextColor(...hex(pCol));
+        d.text(COMPANY.name, textStartX, ty + 9);
 
-        // Tagline
-        d.setFontSize(7.5);
-        d.setFont("helvetica", "normal");
-        d.setTextColor(...hex(BRAND.gray));
-        d.text("Jasa Anti Rayap & Pengendalian Hama Profesional  ·  Est. 1985", ML, ty + 13.5);
+        // ── Tagline ──
+        if (tpl.showTagline) {
+            const taglineText = tpl.customTaglineText || "Jasa Anti Rayap & Pengendalian Hama Profesional  ·  Est. 1985";
+            d.setFontSize(7.5);
+            d.setFont("helvetica", "normal");
+            d.setTextColor(...hex(BRAND.gray));
+            d.text(taglineText, textStartX, ty + 13.5);
+        }
 
-        // Separator line
-        d.setDrawColor(...hex(BRAND.green));
+        // ── Separator line ──
+        const sepY = tpl.showTagline ? ty + 16 : ty + 12;
+        d.setDrawColor(...hex(pCol));
         d.setLineWidth(0.4);
-        d.line(ML, ty + 16, ML + USABLE_W, ty + 16);
+        d.line(ML, sepY, ML + USABLE_W, sepY);
 
-        // Contact info
+        // ── Contact info ──
         d.setFontSize(6.8);
         d.setFont("helvetica", "normal");
         d.setTextColor(...hex(BRAND.gray));
-        d.text(`Head Office : ${COMPANY.head}`, ML, ty + 19.5);
+        d.text(`Head Office : ${COMPANY.head}`, textStartX, sepY + 3.5);
         d.text(
             `Telp : ${COMPANY.telp}  |  WhatsApp : ${COMPANY.wa}  |  E-Mail : ${COMPANY.email}  |  ${COMPANY.web}`,
-            ML, ty + 23,
+            textStartX, sepY + 7,
         );
-        d.text(`Branch Office : ${COMPANY.branch}`, ML, ty + 26.5);
+        if (tpl.showBranch && COMPANY.branch) {
+            d.text(`Branch Office : ${COMPANY.branch}`, textStartX, sepY + 10.5);
+        }
     }
 
     // ─── Footer ──────────────────────────────────────────────────────────────
 
     private drawFooter() {
-        const d   = this.doc;
-        const fy  = PAGE_H - MB - FOOTER_H + 2;
+        const d    = this.doc;
+        const tpl  = this.tpl;
+        const fy   = PAGE_H - MB - FOOTER_H + 2;
+        const pCol = tpl.primaryColor || BRAND.green;
 
-        d.setDrawColor(...hex(BRAND.green));
+        d.setDrawColor(...hex(pCol));
         d.setLineWidth(0.4);
         d.line(ML, fy, ML + USABLE_W, fy);
 
         d.setFontSize(7);
         d.setFont("helvetica", "bold");
-        d.setTextColor(...hex(BRAND.green));
+        d.setTextColor(...hex(pCol));
         d.text(COMPANY.name, ML, fy + 4.5);
 
         d.setFontSize(6.5);
@@ -185,12 +225,16 @@ class QuotationRenderer {
             `Telp : ${COMPANY.telp}  |  WhatsApp : ${COMPANY.wa}  |  ${COMPANY.email}  |  ${COMPANY.web}`,
             ML, fy + 12,
         );
-        d.text(`Branch Office : ${COMPANY.branch}`, ML, fy + 15.5);
+        if (tpl.showBranch && COMPANY.branch) {
+            d.text(`Branch Office : ${COMPANY.branch}`, ML, fy + 15.5);
+        }
 
-        d.setFontSize(7.5);
-        d.setFont("helvetica", "bold");
-        d.setTextColor(...hex(BRAND.grayLight));
-        d.text(`Hal. ${this.pageNum}`, ML + USABLE_W, fy + 15.5, { align: "right" });
+        if (tpl.showPageNumber) {
+            d.setFontSize(7.5);
+            d.setFont("helvetica", "bold");
+            d.setTextColor(...hex(BRAND.grayLight));
+            d.text(`Hal. ${this.pageNum}`, ML + USABLE_W, fy + 15.5, { align: "right" });
+        }
     }
 
     // ─── Text helpers ─────────────────────────────────────────────────────────

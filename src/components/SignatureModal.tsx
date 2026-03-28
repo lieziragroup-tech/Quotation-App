@@ -14,6 +14,7 @@ import { doc, updateDoc, Timestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import type { Quotation } from "../types";
 import { generateQuotationPDF } from "../lib/pdfGenerator";
+import type { TemplateConfig } from "../services/settingsService";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,7 @@ interface Props {
     signerName: string;
     onClose: () => void;
     onSigned: (signedPdfBase64: string) => void;
+    templateConfig?: TemplateConfig;
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -324,7 +326,7 @@ async function embedSignatureIntoPdf(
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-export function SignatureModal({ quotation, signerName, onClose, onSigned }: Props) {
+export function SignatureModal({ quotation, signerName, onClose, onSigned, templateConfig }: Props) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const { isEmpty, clear, getDataURL } = useSignatureCanvas(canvasRef);
 
@@ -387,6 +389,8 @@ export function SignatureModal({ quotation, signerName, onClose, onSigned }: Pro
                 teknikPelaksanaan: quotation.teknikPelaksanaan,
                 // Embed signature
                 signatureBase64: preview,
+                // Template kustom perusahaan
+                templateConfig,
             });
 
             // Convert to base64
@@ -432,6 +436,7 @@ export function SignatureModal({ quotation, signerName, onClose, onSigned }: Pro
             hamaDikendalikan: quotation.hamaDikendalikan,
             teknikPelaksanaan: quotation.teknikPelaksanaan,
             signatureBase64: preview,
+            templateConfig,
         });
         downloadBlob(signedBlob, `${quotation.noSurat.replace(/\//g, "-")}-SIGNED.pdf`);
     };
