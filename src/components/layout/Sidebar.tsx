@@ -1,4 +1,15 @@
-import { useState, useMemo } from "react";
+/**
+ * Sidebar — ERP-style
+ *
+ * Behaviour:
+ * - Desktop: sticky h-screen, overflow-y auto (sidebar scrolls independently)
+ * - Dropdown groups: CLOSED by default, only the group that contains the
+ *   active route auto-opens on first render (mirrors SAP / Odoo / Oracle pattern)
+ * - Click grup → toggle open/close
+ * - Active item highlighted; active group header shows accent even when collapsed
+ */
+
+import { useState, useMemo, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "../../lib/firebase";
@@ -8,7 +19,7 @@ import { ROLE_LABELS, cn } from "../../lib/utils";
 import {
     Send, ClipboardList, LayoutDashboard, FileText, Users,
     DollarSign, Settings, LogOut, ShieldCheck,
-    TrendingUp, User, Hash, Menu, X, ChevronDown,
+    TrendingUp, User, Hash, Menu, X, ChevronRight,
     ShoppingBag, BarChart3, Cog, UserCircle,
 } from "lucide-react";
 
@@ -39,80 +50,93 @@ type NavSection = NavGroupDef | NavStandalone;
 const NAV_SECTIONS: NavSection[] = [
     {
         to: "/dashboard",
-        icon: <LayoutDashboard size={18} />,
+        icon: <LayoutDashboard size={17} />,
         label: "Dashboard",
         roles: ["administrator", "admin_ops", "marketing", "teknisi"],
     },
     {
         type: "group",
         label: "Penjualan",
-        icon: <ShoppingBag size={15} />,
+        icon: <ShoppingBag size={16} />,
         items: [
-            { to: "/quotations",  icon: <FileText size={17} />,      label: "Quotation",        roles: ["administrator", "marketing", "admin_ops"] },
-            { to: "/status-ph",   icon: <Send size={17} />,           label: "Status Penawaran", roles: ["administrator", "admin_ops"] },
-            { to: "/tracking",    icon: <ClipboardList size={17} />,  label: "Tracking Order",   roles: ["administrator", "admin_ops"] },
+            { to: "/quotations", icon: <FileText size={15} />,     label: "Quotation",        roles: ["administrator", "marketing", "admin_ops"] },
+            { to: "/status-ph",  icon: <Send size={15} />,          label: "Status Penawaran", roles: ["administrator", "admin_ops"] },
+            { to: "/tracking",   icon: <ClipboardList size={15} />, label: "Tracking Order",   roles: ["administrator", "admin_ops"] },
         ],
     },
     {
         type: "group",
         label: "Klien",
-        icon: <Users size={15} />,
+        icon: <Users size={16} />,
         items: [
-            { to: "/customers", icon: <Users size={17} />, label: "Pelanggan", roles: ["administrator", "admin_ops", "marketing"] },
+            { to: "/customers", icon: <Users size={15} />, label: "Pelanggan", roles: ["administrator", "admin_ops", "marketing"] },
         ],
     },
     {
         type: "group",
         label: "Laporan",
-        icon: <BarChart3 size={15} />,
+        icon: <BarChart3 size={16} />,
         items: [
-            { to: "/cashflow",        icon: <DollarSign size={17} />,  label: "Cashflow",        roles: ["administrator"] },
-            { to: "/performance",     icon: <TrendingUp size={17} />,  label: "Performa",        roles: ["administrator"] },
-            { to: "/nomor-surat-log", icon: <Hash size={17} />,        label: "Log Nomor Surat", roles: ["administrator", "admin_ops"] },
+            { to: "/cashflow",        icon: <DollarSign size={15} />, label: "Cashflow",        roles: ["administrator"] },
+            { to: "/performance",     icon: <TrendingUp size={15} />, label: "Performa",        roles: ["administrator"] },
+            { to: "/nomor-surat-log", icon: <Hash size={15} />,       label: "Log Nomor Surat", roles: ["administrator", "admin_ops"] },
         ],
     },
     {
         type: "group",
         label: "Manajemen",
-        icon: <Cog size={15} />,
+        icon: <Cog size={16} />,
         items: [
-            { to: "/team",     icon: <Users size={17} />,    label: "Tim",          roles: ["administrator"] },
-            { to: "/settings", icon: <Settings size={17} />, label: "Pengaturan",   roles: ["administrator"] },
+            { to: "/team",     icon: <Users size={15} />,    label: "Tim",        roles: ["administrator"] },
+            { to: "/settings", icon: <Settings size={15} />, label: "Pengaturan", roles: ["administrator"] },
         ],
     },
     {
         type: "group",
         label: "Akun",
-        icon: <UserCircle size={15} />,
+        icon: <UserCircle size={16} />,
         items: [
-            { to: "/profile", icon: <User size={17} />, label: "Profil Saya", roles: ["administrator", "admin_ops", "marketing", "teknisi"] },
+            { to: "/profile", icon: <User size={15} />, label: "Profil Saya", roles: ["administrator", "admin_ops", "marketing", "teknisi"] },
         ],
     },
 ];
+
+// ─── UTIL ─────────────────────────────────────────────────────────────────────
+
+function getActiveGroup(pathname: string): string | null {
+    for (const section of NAV_SECTIONS) {
+        if (section.type === "group") {
+            if ((section as NavGroupDef).items.some(i => pathname.startsWith(i.to))) {
+                return section.label;
+            }
+        }
+    }
+    return null;
+}
 
 // ─── SIDEBAR CONTENT ──────────────────────────────────────────────────────────
 
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
     const { user, setUser } = useAuthStore();
-    const navigate  = useNavigate();
-    const location  = useLocation();
+    const navigate           = useNavigate();
+    const location           = useLocation();
 
-    // Find which group contains the active route
-    const activeGroupLabel = useMemo(() => {
-        for (const section of NAV_SECTIONS) {
-            if (section.type === "group") {
-                if (section.items.some(item => location.pathname.startsWith(item.to))) {
-                    return section.label;
-                }
-            }
+    // Only the group that owns the current route starts open. Rest closed.
+    const initialActive = useMemo(() => getActiveGroup(location.pathname), []);
+    const [openGroups, setOpenGroups] = useState<Set<string>>(
+        () => new Set(initialActive ? [initialActive] : [])
+    );
+
+    // When route changes, auto-open the matching group (without closing others)
+    useEffect(() => {
+        const ag = getActiveGroup(location.pathname);
+        if (ag) {
+            setOpenGroups(prev => {
+                if (prev.has(ag)) return prev;
+                return new Set([...prev, ag]);
+            });
         }
-        return null;
     }, [location.pathname]);
-
-    // Start with all groups open; user can close individually
-    const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
-        return new Set(NAV_SECTIONS.filter(s => s.type === "group").map(s => (s as NavGroupDef).label));
-    });
 
     const toggleGroup = (label: string) => {
         setOpenGroups(prev => {
@@ -133,89 +157,136 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
         <div className="flex flex-col h-full">
 
             {/* ── Brand ──────────────────────────────────────────────────────── */}
-            <div className="px-5 py-5 border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shrink-0 shadow-sm shadow-blue-200">
-                        <ShieldCheck size={16} className="text-white" />
-                    </div>
-                    <div>
-                        <p className="text-sm font-bold text-slate-900 leading-tight">ERP Pest Control</p>
-                        <p className="text-xs text-slate-400">Sistem Manajemen</p>
-                    </div>
+            <div className="flex items-center gap-3 px-4 h-16 border-b border-slate-100 shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center shrink-0 shadow-md shadow-blue-200">
+                    <ShieldCheck size={16} className="text-white" />
+                </div>
+                <div className="min-w-0">
+                    <p className="text-[13px] font-extrabold text-slate-800 leading-tight tracking-tight">ERP Pest Control</p>
+                    <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Sistem Manajemen</p>
                 </div>
             </div>
 
-            {/* ── Nav ────────────────────────────────────────────────────────── */}
-            <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+            {/* ── Scrollable nav ─────────────────────────────────────────────── */}
+            <nav
+                className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5"
+                style={{ scrollbarWidth: "none" }}>
+
                 {NAV_SECTIONS.map((section, idx) => {
 
-                    // ── Standalone item (Dashboard) ────────────────────────────
+                    // ── Standalone (Dashboard) ─────────────────────────────────
                     if (section.type !== "group") {
                         const item = section as NavStandalone;
                         if (!user || !item.roles.includes(user.role)) return null;
                         return (
-                            <NavLink key={item.to} to={item.to} onClick={onNavClick}
+                            <NavLink
+                                key={item.to}
+                                to={item.to}
+                                onClick={onNavClick}
                                 className={({ isActive }) => cn(
-                                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
+                                    "flex items-center gap-3 h-9 px-3 rounded-lg text-[13px] font-medium transition-all duration-150 group",
                                     isActive
-                                        ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
-                                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:scale-[0.98]"
+                                        ? "bg-blue-600 text-white shadow-sm"
+                                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                                 )}>
-                                {item.icon}
-                                {item.label}
+                                {({ isActive }) => (
+                                    <>
+                                        <span className={cn(
+                                            "shrink-0 transition-colors",
+                                            isActive ? "text-white" : "text-slate-400 group-hover:text-slate-600"
+                                        )}>
+                                            {item.icon}
+                                        </span>
+                                        <span className="truncate">{item.label}</span>
+                                    </>
+                                )}
                             </NavLink>
                         );
                     }
 
                     // ── Group ──────────────────────────────────────────────────
-                    const group = section as NavGroupDef;
-                    const visibleItems = group.items.filter(
-                        item => user && item.roles.includes(user.role)
-                    );
+                    const group        = section as NavGroupDef;
+                    const visibleItems = group.items.filter(i => user && i.roles.includes(user.role));
                     if (visibleItems.length === 0) return null;
 
-                    const isOpen       = openGroups.has(group.label);
-                    const hasActive    = visibleItems.some(i => location.pathname.startsWith(i.to));
+                    const isOpen    = openGroups.has(group.label);
+                    const hasActive = visibleItems.some(i => location.pathname.startsWith(i.to));
 
                     return (
                         <div key={`group-${idx}`} className="mt-1 first:mt-0">
-                            {/* Group header button */}
+
+                            {/* Group toggle button */}
                             <button
                                 onClick={() => toggleGroup(group.label)}
                                 className={cn(
-                                    "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all duration-150",
-                                    hasActive && !isOpen
-                                        ? "text-blue-600 bg-blue-50"
-                                        : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                                    "w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-left transition-all duration-150 group select-none",
+                                    isOpen
+                                        ? "bg-slate-100 text-slate-700"
+                                        : hasActive
+                                            ? "text-blue-600 hover:bg-blue-50"
+                                            : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                                 )}>
-                                <span className="flex items-center gap-2">
-                                    <span className={cn("transition-colors", hasActive && !isOpen ? "text-blue-500" : "text-slate-400")}>
-                                        {group.icon}
-                                    </span>
+
+                                {/* Icon */}
+                                <span className={cn(
+                                    "shrink-0 transition-colors",
+                                    isOpen   ? "text-slate-500"
+                                    : hasActive ? "text-blue-500"
+                                    : "text-slate-400 group-hover:text-slate-500"
+                                )}>
+                                    {group.icon}
+                                </span>
+
+                                {/* Label */}
+                                <span className={cn(
+                                    "flex-1 text-[11px] font-bold uppercase tracking-widest truncate",
+                                    isOpen ? "text-slate-600" : hasActive ? "text-blue-600" : ""
+                                )}>
                                     {group.label}
                                 </span>
-                                <ChevronDown size={13} className={cn(
-                                    "transition-transform duration-200 shrink-0",
-                                    isOpen ? "rotate-180" : ""
-                                )} />
+
+                                {/* Blue dot — visible only when collapsed + has active child */}
+                                {hasActive && !isOpen && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                                )}
+
+                                {/* Chevron rotates 90° when open */}
+                                <ChevronRight
+                                    size={13}
+                                    className={cn(
+                                        "shrink-0 text-slate-400 transition-transform duration-200",
+                                        isOpen ? "rotate-90" : ""
+                                    )}
+                                />
                             </button>
 
-                            {/* Group items — animated expand */}
-                            <div className={cn(
-                                "overflow-hidden transition-all duration-200",
-                                isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-                            )}>
-                                <div className="ml-3 mt-0.5 pl-2.5 border-l-2 border-slate-100 space-y-0.5 pb-1">
+                            {/* Sub-items — height-based CSS animation */}
+                            <div
+                                className="overflow-hidden transition-all duration-200 ease-in-out"
+                                style={{ maxHeight: isOpen ? `${visibleItems.length * 40}px` : "0px" }}>
+                                <div className="mt-0.5 ml-4 pl-3 border-l-2 border-slate-100 space-y-0.5 pb-1">
                                     {visibleItems.map(item => (
-                                        <NavLink key={item.to} to={item.to} onClick={onNavClick}
+                                        <NavLink
+                                            key={item.to}
+                                            to={item.to}
+                                            onClick={onNavClick}
                                             className={({ isActive }) => cn(
-                                                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
+                                                "flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-all duration-150 group",
                                                 isActive
-                                                    ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
-                                                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:scale-[0.98]"
+                                                    ? "bg-blue-600 text-white shadow-sm"
+                                                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                                             )}>
-                                            {item.icon}
-                                            {item.label}
+                                            {({ isActive }) => (
+                                                <>
+                                                    <span className={cn(
+                                                        "shrink-0 transition-colors",
+                                                        isActive ? "text-white" : "text-slate-400 group-hover:text-slate-600"
+                                                    )}>
+                                                        {item.icon}
+                                                    </span>
+                                                    <span className="truncate">{item.label}</span>
+                                                </>
+                                            )}
                                         </NavLink>
                                     ))}
                                 </div>
@@ -226,19 +297,21 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             </nav>
 
             {/* ── User + Logout ───────────────────────────────────────────────── */}
-            <div className="px-3 py-4 border-t border-slate-100 space-y-1">
-                <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+            <div className="shrink-0 px-2 py-3 border-t border-slate-100 space-y-1">
+                <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-slate-50">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm">
                         {user?.name?.charAt(0).toUpperCase() ?? "U"}
                     </div>
                     <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-900 truncate leading-tight">{user?.name}</p>
-                        <p className="text-xs text-slate-400 truncate">{user ? ROLE_LABELS[user.role] : ""}</p>
+                        <p className="text-[13px] font-semibold text-slate-800 truncate leading-tight">{user?.name}</p>
+                        <p className="text-[11px] text-slate-400 truncate">{user ? ROLE_LABELS[user.role] : ""}</p>
                     </div>
                 </div>
-                <button onClick={handleLogout}
-                    className="flex items-center gap-3 px-3 py-2.5 w-full rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors active:scale-[0.98]">
-                    <LogOut size={17} /> Keluar
+                <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2.5 h-9 px-3 w-full rounded-lg text-[13px] font-medium text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors">
+                    <LogOut size={15} className="shrink-0" />
+                    Keluar
                 </button>
             </div>
         </div>
@@ -249,12 +322,13 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
 function MobileTopbar({ onOpen }: { onOpen: () => void }) {
     const location = useLocation();
-    const { user }  = useAuthStore();
+    const { user } = useAuthStore();
 
     const pageTitle = useMemo(() => {
         for (const section of NAV_SECTIONS) {
             if (section.type !== "group") {
-                if (location.pathname.startsWith((section as NavStandalone).to)) return (section as NavStandalone).label;
+                const s = section as NavStandalone;
+                if (location.pathname.startsWith(s.to)) return s.label;
             } else {
                 const found = (section as NavGroupDef).items.find(i => location.pathname.startsWith(i.to));
                 if (found) return found.label;
@@ -264,10 +338,11 @@ function MobileTopbar({ onOpen }: { onOpen: () => void }) {
     }, [location.pathname]);
 
     return (
-        <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm px-4 flex items-center gap-3 h-14">
-            <button onClick={onOpen}
-                className="p-2 -ml-1 rounded-xl hover:bg-slate-100 text-slate-600 transition-colors active:scale-95 flex items-center justify-center"
-                style={{ minWidth: 40, minHeight: 40 }}>
+        <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm px-4 flex items-center gap-3 h-14">
+            <button
+                onClick={onOpen}
+                className="p-2 -ml-1 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors active:scale-95"
+                style={{ minWidth: 38, minHeight: 38 }}>
                 <Menu size={20} />
             </button>
             <p className="flex-1 text-sm font-bold text-slate-900 truncate">{pageTitle}</p>
@@ -285,35 +360,46 @@ export function Sidebar() {
 
     return (
         <>
-            {/* Desktop sidebar */}
-            <aside className="hidden md:flex w-60 min-h-screen bg-white border-r border-slate-200 flex-col sticky top-0">
+            {/* ── Desktop sidebar — sticky h-screen, own scroll ────────────── */}
+            <aside className="hidden md:flex flex-col w-60 h-screen sticky top-0 bg-white border-r border-slate-200 shadow-sm z-20">
                 <SidebarContent />
             </aside>
 
-            {/* Mobile topbar */}
+            {/* ── Mobile topbar ─────────────────────────────────────────────── */}
             <MobileTopbar onOpen={() => setMobileOpen(true)} />
 
-            {/* Mobile backdrop */}
+            {/* ── Mobile backdrop ───────────────────────────────────────────── */}
             <div
-                className={`md:hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300 ${mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
                 onClick={() => setMobileOpen(false)}
+                className={cn(
+                    "md:hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300",
+                    mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                )}
             />
 
-            {/* Mobile drawer */}
-            <div className={`md:hidden fixed top-0 left-0 bottom-0 z-50 w-72 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
-                <div className="flex items-center justify-between px-5 border-b border-slate-100 h-14">
-                    <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-sm shadow-blue-200">
+            {/* ── Mobile drawer ─────────────────────────────────────────────── */}
+            <div className={cn(
+                "md:hidden fixed top-0 left-0 bottom-0 z-50 w-72 bg-white shadow-2xl flex flex-col",
+                "transform transition-transform duration-300 ease-in-out",
+                mobileOpen ? "translate-x-0" : "-translate-x-full"
+            )}>
+                {/* Drawer header */}
+                <div className="flex items-center justify-between px-4 border-b border-slate-100 h-14 shrink-0">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center shadow-md shadow-blue-200">
                             <ShieldCheck size={14} className="text-white" />
                         </div>
-                        <p className="text-sm font-bold text-slate-900">ERP Pest Control</p>
+                        <p className="text-[13px] font-extrabold text-slate-800 tracking-tight">ERP Pest Control</p>
                     </div>
-                    <button onClick={() => setMobileOpen(false)}
-                        className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors active:scale-95">
+                    <button
+                        onClick={() => setMobileOpen(false)}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors active:scale-95">
                         <X size={18} />
                     </button>
                 </div>
-                <div className="h-full overflow-y-auto" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 56px)" }}>
+
+                {/* Scrollable content */}
+                <div className="flex-1 overflow-y-auto" style={{ paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
                     <SidebarContent onNavClick={() => setMobileOpen(false)} />
                 </div>
             </div>
