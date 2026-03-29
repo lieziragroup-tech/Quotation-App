@@ -12,6 +12,7 @@ import { SignupPage } from "../pages/auth/SignupPage";
 import { DashboardPage } from "../pages/dashboard/DashboardPage";
 import { QuotationPage } from "../pages/quotation/QuotationPage";
 import { QuotationFormPage } from "../pages/quotation/QuotationFormPage";
+import { QuotationEditPage } from "../pages/quotation/QuotationEditPage";
 import { NomorSuratLogPage } from "../pages/nomor-surat/NomorSuratLogPage";
 import { TeamPage } from "../pages/team/TeamPage";
 import { ProfilePage } from "../pages/profile/ProfilePage";
@@ -102,12 +103,11 @@ export const router = createBrowserRouter([
                     </RoleGuard>
                 ),
             },
-            // ── ROUTE EDIT QUOTATION (baru) ────────────────────────────────────
             {
-                path: "quotations/edit/:id",
+                path: "quotations/:id/edit",
                 element: (
-                    <RoleGuard allowedRoles={["administrator", "marketing"]}>
-                        <QuotationFormPage />
+                    <RoleGuard allowedRoles={["administrator", "marketing", "admin_ops"]}>
+                        <QuotationEditPage />
                     </RoleGuard>
                 ),
             },

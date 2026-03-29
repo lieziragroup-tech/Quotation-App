@@ -6,10 +6,10 @@ import {
     FileText, Plus, Search, RefreshCw,
     CheckCircle2, XCircle, Clock, FileX2,
     Eye, Download, Filter, ChevronLeft, ChevronRight,
-    PenLine, MessageSquare, AlertCircle, Trash2, Send, MessageCircle, Pencil, Save, Loader2,
+    PenLine, MessageSquare, AlertCircle, Trash2, Send, MessageCircle, Pencil, Loader2,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
-import { getQuotations, updateQuotationStatus, deleteQuotation, attachPdfToQuotation, updateQuotationData } from "../../services/quotationService";
+import { getQuotations, updateQuotationStatus, deleteQuotation, attachPdfToQuotation } from "../../services/quotationService";
 import { generateQuotationPDF } from "../../lib/pdfGenerator";
 import { blobToBase64 } from "../../services/quotationService";
 import { LAYANAN_CONFIG } from "../../lib/quotationConfig";
@@ -422,8 +422,6 @@ function ActionButtons({ q, isApproved, isPending, hasNotes, isActing, canApprov
 }
 
 
-// ─── EDIT MODAL ───────────────────────────────────────────────────────────────
-
 export function QuotationPage() {
     const navigate = useNavigate();
     const { user } = useAuthStore();
@@ -775,7 +773,7 @@ export function QuotationPage() {
                                                     <ActionButtons q={q} isApproved={isApproved} isPending={isPending}
                                                         hasNotes={!!hasNotes} isActing={isActing} canApprove={canApprove}
                                                         canDelete={canDelete}
-                                                        onEdit={() => navigate(`/quotations/edit/${q.id}`)}
+                                                        onEdit={() => navigate(`/quotations/${q.id}/edit`)}
                                                         onSign={() => setSignatureTarget(q)}
                                                         onNotes={() => setNotesTarget(q)}
                                                         onApprove={() => setApproveTarget(q)}
@@ -839,7 +837,7 @@ export function QuotationPage() {
                                             <ActionButtons q={q} isApproved={isApproved} isPending={isPending}
                                                 hasNotes={!!hasNotes} isActing={isActing} canApprove={canApprove}
                                                 canDelete={canDelete}
-                                                onEdit={() => navigate(`/quotations/edit/${q.id}`)}
+                                                onEdit={() => navigate(`/quotations/${q.id}/edit`)}
                                                 onSign={() => setSignatureTarget(q)}
                                                 onNotes={() => setNotesTarget(q)}
                                                 onApprove={() => setApproveTarget(q)}
@@ -900,9 +898,6 @@ export function QuotationPage() {
                 quotation={deleteTarget}
                 loading={deleteLoading}
             />
-
-            {/* Edit Modal */}
-            )}
 
                 </div>
     );

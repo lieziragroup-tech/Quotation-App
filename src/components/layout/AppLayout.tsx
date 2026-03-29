@@ -22,10 +22,10 @@ export function AppLayout() {
 
     return (
         // min-h-screen penting agar sticky sidebar bisa h-screen di semua halaman
-        <div className="flex h-screen overflow-hidden bg-slate-50">
+        <div className="flex min-h-screen bg-slate-50">
             <Sidebar />
             {/* pt-14 on mobile = space for the fixed topbar (56px) */}
-            <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pt-14 md:pt-0 pb-safe">
+            <main className="flex-1 min-w-0 overflow-x-hidden pt-14 md:pt-0 pb-safe">
                 <Outlet />
             </main>
         </div>
