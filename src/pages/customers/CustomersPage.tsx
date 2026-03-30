@@ -570,29 +570,66 @@ export function CustomersPage() {
                 </div>
             )}
 
-            <div className="flex gap-2 flex-wrap">
-                <div className="flex items-center gap-2 flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-blue-100">
-                    <Search size={14} className="text-slate-400 shrink-0" />
-                    <input className="flex-1 text-sm bg-transparent outline-none text-slate-800 placeholder:text-slate-400 min-w-0"
-                        placeholder="Cari nama, alamat, wilayah, atau jenis jasa..."
-                        value={searchQ} onChange={e => setSearchQ(e.target.value)} />
-                    {searchQ && <button onClick={() => setSearchQ("")} className="text-slate-400 hover:text-slate-600 shrink-0"><X size={13} /></button>}
-                </div>
-                <button onClick={() => setFilterWarranty(v => !v)}
-                    className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-colors ${filterWarranty ? "bg-purple-600 text-white border-purple-600" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
-                    🛡 Bergaransi
+            {/* ── Search bar — full width ── */}
+            <div className="flex items-center gap-2 w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-300 transition-all">
+                <Search size={16} className="text-slate-400 shrink-0" />
+                <input
+                    className="flex-1 text-sm bg-transparent outline-none text-slate-800 placeholder:text-slate-400"
+                    placeholder="Cari nama klien, alamat, wilayah, atau jenis jasa..."
+                    value={searchQ}
+                    onChange={e => setSearchQ(e.target.value)}
+                    autoComplete="off"
+                />
+                {searchQ && (
+                    <button onClick={() => setSearchQ("")} className="text-slate-400 hover:text-slate-600 shrink-0 p-0.5 rounded">
+                        <X size={14} />
+                    </button>
+                )}
+            </div>
+
+            {/* ── Filter chips row ── */}
+            <div className="flex items-center gap-2 flex-wrap">
+                <button
+                    onClick={() => setFilterWarranty(v => !v)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                        filterWarranty
+                            ? "bg-purple-600 text-white border-purple-600"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    }`}>
+                    <Shield size={12} />
+                    Bergaransi
                 </button>
-                <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}
-                    className="px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white text-slate-600 focus:outline-none shrink-0">
+
+                <select
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value as typeof sortBy)}
+                    className="px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-100">
                     <option value="date">Terbaru</option>
                     <option value="deal">Terbanyak Deal</option>
                     <option value="name">Nama A-Z</option>
                     <option value="area">Per Wilayah</option>
                 </select>
-                <button onClick={load} disabled={loading}
-                    className="p-2 border border-slate-200 bg-white text-slate-500 rounded-xl hover:bg-slate-50 shrink-0">
-                    <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+
+                <button
+                    onClick={load}
+                    disabled={loading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-slate-200 bg-white text-slate-500 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-colors">
+                    <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+                    Refresh
                 </button>
+
+                {(searchQ || filterWarranty) && (
+                    <button
+                        onClick={() => { setSearchQ(""); setFilterWarranty(false); }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg border border-slate-200 transition-colors">
+                        <X size={11} /> Reset
+                    </button>
+                )}
+
+                {/* Result count */}
+                <span className="ml-auto text-xs text-slate-400 font-medium">
+                    {loading ? "..." : `${customers.length} klien`}
+                </span>
             </div>
 
             {loading ? (

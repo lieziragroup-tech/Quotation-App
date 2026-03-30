@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
     ArrowLeft, ArrowRight, Check, FileText,
     Plus, Trash2, Loader2, AlertCircle,
@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { commitNomorSurat, previewNomorSurat } from "../../services/nomorSuratService";
-import { saveQuotationDraft, getQuotations, getQuotationById, updateQuotationData } from "../../services/quotationService";
+import { saveQuotationDraft, getQuotations } from "../../services/quotationService";
 import { LAYANAN_CONFIG, calcTotals, fmtIDR, TIPE_LABELS, KONDISI_BANGUNAN_LABELS } from "../../lib/quotationConfig";
 import type { JenisLayanan, TipeKontrak, KategoriSurat, QuotationItem, BiayaTambahan, SurveyPhoto, ChemicalItem, KondisiBangunan } from "../../types";
 import {
@@ -175,7 +175,7 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, kondisiBangunan,
                                         : "border-blue-500 bg-blue-50"
                                     : "border-slate-200 bg-white hover:border-slate-300"}`}>
                             <div className={`text-sm font-bold ${tipe === v ? color === "amber" ? "text-amber-700" : "text-blue-700" : "text-slate-700"}`}>
-                                {v === "PH" ? "📋 " : ""}{label}
+                                {label}
                             </div>
                             <div className="text-xs text-slate-400 mt-0.5">{desc}</div>
                         </button>
@@ -194,21 +194,31 @@ function Step1({ jenisLayanan, tipe, kepada, noPreview, kondisiBangunan,
                         {/* Preview nomor surat */}
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Preview Nomor Surat</p>
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
                     <code className={`text-base font-bold px-3 py-1.5 rounded-lg font-mono
                         ${kategori === "AR" ? "bg-purple-100 text-purple-700" : "bg-cyan-100 text-cyan-700"}`}>
                         {noPreview || "GP-…"}
                     </code>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded
                         ${kategori === "AR" ? "bg-purple-100 text-purple-700" : "bg-cyan-100 text-cyan-700"}`}>
-                        {kategori === "AR" ? "🛡 Anti Rayap" : "🦟 Pest Control"}
+                        {kategori === "AR" ? "Anti Rayap" : "Pest Control"}
                     </span>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${tipe === "K" ? "bg-amber-100 text-amber-700" : tipe === "PH" ? "bg-amber-100 text-amber-700 border border-amber-300" : "bg-slate-100 text-slate-500"}`}>
-                        {TIPE_LABELS[tipe]}
-                    </span>
+                    {tipe === "PH" ? (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300">
+                            PH
+                        </span>
+                    ) : tipe === "K" ? (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">
+                            Kontrak
+                        </span>
+                    ) : (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500">
+                            Umum
+                        </span>
+                    )}
                     {kondisiBangunan && (
                         <span className="text-xs font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-700">
-                            {kondisiBangunan === "pasca_konstruksi" ? "🏢 Pasca" : kondisiBangunan === "pra_konstruksi" ? "🏗️ Pra" : "🔨 Renovasi"}
+                            {kondisiBangunan === "pasca_konstruksi" ? "Pasca-Konstruksi" : kondisiBangunan === "pra_konstruksi" ? "Pra-Konstruksi" : "Renovasi"}
                         </span>
                     )}
                 </div>
@@ -539,6 +549,7 @@ function Step2({ nama, alamatLines, up, wa, knownCustomers, onNama, onAlamat, on
             <div className="space-y-1.5">
                 <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
                     Alamat Klien <span className="text-slate-300 font-normal ml-1">(bisa multiple baris)</span>
+                    <span className="text-red-500 ml-0.5">*</span>
                 </label>
                 {alamatLines.map((line, i) => (
                     <div key={i} className="flex gap-2">
@@ -553,6 +564,11 @@ function Step2({ nama, alamatLines, up, wa, knownCustomers, onNama, onAlamat, on
                         )}
                     </div>
                 ))}
+                {errors.alamat && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                        <AlertCircle size={11} />{errors.alamat}
+                    </p>
+                )}
                 <button type="button" onClick={() => onAlamat([...alamatLines, ""])}
                     className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium mt-1">
                     <Plus size={12} /> Tambah baris alamat
@@ -561,18 +577,18 @@ function Step2({ nama, alamatLines, up, wa, knownCustomers, onNama, onAlamat, on
 
             <AddressSearch onSelect={(_display, lines) => onAlamat(lines)} />
 
-            <Field label="U.p. / Contact Person" error={errors.up}>
+            <Field label="U.p. / Contact Person" required error={errors.up}>
                 <input className={inputCls} value={up} onChange={e => onUp(e.target.value)}
-                    placeholder="Bpk. Ahmad Santoso (opsional)" />
+                    placeholder="Bpk. Ahmad Santoso" />
             </Field>
 
-            <Field label="Nomor WhatsApp Klien" hint="Format: 08xxx atau 628xxx — untuk kirim penawaran langsung">
+            <Field label="Nomor WhatsApp Klien" required hint="Format: 08xxx atau 628xxx — untuk kirim penawaran langsung" error={errors.wa}>
                 <div className="relative">
                     <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                         <MessageCircle size={14} className="text-green-500" />
                     </div>
                     <input className={`${inputCls} pl-9`} value={wa} onChange={e => onWa(e.target.value)}
-                        placeholder="081234567890 (opsional)"
+                        placeholder="081234567890"
                         type="tel"
                         inputMode="numeric" />
                 </div>
@@ -636,60 +652,73 @@ function Step3({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor, garansiTahu
                         <Plus size={12} /> Tambah Item
                     </button>
                 </div>
-                <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto">
-                    <table className="w-full text-xs min-w-[500px]">
-                        <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200">
-                                <th className="px-3 py-2.5 text-left font-semibold text-slate-500 w-6">No</th>
-                                <th className="px-3 py-2.5 text-left font-semibold text-slate-500">Deskripsi Pekerjaan</th>
-                                <th className="px-3 py-2.5 text-left font-semibold text-slate-500 w-20">Qty</th>
-                                <th className="px-3 py-2.5 text-left font-semibold text-slate-500 w-20">Satuan</th>
-                                <th className="px-3 py-2.5 text-left font-semibold text-slate-500 w-32">Harga Satuan</th>
-                                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 w-32">Jumlah</th>
-                                <th className="w-8" />
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {items.map((item, i) => (
-                                <tr key={i} className="border-b border-slate-100 last:border-0">
-                                    <td className="px-3 py-2 text-slate-400">{i + 1}</td>
-                                    <td className="px-2 py-1.5">
-                                        <input className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-300"
-                                            value={item.desc} placeholder="Deskripsi pekerjaan..."
-                                            onChange={e => updateItem(i, "desc", e.target.value)} />
-                                    </td>
-                                    <td className="px-2 py-1.5">
-                                        <input type="number" min={0} step="0.01"
-                                            className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-300"
-                                            value={item.qty} onChange={e => updateItem(i, "qty", parseFloat(e.target.value) || 0)} />
-                                    </td>
-                                    <td className="px-2 py-1.5">
-                                        <select className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
-                                            value={item.unit} onChange={e => updateItem(i, "unit", e.target.value)}>
-                                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                                        </select>
-                                    </td>
-                                    <td className="px-2 py-1.5">
-                                        <input type="number" min={0}
-                                            className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-300"
-                                            value={item.harga} onChange={e => updateItem(i, "harga", parseInt(e.target.value) || 0)} />
-                                    </td>
-                                    <td className="px-3 py-2 text-right font-bold text-slate-700 font-mono">{fmtIDR(item.qty * item.harga)}</td>
-                                    <td className="px-2 py-1.5">
-                                        <button type="button" onClick={() => onItems(items.filter((_, idx) => idx !== i))}
-                                            className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors">
-                                            <Trash2 size={12} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                            {items.length === 0 && (
-                                <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400 text-xs">
-                                    Belum ada item. Klik "Tambah Item" untuk menambah.
-                                </td></tr>
-                            )}
-                        </tbody>
-                    </table>
+
+                {/* Card-based layout — works cleanly on mobile */}
+                <div className="space-y-3">
+                    {items.map((item, i) => (
+                        <div key={i} className="border border-slate-200 rounded-xl p-3 bg-white space-y-2.5">
+                            {/* Row header */}
+                            <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Item {i + 1}</span>
+                                {items.length > 1 && (
+                                    <button type="button" onClick={() => onItems(items.filter((_, idx) => idx !== i))}
+                                        className="p-1 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                                        <Trash2 size={13} />
+                                    </button>
+                                )}
+                            </div>
+                            {/* Deskripsi — full width */}
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">Deskripsi Pekerjaan *</label>
+                                <input
+                                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                                    value={item.desc}
+                                    placeholder="Deskripsi pekerjaan..."
+                                    onChange={e => updateItem(i, "desc", e.target.value)}
+                                />
+                            </div>
+                            {/* Qty + Satuan + Harga in 3 cols */}
+                            <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">Qty *</label>
+                                    <input type="number" min={0} step="0.01"
+                                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                                        value={item.qty}
+                                        onChange={e => updateItem(i, "qty", parseFloat(e.target.value) || 0)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">Satuan</label>
+                                    <select
+                                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                                        value={item.unit}
+                                        onChange={e => updateItem(i, "unit", e.target.value)}>
+                                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">Harga Satuan *</label>
+                                    <input type="number" min={0} step="1000"
+                                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                                        value={item.harga}
+                                        onChange={e => updateItem(i, "harga", parseInt(e.target.value) || 0)}
+                                        placeholder="0"
+                                    />
+                                </div>
+                            </div>
+                            {/* Jumlah */}
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                                <span className="text-[10px] text-slate-400 uppercase tracking-wide">Subtotal item</span>
+                                <span className="text-sm font-bold text-slate-800 font-mono">{fmtIDR(item.qty * item.harga)}</span>
+                            </div>
+                        </div>
+                    ))}
+
+                    {items.length === 0 && (
+                        <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center text-slate-400 text-xs">
+                            Belum ada item. Klik "Tambah Item" untuk menambah.
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -762,43 +791,53 @@ function Step3({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor, garansiTahu
                     label="Pembulatan Harga"
                     hint={pembulatanRp !== 0
                         ? `Total akhir: ${fmtIDR(totalSetelahPembulatan)}`
-                        : "Opsional — tambah/kurangi untuk membulatkan total"}
+                        : "Bulatkan total ke bilangan bulat yang berakhiran 000"}
                 >
-                    <div className="flex items-center gap-2">
-                        <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                    <div className="space-y-2">
+                        {/* Preset buttons: floor and ceil to nearest 1000 */}
+                        <div className="grid grid-cols-2 gap-2">
                             <button type="button"
                                 onClick={() => {
-                                    // Auto-hitung pembulatan ke atas ribuan terdekat
+                                    const rawTotal = calc.total;
+                                    const rounded = Math.floor(rawTotal / 1000) * 1000;
+                                    onPembulatan(Math.round(rounded - rawTotal));
+                                }}
+                                className="flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition-all">
+                                <span className="text-base leading-none">↓</span>
+                                Bulatkan ke Bawah
+                            </button>
+                            <button type="button"
+                                onClick={() => {
                                     const rawTotal = calc.total;
                                     const rounded = Math.ceil(rawTotal / 1000) * 1000;
                                     onPembulatan(Math.round(rounded - rawTotal));
                                 }}
-                                className="px-3 py-2 text-xs bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700 font-medium border-r border-slate-200 whitespace-nowrap">
-                                ↑ Ribuan
-                            </button>
-                            <button type="button"
-                                onClick={() => {
-                                    const rawTotal = calc.total;
-                                    const rounded = Math.ceil(rawTotal / 10000) * 10000;
-                                    onPembulatan(Math.round(rounded - rawTotal));
-                                }}
-                                className="px-3 py-2 text-xs bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700 font-medium whitespace-nowrap">
-                                ↑ Puluhan rb
+                                className="flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all">
+                                <span className="text-base leading-none">↑</span>
+                                Bulatkan ke Atas
                             </button>
                         </div>
-                        <input
-                            type="number"
-                            step="1000"
-                            className={`${inputCls} font-mono text-center ${pembulatanRp > 0 ? "text-emerald-700" : pembulatanRp < 0 ? "text-red-600" : ""}`}
-                            value={pembulatanRp}
-                            onChange={e => onPembulatan(parseInt(e.target.value) || 0)}
-                            placeholder="0"
-                        />
+                        {/* Manual input */}
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="number"
+                                step="1000"
+                                className={`${inputCls} font-mono text-center flex-1 ${pembulatanRp > 0 ? "text-emerald-700 border-emerald-200 bg-emerald-50" : pembulatanRp < 0 ? "text-red-600 border-red-200 bg-red-50" : ""}`}
+                                value={pembulatanRp}
+                                onChange={e => onPembulatan(parseInt(e.target.value) || 0)}
+                                placeholder="0 (atau isi manual)"
+                            />
+                            {pembulatanRp !== 0 && (
+                                <button type="button" onClick={() => onPembulatan(0)}
+                                    className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 shrink-0">
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
                         {pembulatanRp !== 0 && (
-                            <button type="button" onClick={() => onPembulatan(0)}
-                                className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50">
-                                <X size={14} />
-                            </button>
+                            <p className={`text-xs font-bold text-center py-1.5 rounded-lg ${pembulatanRp > 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+                                Total akhir → <span className="font-mono">{fmtIDR(totalSetelahPembulatan)}</span>
+                            </p>
                         )}
                     </div>
                 </Field>
@@ -1320,23 +1359,16 @@ interface SuccessData {
     pdfBlob: Blob;
 }
 
-function SuccessScreen({ data, isEditMode, onGoToList }: { data: SuccessData; isEditMode?: boolean; onGoToList: () => void }) {
+function SuccessScreen({ data, onGoToList }: { data: SuccessData; onGoToList: () => void }) {
 
     return (
         <div className="py-6 flex flex-col items-center text-center">
-            <div className={`w-16 h-16 rounded-2xl ${isEditMode ? "bg-blue-100" : "bg-amber-100"} flex items-center justify-center mb-5`}>
-                {isEditMode
-                    ? <Check size={32} className="text-blue-600" />
-                    : <Clock size={32} className="text-amber-600" />
-                }
+            <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mb-5">
+                <Clock size={32} className="text-amber-600" />
             </div>
 
-            <h2 className="text-xl font-bold text-slate-900 mb-1">
-                {isEditMode ? "Perubahan Tersimpan!" : "Quotation Terkirim!"}
-            </h2>
-            <p className="text-sm text-slate-500 mb-3">
-                {isEditMode ? "Data quotation berhasil diperbarui" : "Menunggu persetujuan administrator"}
-            </p>
+            <h2 className="text-xl font-bold text-slate-900 mb-1">Quotation Terkirim!</h2>
+            <p className="text-sm text-slate-500 mb-3">Menunggu persetujuan administrator</p>
             <div className="flex items-center gap-2 mb-6">
                 <Hash size={13} className="text-slate-400" />
                 <code className="text-sm font-bold font-mono bg-slate-100 text-slate-800 px-3 py-1 rounded-lg">
@@ -1345,29 +1377,19 @@ function SuccessScreen({ data, isEditMode, onGoToList }: { data: SuccessData; is
             </div>
 
             <div className="w-full max-w-xs space-y-3 mb-6">
-                {isEditMode ? (
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
-                        <p className="text-xs font-bold text-blue-700 mb-1 uppercase tracking-wide">✓ Data Diperbarui</p>
-                        <p className="text-sm text-blue-700">
-                            Semua perubahan sudah disimpan. Jika quotation sudah pernah disetujui, admin perlu menyetujui ulang untuk generate PDF baru.
-                        </p>
-                    </div>
-                ) : (
-                    <>
-                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left">
-                            <p className="text-xs font-bold text-amber-700 mb-1 uppercase tracking-wide">⏳ Menunggu Persetujuan Admin</p>
-                            <p className="text-sm text-amber-700">
-                                Data quotation sudah tersimpan. Admin akan memeriksa dan menyetujui atau menolak pengajuan ini.
-                            </p>
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
-                            <p className="text-xs font-bold text-blue-600 mb-1 uppercase tracking-wide">📄 PDF otomatis dibuat saat disetujui</p>
-                            <p className="text-sm text-blue-600">
-                                Setelah admin menyetujui, PDF penawaran akan digenerate secara otomatis dan bisa langsung didownload.
-                            </p>
-                        </div>
-                    </>
-                )}
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left">
+                    <p className="text-xs font-bold text-amber-700 mb-1 uppercase tracking-wide">⏳ Menunggu Persetujuan Admin</p>
+                    <p className="text-sm text-amber-700">
+                        Data quotation sudah tersimpan. Admin akan memeriksa dan menyetujui atau menolak pengajuan ini.
+                    </p>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
+                    <p className="text-xs font-bold text-blue-600 mb-1 uppercase tracking-wide">📄 PDF otomatis dibuat saat disetujui</p>
+                    <p className="text-sm text-blue-600">
+                        Setelah admin menyetujui, PDF penawaran akan digenerate secara otomatis dan bisa langsung didownload.
+                    </p>
+                </div>
+
             </div>
 
             <button onClick={onGoToList}
@@ -1383,18 +1405,15 @@ function SuccessScreen({ data, isEditMode, onGoToList }: { data: SuccessData; is
 export function QuotationFormPage() {
     const navigate = useNavigate();
     const { user } = useAuthStore();
-    const { id: editId } = useParams<{ id?: string }>();
-    const isEditMode = !!editId;
 
     const [step, setStep] = useState(0);
-    const [editLoading, setEditLoading] = useState(isEditMode);
-    const [editNoSurat, setEditNoSurat] = useState<string>("");
 
     // Load known customers for autocomplete
     useEffect(() => {
         if (!user) return;
         getQuotations({ companyId: user.companyId }).then(quotes => {
             const map = new Map<string, KnownCustomer>();
+            // Only deals count as "pernah dikerjakan"
             const deals = quotes
                 .filter(q => q.status === "deal")
                 .sort((a, b) => (b.dealAt?.getTime() ?? 0) - (a.dealAt?.getTime() ?? 0));
@@ -1448,51 +1467,7 @@ export function QuotationFormPage() {
     // ── Technical & Survey state ───────────────────────────────────────────────
     const isAR = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
 
-    const [surveyPhotos, setSurveyPhotos] = useState<SurveyPhoto[]>([]);
-    const [chemicals, setChemicals] = useState<ChemicalItem[]>(() =>
-        isAR ? DEFAULT_CHEMICALS_AR.map(c => ({ ...c })) : DEFAULT_CHEMICALS_PCO.map(c => ({ ...c }))
-    );
-    const [metode, setMetode] = useState<string[]>(() =>
-        (METODE_BY_LAYANAN[jenisLayanan] ?? METODE_BY_LAYANAN["anti_rayap_injeksi"]).map(m => m)
-    );
-    const [hamaDikendalikan, setHamaDikendalikan] = useState(DEFAULT_HAMA_PCO);
-    const [teknikPelaksanaan, setTeknikPelaksanaan] = useState<string[]>(DEFAULT_TEKNIK_PCO.map(t => t));
-
-    // ── Load existing quotation data in edit mode ─────────────────────────────
-    useEffect(() => {
-        if (!isEditMode || !editId) return;
-        setEditLoading(true);
-        getQuotationById(editId).then(q => {
-            if (!q) { navigate("/quotations"); return; }
-            setEditNoSurat(q.noSurat);
-            setJenisLayanan(q.jenisLayanan);
-            setTipe(q.tipeKontrak);
-            setKepada(q.kepadaNama);
-            setKepadaNama(q.kepadaNama);
-            setKepadaAlamat(q.kepadaAlamatLines.length > 0 ? q.kepadaAlamatLines : [""]);
-            setKepadaUp(q.kepadaUp ?? "");
-            setKepadaWa(q.kepadaWa ?? "");
-            setItems(q.items.length > 0 ? q.items : [{ desc: "", qty: 1, unit: "m2", harga: 0 }]);
-            setBiayaTambahan(q.biayaTambahan ?? []);
-            setDiskonPct(q.diskonPct ?? 0);
-            setPpn(q.ppn ?? false);
-            setPpnDppFaktor(q.ppnDppFaktor ?? 0);
-            setGaransiTahun(q.garansiTahun ?? 0);
-            setJenisGaransi(q.jenisGaransi ?? "Anti Rayap");
-            setKondisiBangunan(q.kondisiBangunan ?? null);
-            if (q.surveyPhotos) setSurveyPhotos(q.surveyPhotos);
-            if (q.chemicals && q.chemicals.length > 0) setChemicals(q.chemicals);
-            if (q.metode && q.metode.length > 0) setMetode(q.metode);
-            if (q.hamaDikendalikan) setHamaDikendalikan(q.hamaDikendalikan);
-            if (q.teknikPelaksanaan && q.teknikPelaksanaan.length > 0) setTeknikPelaksanaan(q.teknikPelaksanaan);
-            // Skip step 0 (Jenis & Tipe) in edit mode — go straight to step 1
-            setStep(1);
-        }).catch(() => navigate("/quotations"))
-          .finally(() => setEditLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [editId]);
-
-    // Reset items & peralatan saat ganti antara AR <-> PCO (only in new mode)
+    // Reset items & peralatan saat ganti antara AR <-> PCO
     const handleLayanan = (v: JenisLayanan) => {
         const wasAR = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
         const willAR = LAYANAN_CONFIG[v]?.isAR ?? false;
@@ -1503,10 +1478,18 @@ export function QuotationFormPage() {
         setKondisiBangunan(null);
         setJenisLayanan(v);
     };
+    const [surveyPhotos, setSurveyPhotos] = useState<SurveyPhoto[]>([]);
+    const [chemicals, setChemicals] = useState<ChemicalItem[]>(() =>
+        isAR ? DEFAULT_CHEMICALS_AR.map(c => ({ ...c })) : DEFAULT_CHEMICALS_PCO.map(c => ({ ...c }))
+    );
+    const [metode, setMetode] = useState<string[]>(() =>
+        (METODE_BY_LAYANAN[jenisLayanan] ?? METODE_BY_LAYANAN["anti_rayap_injeksi"]).map(m => m)
+    );
+    const [hamaDikendalikan, setHamaDikendalikan] = useState(DEFAULT_HAMA_PCO);
+    const [teknikPelaksanaan, setTeknikPelaksanaan] = useState<string[]>(DEFAULT_TEKNIK_PCO.map(t => t));
 
-    // Reset technical data when jenisLayanan changes (only in new mode)
+    // Reset technical data when jenisLayanan changes
     useEffect(() => {
-        if (isEditMode) return; // don't override loaded data
         const ar = LAYANAN_CONFIG[jenisLayanan]?.isAR ?? false;
         setChemicals(ar ? DEFAULT_CHEMICALS_AR.map(c => ({ ...c })) : DEFAULT_CHEMICALS_PCO.map(c => ({ ...c })));
         setMetode((METODE_BY_LAYANAN[jenisLayanan] ?? METODE_BY_LAYANAN["anti_rayap_injeksi"]).map(m => m));
@@ -1535,7 +1518,12 @@ export function QuotationFormPage() {
     const validate = useCallback((): boolean => {
         const e: Record<string, string> = {};
         if (step === 0 && !kepada.trim()) e.kepada = "Nama klien wajib diisi.";
-        if (step === 1 && !kepadaNama.trim()) e.nama = "Nama klien wajib diisi.";
+        if (step === 1) {
+            if (!kepadaNama.trim()) e.nama = "Nama klien wajib diisi.";
+            if (!kepadaAlamat.some(l => l.trim())) e.alamat = "Alamat klien wajib diisi minimal 1 baris.";
+            if (!kepadaUp.trim()) e.up = "U.p. / Contact Person wajib diisi.";
+            if (!kepadaWa.trim()) e.wa = "Nomor WhatsApp klien wajib diisi.";
+        }
         if (step === 2) {
             if (items.length === 0)                           e.items = "Minimal 1 item harga.";
             else if (items.some(it => !it.desc.trim()))       e.items = "Deskripsi item tidak boleh kosong.";
@@ -1544,7 +1532,7 @@ export function QuotationFormPage() {
         }
         setErrors(e);
         return Object.keys(e).length === 0;
-    }, [step, kepada, kepadaNama, items]);
+    }, [step, kepada, kepadaNama, kepadaAlamat, kepadaUp, kepadaWa, items]);
 
     const handleNext = () => {
         if (!validate()) return;
@@ -1559,43 +1547,8 @@ export function QuotationFormPage() {
         try {
             const kepadaFinal = kepadaNama || kepada;
             const now = new Date();
-            const calc = calcTotals({ items, biayaTambahan, diskonPct, ppn, ppnDppFaktor: ppnDppFaktor || undefined });
-            const totalFinal = calc.total + pembulatanRp;
 
-            // ── EDIT MODE: hanya update data yang berubah ──────────────────────
-            if (isEditMode && editId) {
-                setGenState({ step: "db" });
-                await updateQuotationData(editId, {
-                    kepadaNama:        kepadaFinal,
-                    kepadaAlamatLines: kepadaAlamat.filter(Boolean),
-                    kepadaUp:          kepadaUp || undefined,
-                    kepadaWa:          kepadaWa || undefined,
-                    items,
-                    biayaTambahan,
-                    diskonPct,
-                    ppn,
-                    ppnDppFaktor:      ppnDppFaktor || undefined,
-                    garansiTahun:      garansiTahun || undefined,
-                    jenisGaransi:      jenisGaransi || undefined,
-                    subtotal:          calc.subtotal,
-                    diskonRp:          calc.diskonRp,
-                    ppnRp:             calc.ppnRp,
-                    total:             totalFinal,
-                    surveyPhotos:      surveyPhotos.length > 0 ? surveyPhotos : undefined,
-                    chemicals:         chemicals.length > 0 ? chemicals : undefined,
-                    metode:            isAR && metode.length > 0 ? metode : undefined,
-                    hamaDikendalikan:  !isAR ? hamaDikendalikan : undefined,
-                    teknikPelaksanaan: !isAR && teknikPelaksanaan.length > 0 ? teknikPelaksanaan : undefined,
-                    kondisiBangunan:   kondisiBangunan || undefined,
-                });
-                setGenState({ step: "done" });
-                await new Promise(r => setTimeout(r, 400));
-                setSuccessData({ noSurat: editNoSurat, pdfBlob: null as any });
-                setGenState({ step: "idle" });
-                return;
-            }
-
-            // ── NEW MODE: commit nomor + simpan draft ─────────────────────────
+            // ── Step 1: Commit nomor surat ────────────────────────────────────
             const nomorEntry = await commitNomorSurat({
                 kategori, tipe, jenisLayanan,
                 kepada: kepadaFinal,
@@ -1603,6 +1556,8 @@ export function QuotationFormPage() {
                 noSurat: noPreview,
             });
 
+            // ── Step 2: Simpan data quotation TANPA PDF ───────────────────────
+            // PDF akan digenerate otomatis setelah admin approve.
             setGenState({ step: "db" });
             const saved = await saveQuotationDraft({
                 noSurat: nomorEntry.noSurat, kategori, tipeKontrak: tipe, jenisLayanan,
@@ -1626,6 +1581,7 @@ export function QuotationFormPage() {
                 kondisiBangunan: kondisiBangunan || undefined,
             }, nomorEntry.id);
 
+            // ── Done ──────────────────────────────────────────────────────────
             setGenState({ step: "done" });
             await new Promise(r => setTimeout(r, 400));
             setSuccessData({ noSurat: saved.noSurat, pdfBlob: null as any });
@@ -1643,24 +1599,12 @@ export function QuotationFormPage() {
 
     const isGenerating = genState.step !== "idle" && genState.step !== "error";
 
-    // ── Render loading (edit mode fetching data) ───────────────────────────────
-    if (isEditMode && editLoading) {
-        return (
-            <div className="p-4 md:p-6 max-w-2xl mx-auto flex items-center justify-center min-h-[40vh]">
-                <div className="text-center">
-                    <Loader2 size={32} className="animate-spin text-blue-600 mx-auto mb-3" />
-                    <p className="text-slate-500 text-sm">Memuat data quotation...</p>
-                </div>
-            </div>
-        );
-    }
-
     // ── Render success ─────────────────────────────────────────────────────────
     if (successData) {
         return (
             <div className="p-4 md:p-6 max-w-2xl mx-auto">
                 <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
-                    <SuccessScreen data={successData} isEditMode={isEditMode} onGoToList={() => navigate("/quotations")} />
+                    <SuccessScreen data={successData} onGoToList={() => navigate("/quotations")} />
                 </div>
             </div>
         );
@@ -1680,26 +1624,13 @@ export function QuotationFormPage() {
                 <div>
                     <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                         <FileText size={18} className="text-blue-600" />
-                        {isEditMode ? "Edit Quotation" : "Buat Quotation Baru"}
+                        Buat Quotation Baru
                     </h1>
-                    <p className="text-xs text-slate-400">
-                        {isEditMode
-                            ? <><code className="font-mono text-blue-600">{editNoSurat}</code> — edit semua data</>
-                            : "PT Guci Emas Pratama — nomor surat otomatis"
-                        }
-                    </p>
+                    <p className="text-xs text-slate-400">PT Guci Emas Pratama — nomor surat otomatis</p>
                 </div>
             </div>
 
             <StepIndicator current={step} />
-
-            {/* Edit mode: banner */}
-            {isEditMode && (
-                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center gap-2 text-sm text-blue-700">
-                    <FileText size={14} className="shrink-0" />
-                    <span>Mode Edit — Jenis layanan & nomor surat tidak berubah. Kamu bisa mengubah semua data lainnya.</span>
-                </div>
-            )}
 
             <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
                 {step === 0 && <Step1 jenisLayanan={jenisLayanan} tipe={tipe} kepada={kepada} noPreview={noPreview}
@@ -1758,7 +1689,7 @@ export function QuotationFormPage() {
                         <button type="button" onClick={handleSubmit} disabled={isGenerating}
                             className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 transition-colors">
                             {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                            {isGenerating ? "Menyimpan..." : isEditMode ? "Simpan Perubahan" : "Generate PDF & Simpan"}
+                            {isGenerating ? "Memproses..." : "Generate PDF & Simpan"}
                         </button>
                     )}
                 </div>

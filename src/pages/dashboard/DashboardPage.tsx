@@ -8,7 +8,7 @@ import { getTrackingByCompany } from "../../services/trackingService";
 import {
     FileText, Clock, CheckCircle2, XCircle, TrendingUp,
     Send, ClipboardList, AlertCircle, ArrowRight,
-    Banknote, Wrench, ChevronRight, RefreshCw,
+    Banknote, Wrench, ChevronRight, RefreshCw, Users,
 } from "lucide-react";
 import type { Quotation, QuotationStatus } from "../../types";
 import type { OrderTracking } from "../../services/trackingService";
@@ -594,12 +594,16 @@ export function DashboardPage() {
                                     show: ["administrator", "marketing", "admin_ops"].includes(user?.role ?? "")
                                 },
                                 {
+                                    label: "Pelanggan", to: "/customers", icon: <Users size={15} />, primary: false,
+                                    show: user?.role === "marketing"
+                                },
+                                {
                                     label: "Status Penawaran", to: "/status-ph", icon: <Send size={15} />, primary: false,
                                     show: ["administrator", "admin_ops"].includes(user?.role ?? "")
                                 },
                                 {
                                     label: "Tracking Order", to: "/tracking", icon: <ClipboardList size={15} />, primary: false,
-                                    show: ["administrator", "admin_ops", "marketing"].includes(user?.role ?? "")
+                                    show: ["administrator", "admin_ops"].includes(user?.role ?? "")
                                 },
                                 {
                                     label: "Cashflow", to: "/cashflow", icon: <TrendingUp size={15} />, primary: false,
